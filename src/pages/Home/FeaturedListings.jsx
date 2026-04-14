@@ -1,10 +1,9 @@
 import { BikeCard } from '@/components/shared/BikeCard'
 import { Button } from '@/components/ui/Button'
-import type { Bike } from '@/types/bike'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 
-const MOCK_BIKES: Bike[] = [
+const MOCK_BIKES = [
   {
     id: '1',
     title: 'Giant Defy Advanced 2 2023 — Carbon Endurance Road',

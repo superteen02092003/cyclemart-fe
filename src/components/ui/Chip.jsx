@@ -1,15 +1,7 @@
 import { cn } from '@/utils/cn'
 
-interface ChipProps {
-  label: string
-  icon?: string
-  selected?: boolean
-  onClick?: () => void
-  className?: string
-}
-
 // Airbnb category pill: horizontal-scroll bar, border on active, no background fill
-export function Chip({ label, icon, selected = false, onClick, className }: ChipProps) {
+export function Chip({ label, icon, selected = false, onClick, className }) {
   return (
     <button
       onClick={onClick}

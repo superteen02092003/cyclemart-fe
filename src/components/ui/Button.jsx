@@ -1,17 +1,7 @@
 import { cn } from '@/utils/cn'
-import type { ButtonHTMLAttributes } from 'react'
-
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'verified' | 'outline'
-type ButtonSize = 'sm' | 'md' | 'lg'
-
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant
-  size?: ButtonSize
-  fullWidth?: boolean
-}
 
 // Airbnb button system — primary is navy CTA, generous radius
-const variantClasses: Record<ButtonVariant, string> = {
+const variantClasses = {
   // Airbnb "Primary Dark" — navy instead of near-black
   primary:
     'bg-navy text-white hover:bg-navy-medium active:scale-[0.97] shadow-none hover:shadow-card-hover',
@@ -29,7 +19,7 @@ const variantClasses: Record<ButtonVariant, string> = {
     'bg-transparent text-navy border border-navy hover:bg-navy-subtle transition-colors',
 }
 
-const sizeClasses: Record<ButtonSize, string> = {
+const sizeClasses = {
   sm: 'px-4 py-2.5 text-sm font-semibold',
   md: 'px-6 py-3 text-base font-medium',
   lg: 'px-8 py-4 text-base font-semibold',
@@ -42,7 +32,7 @@ export function Button({
   className,
   children,
   ...props
-}: ButtonProps) {
+}) {
   return (
     <button
       className={cn(

@@ -1,23 +1,16 @@
 import { cn } from '@/utils/cn'
 import { useState } from 'react'
 
-interface SearchBarProps {
-  placeholder?: string
-  onSearch?: (value: string) => void
-  className?: string
-  size?: 'sm' | 'lg'
-}
-
 // Airbnb search bar: white bg, three-layer shadow, pill/xl radius
 export function SearchBar({
   placeholder = 'Tìm kiếm xe đạp...',
   onSearch,
   className,
   size = 'lg',
-}: SearchBarProps) {
+}) {
   const [value, setValue] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
     onSearch?.(value)
   }

@@ -1,15 +1,8 @@
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
-import type { Bike } from '@/types/bike'
 import { cn } from '@/utils/cn'
 
-interface BikeCardProps {
-  bike: Bike
-  className?: string
-  featured?: boolean
-}
-
-const conditionLabels: Record<Bike['condition'], string> = {
+const conditionLabels = {
   new: 'Mới 100%',
   like_new: 'Như mới',
   good: 'Tốt',
@@ -18,7 +11,7 @@ const conditionLabels: Record<Bike['condition'], string> = {
 }
 
 // Airbnb listing card: white, 20px radius, three-layer shadow, image-first
-export function BikeCard({ bike, className, featured = false }: BikeCardProps) {
+export function BikeCard({ bike, className, featured = false }) {
   return (
     <article
       className={cn(

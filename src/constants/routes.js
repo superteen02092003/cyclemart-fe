@@ -7,4 +7,4 @@ export const ROUTES = {
   COMMUNITY: '/community',
   LOGIN: '/login',
   REGISTER: '/register',
-} as const
+}
