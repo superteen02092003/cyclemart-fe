@@ -1,17 +1,12 @@
 import { useState } from 'react'
 import { Chip } from '@/components/ui/Chip'
 import { BIKE_CATEGORIES } from '@/constants/categories'
-import type { BikeCategory } from '@/constants/categories'
-
-interface CategoryFilterBarProps {
-  onCategoryChange?: (category: BikeCategory | 'all') => void
-}
 
 // Airbnb category pill bar: white bg, border-bottom on active, horizontal scroll
-export function CategoryFilterBar({ onCategoryChange }: CategoryFilterBarProps) {
-  const [selected, setSelected] = useState<BikeCategory | 'all'>('all')
+export function CategoryFilterBar({ onCategoryChange }) {
+  const [selected, setSelected] = useState('all')
 
-  const handleSelect = (id: BikeCategory | 'all') => {
+  const handleSelect = (id) => {
     setSelected(id)
     onCategoryChange?.(id)
   }
@@ -26,7 +21,7 @@ export function CategoryFilterBar({ onCategoryChange }: CategoryFilterBarProps) 
               label={cat.label}
               icon={cat.icon}
               selected={selected === cat.id}
-              onClick={() => handleSelect(cat.id as BikeCategory | 'all')}
+              onClick={() => handleSelect(cat.id)}
             />
           ))}
         </div>

@@ -1,4 +1,4 @@
-export function formatPrice(value: number): string {
+export function formatPrice(value) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',

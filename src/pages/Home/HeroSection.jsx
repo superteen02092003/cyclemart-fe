@@ -13,7 +13,7 @@ const STATS = [
 export function HeroSection() {
   const navigate = useNavigate()
 
-  const handleSearch = (keyword: string) => {
+  const handleSearch = (keyword) => {
     navigate(`${ROUTES.BROWSE}?keyword=${encodeURIComponent(keyword)}`)
   }
 

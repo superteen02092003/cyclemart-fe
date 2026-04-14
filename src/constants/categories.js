@@ -7,6 +7,4 @@ export const BIKE_CATEGORIES = [
   { id: 'URBAN', label: 'Đô thị', icon: 'location_city' },
   { id: 'FOLD', label: 'Xe gập', icon: 'compress' },
   { id: 'EBIKE', label: 'E-Bike', icon: 'electric_bike' },
-] as const
-
-export type BikeCategory = (typeof BIKE_CATEGORIES)[number]['id']
+]
