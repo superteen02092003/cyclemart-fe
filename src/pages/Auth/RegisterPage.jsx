@@ -1,8 +1,102 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { ROUTES } from '@/constants/routes'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function RegisterPage() {
+  const navigate = useNavigate()
+  const { register, isLoading } = useAuth()
+  const { toast, showToast, hideToast } = useToast()
+  
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+  })
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+    // Xóa error khi user bắt đầu nhập
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }))
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors = {}
+    
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Vui lòng nhập họ tên'
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Vui lòng nhập email'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email không hợp lệ'
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Vui lòng nhập số điện thoại'
+    } else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Số điện thoại không hợp lệ'
+    }
+    
+    if (!formData.password) {
+      newErrors.password = 'Vui lòng nhập mật khẩu'
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Mật khẩu phải có ít nhất 8 ký tự'
+    }
+    
+    return newErrors
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await register(formData)
+      
+      // Hiển thị toast thành công
+      showToast('Đăng ký thành công! Chuyển hướng đến trang đăng nhập...', 'success')
+      
+      // Chuyển hướng đến trang đăng nhập sau 2 giây
+      setTimeout(() => {
+        navigate(ROUTES.LOGIN)
+      }, 2000)
+    } catch (error) {
+      console.error('Register error:', error)
+      
+      // Hiển thị lỗi từ server
+      if (error.message) {
+        setErrors({ submit: error.message })
+        showToast(error.message, 'error')
+      } else {
+        setErrors({ submit: 'Đăng ký thất bại. Vui lòng thử lại.' })
+        showToast('Đăng ký thất bại. Vui lòng thử lại.', 'error')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
   return (
     <div className="w-full max-w-sm">
       <div className="bg-white rounded-xl p-8 shadow-card">
@@ -14,34 +108,96 @@ export default function RegisterPage() {
         </h1>
         <p className="text-sm text-content-secondary mb-8">Tham gia cộng đồng CycleMart</p>
 
-        <form className="flex flex-col gap-4">
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-sm">
+            <p className="text-sm text-error">{errors.submit}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Họ tên</label>
             <input
               type="text"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
               placeholder="Nguyễn Văn A"
-              className="w-full rounded-sm px-4 py-3 text-sm border border-border bg-white text-content-primary outline-none focus:border-navy focus:ring-2 focus:ring-navy-subtle transition-all"
+              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
+                errors.fullName 
+                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+              }`}
             />
+            {errors.fullName && <p className="text-xs text-error mt-1">{errors.fullName}</p>}
           </div>
+          
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Email</label>
             <input
               type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               placeholder="your@email.com"
-              className="w-full rounded-sm px-4 py-3 text-sm border border-border bg-white text-content-primary outline-none focus:border-navy focus:ring-2 focus:ring-navy-subtle transition-all"
+              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
+                errors.email 
+                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+              }`}
             />
+            {errors.email && <p className="text-xs text-error mt-1">{errors.email}</p>}
           </div>
+          
+          <div>
+            <label className="block text-sm font-semibold text-content-primary mb-2">Số điện thoại</label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="0901234567"
+              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
+                errors.phone 
+                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+              }`}
+            />
+            {errors.phone && <p className="text-xs text-error mt-1">{errors.phone}</p>}
+          </div>
+          
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Mật khẩu</label>
             <input
               type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               placeholder="Ít nhất 8 ký tự"
-              className="w-full rounded-sm px-4 py-3 text-sm border border-border bg-white text-content-primary outline-none focus:border-navy focus:ring-2 focus:ring-navy-subtle transition-all"
+              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
+                errors.password 
+                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+              }`}
             />
+            {errors.password && <p className="text-xs text-error mt-1">{errors.password}</p>}
           </div>
 
-          <Button fullWidth size="lg" className="mt-1">
-            Đăng ký
+          <Button 
+            type="submit"
+            fullWidth 
+            size="lg" 
+            className="mt-1"
+            disabled={isSubmitting || isLoading}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Đang đăng ký...
+              </div>
+            ) : (
+              'Đăng ký'
+            )}
           </Button>
 
           <div className="flex items-center gap-3">
@@ -66,11 +222,18 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-content-secondary mt-6">
           Đã có tài khoản?{' '}
-          <Link to={ROUTES.LOGIN} className="text-navy font-semibold hover:underline">
+          <Link to={ROUTES.LOGIN} className="text-orange font-semibold hover:underline">
             Đăng nhập
           </Link>
         </p>
       </div>
+      
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
     </div>
   )
 }

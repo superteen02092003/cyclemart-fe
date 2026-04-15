@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
+import { UserMenu } from '@/components/shared/UserMenu'
 import { cn } from '@/utils/cn'
 
 const NAV_LINKS = [
@@ -20,15 +21,15 @@ export function TopNavBar() {
     <header className="bg-white sticky top-0 z-50 border-b border-border-light">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-[72px]">
-          {/* Logo — navy wordmark */}
+          {/* Logo — orange wordmark */}
           <Link to={ROUTES.HOME} className="flex items-center gap-2 flex-shrink-0">
             <span
-              className="material-symbols-outlined text-navy text-[1.6rem]"
+              className="material-symbols-outlined text-orange text-[1.6rem]"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
               directions_bike
             </span>
-            <span className="text-xl font-bold text-navy tracking-tight hidden sm:block">
+            <span className="text-xl font-bold text-orange tracking-tight hidden sm:block">
               CycleMart
             </span>
           </Link>
@@ -44,7 +45,7 @@ export function TopNavBar() {
                   className={cn(
                     'px-4 py-2 rounded-sm text-sm font-semibold transition-colors duration-150',
                     isActive
-                      ? 'text-navy bg-navy-subtle'
+                      ? 'text-orange bg-orange-subtle'
                       : 'text-content-primary hover:bg-surface-tertiary'
                   )}
                 >
@@ -55,18 +56,13 @@ export function TopNavBar() {
           </nav>
 
           {/* Actions */}
-          <div className="hidden md:flex items-center gap-2">
-            <Link to={ROUTES.LOGIN}>
-              <Button variant="ghost" size="sm">Đăng nhập</Button>
-            </Link>
-            <Link to={ROUTES.REGISTER}>
-              <Button variant="primary" size="sm">Đăng ký</Button>
-            </Link>
+          <div className="flex items-center gap-2">
+            <UserMenu />
           </div>
 
-          {/* Mobile hamburger — Airbnb circular style */}
+          {/* Mobile hamburger — chỉ hiện khi có nav links */}
           <button
-            className="md:hidden w-10 h-10 rounded-full bg-surface-tertiary flex items-center justify-center hover:shadow-card-hover transition-shadow"
+            className="md:hidden w-10 h-10 rounded-full bg-surface-tertiary flex items-center justify-center hover:shadow-card-hover transition-shadow ml-2"
             onClick={() => setMobileOpen((p) => !p)}
             aria-label="Toggle menu"
           >
@@ -90,14 +86,6 @@ export function TopNavBar() {
               {link.label}
             </Link>
           ))}
-          <div className="flex gap-2 pt-3 mt-2 border-t border-border-light">
-            <Link to={ROUTES.LOGIN} className="flex-1">
-              <Button variant="outline" size="sm" fullWidth>Đăng nhập</Button>
-            </Link>
-            <Link to={ROUTES.REGISTER} className="flex-1">
-              <Button variant="primary" size="sm" fullWidth>Đăng ký</Button>
-            </Link>
-          </div>
         </div>
       )}
     </header>
