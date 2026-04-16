@@ -31,10 +31,13 @@ export const jwtUtils = {
       if (!payload) return null
       
       return {
+        id: payload.id,             // Thêm id
         email: payload.sub,
+        fullName: payload.fullName, // Thêm fullName
+        phone: payload.phone,       // Thêm phone
+        role: payload.role,         // Thêm role
         exp: payload.exp,
         iat: payload.iat,
-        // Add more fields as needed based on your JWT payload
       }
     } catch (error) {
       return null

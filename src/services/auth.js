@@ -58,4 +58,40 @@ export const authService = {
     // Kiểm tra token có expired chưa
     return !jwtUtils.isExpired(token)
   },
+
+// ==========================================
+
+// ==========================================
+  // API Cập nhật thông tin 
+  // ==========================================
+
+  updateProfile: async (profileData) => {
+    try {
+      const response = await api.put('/auth/profile', profileData)
+      
+      // Cập nhật lại localStorage để giao diện nhận tên mới ngay lập tức
+      const currentUser = authService.getCurrentUser()
+      if (currentUser) {
+        const updatedUser = { ...currentUser, ...profileData }
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        // Kích hoạt event để các component khác (như Header) render lại nếu cần
+        window.dispatchEvent(new Event('storage')) 
+      }
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Cập nhật thông tin thất bại' }
+    }
+  },
+
+  // API Đổi mật khẩu 
+
+  changePassword: async (passwordData) => {
+    try {
+      const response = await api.put('/auth/password', passwordData)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Đổi mật khẩu thất bại' }
+    }
+  }
+
 }
