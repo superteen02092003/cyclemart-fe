@@ -49,7 +49,7 @@ export function SearchBar({
         <div className="w-px h-6 bg-border mx-3" />
         <button
           type="submit"
-          className="bg-navy text-white rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-navy-medium transition-colors active:scale-[0.97] flex items-center gap-1.5"
+          className="bg-orange text-white rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-orange-medium transition-colors active:scale-[0.97] flex items-center gap-1.5"
         >
           <span className="material-symbols-outlined text-[1rem]"
             style={{ fontVariationSettings: "'FILL' 1" }}>search</span>

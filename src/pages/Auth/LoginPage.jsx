@@ -1,9 +1,89 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { ROUTES } from '@/constants/routes'
+import { useAuth } from '@/hooks/useAuth'
 
 // Airbnb login: white card, rounded inputs, warm near-black text
 export default function LoginPage() {
+  const navigate = useNavigate()
+  const { login, isLoading } = useAuth()
+  const { toast, showToast, hideToast } = useToast()
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  })
+  const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+    // Xóa error khi user bắt đầu nhập
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }))
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors = {}
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Vui lòng nhập email'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email không hợp lệ'
+    }
+    
+    if (!formData.password) {
+      newErrors.password = 'Vui lòng nhập mật khẩu'
+    }
+    
+    return newErrors
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await login(formData)
+      
+      // Hiển thị toast thành công
+      showToast('Đăng nhập thành công!', 'success')
+      
+      // Chuyển hướng về trang chủ sau khi đăng nhập thành công
+      setTimeout(() => {
+        navigate(ROUTES.HOME)
+      }, 1000)
+    } catch (error) {
+      console.error('Login error:', error)
+      
+      // Hiển thị lỗi từ server
+      if (error.message) {
+        setErrors({ submit: error.message })
+        showToast(error.message, 'error')
+      } else {
+        setErrors({ submit: 'Đăng nhập thất bại. Vui lòng thử lại.' })
+        showToast('Đăng nhập thất bại. Vui lòng thử lại.', 'error')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
   return (
     <div className="w-full max-w-sm">
       <div className="bg-white rounded-xl p-8 shadow-card">
@@ -15,32 +95,67 @@ export default function LoginPage() {
         </h1>
         <p className="text-sm text-content-secondary mb-8">Chào mừng trở lại CycleMart</p>
 
-        <form className="flex flex-col gap-4">
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-sm">
+            <p className="text-sm text-error">{errors.submit}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Email</label>
             <input
               type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               placeholder="your@email.com"
-              className="w-full rounded-sm px-4 py-3 text-sm border border-border bg-white text-content-primary outline-none focus:border-navy focus:ring-2 focus:ring-navy-subtle transition-all"
+              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
+                errors.email 
+                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+              }`}
             />
+            {errors.email && <p className="text-xs text-error mt-1">{errors.email}</p>}
           </div>
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Mật khẩu</label>
             <input
               type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               placeholder="••••••••"
-              className="w-full rounded-sm px-4 py-3 text-sm border border-border bg-white text-content-primary outline-none focus:border-navy focus:ring-2 focus:ring-navy-subtle transition-all"
+              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
+                errors.password 
+                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+              }`}
             />
+            {errors.password && <p className="text-xs text-error mt-1">{errors.password}</p>}
           </div>
 
           <div className="flex justify-end -mt-1">
-            <a href="#" className="text-xs text-navy font-semibold hover:underline">
+            <a href="#" className="text-xs text-orange font-semibold hover:underline">
               Quên mật khẩu?
             </a>
           </div>
 
-          <Button fullWidth size="lg" className="mt-1">
-            Đăng nhập
+          <Button 
+            type="submit"
+            fullWidth 
+            size="lg" 
+            className="mt-1"
+            disabled={isSubmitting || isLoading}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Đang đăng nhập...
+              </div>
+            ) : (
+              'Đăng nhập'
+            )}
           </Button>
 
           {/* Divider */}
@@ -67,11 +182,18 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-content-secondary mt-6">
           Chưa có tài khoản?{' '}
-          <Link to={ROUTES.REGISTER} className="text-navy font-semibold hover:underline">
+          <Link to={ROUTES.REGISTER} className="text-orange font-semibold hover:underline">
             Đăng ký ngay
           </Link>
         </p>
       </div>
+      
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
     </div>
   )
 }
