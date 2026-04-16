@@ -1,6 +1,7 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { cn } from '@/utils/cn'
+import { useAuth } from '@/hooks/useAuth' // Bổ sung import hook auth
 
 const ADMIN_MENU = [
   { title: 'Tổng quan', path: '/admin', icon: 'dashboard' },
@@ -10,11 +11,22 @@ const ADMIN_MENU = [
   { title: 'Danh mục & thương hiệu', path: '/admin/categories', icon: 'label' },
   { title: 'Giao dịch & phí dịch vụ', path: '/admin/transactions', icon: 'payments' },
   { title: 'Thống kê & báo cáo', path: '/admin/statistics', icon: 'bar_chart' },
+  { title: 'Gói Ưu Tiên', path: '/admin/priority-packages', icon: 'workspace_premium' },
 ]
 
 export function AdminSidebar() {
   const location = useLocation()
+  const navigate = useNavigate() // Khởi tạo điều hướng
+  const { logout } = useAuth() // Lấy hàm logout từ Context/Hook
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Hàm xử lý khi bấm đăng xuất
+  const handleLogout = () => {
+    if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi trang quản trị?')) {
+      logout() // Xóa token & thông tin user ở LocalStorage
+      navigate('/login') // Đẩy về trang đăng nhập
+    }
+  }
 
   return (
     <aside
@@ -79,12 +91,16 @@ export function AdminSidebar() {
       {/* Footer */}
       <div className="border-t border-white/10 p-3 flex-shrink-0">
         {!isCollapsed ? (
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-error hover:bg-white/10 transition-colors">
+          <button 
+            onClick={handleLogout} // GẮN SỰ KIỆN Ở ĐÂY
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-error hover:bg-white/10 transition-colors"
+          >
             <span className="material-symbols-outlined text-[1.2rem] flex-shrink-0">logout</span>
             Đăng xuất
           </button>
         ) : (
           <button
+            onClick={handleLogout} // GẮN SỰ KIỆN Ở ĐÂY
             className="w-full flex items-center justify-center p-2 hover:bg-white/10 rounded-sm transition-colors text-error"
             title="Đăng xuất"
           >

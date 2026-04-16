@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { authService } from '@/services/auth'
+import SubscribeModal from '@/components/seller/SubscribeModal'
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ text: '', type: '' })
-
-  // THÊM: State để quản lý chế độ hiển thị form hay văn bản
+  
+  // State để bật tắt bảng mua gói
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
+  
+  // State để quản lý chế độ hiển thị form hay văn bản
   const [isEditingProfile, setIsEditingProfile] = useState(false)
 
   // State cho Thông tin cá nhân
@@ -179,7 +183,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Card: Đổi mật khẩu (Giữ nguyên như cũ) */}
+        {/* Card: Đổi mật khẩu */}
         <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
           <h2 className="text-lg font-semibold text-content-primary mb-4">Đổi mật khẩu</h2>
           
@@ -226,7 +230,27 @@ export default function ProfilePage() {
             </button>
           </form>
         </div>
-      </div>
+        
+        {/* THÊM CARD TEST MUA GÓI VÀO ĐÂY */}
+        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light mt-6">
+          <h2 className="text-lg font-semibold text-content-primary mb-4">Khu vực Test Tính năng Seller</h2>
+          <button 
+            onClick={() => setShowSubscribeModal(true)}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-bold"
+          >
+            Mở bảng mua gói Ưu Tiên (Test)
+          </button>
+        </div>
+
+      </div> {/* Đóng div space-y-6 */}
+
+      {/* 3. NHÚNG MODAL VÀO CUỐI CÙNG, TRUYỀN TẠM postId = 1 ĐỂ TEST */}
+      {showSubscribeModal && (
+        <SubscribeModal 
+          postId={1} 
+          onClose={() => setShowSubscribeModal(false)} 
+        />
+      )}
     </div>
   )
 }
