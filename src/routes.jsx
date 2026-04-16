@@ -23,6 +23,7 @@ import AdminDashboard from '@/pages/Admin'
 import AdminUsers from '@/pages/Admin/Users'
 import AdminListings from '@/pages/Admin/Listings'
 import AdminReports from '@/pages/Admin/Reports'
+import AdminDisputes from '@/pages/Admin/Disputes'
 import AdminCategories from '@/pages/Admin/Categories'
 import AdminTransactions from '@/pages/Admin/Transactions'
 import AdminStatistics from '@/pages/Admin/Statistics'
@@ -64,6 +65,7 @@ export const router = createBrowserRouter([
       { path: 'users', element: <AdminUsers /> },
       { path: 'listings', element: <AdminListings /> },
       { path: 'reports', element: <AdminReports /> },
+      { path: 'disputes', element: <AdminDisputes /> },
       { path: 'categories', element: <AdminCategories /> },
       { path: 'transactions', element: <AdminTransactions /> },
       { path: 'statistics', element: <AdminStatistics /> },
