@@ -65,10 +65,21 @@ export default function LoginPage() {
       // Hiển thị toast thành công
       showToast('Đăng nhập thành công!', 'success')
       
-      // Chuyển hướng về trang chủ sau khi đăng nhập thành công
+      // Phân luồng chuyển hướng dựa trên Role
       setTimeout(() => {
-        navigate(ROUTES.HOME)
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          const userObj = JSON.parse(userStr)
+          if (userObj.role === 'ADMIN') {
+            navigate('/admin') // Chuyển hướng Admin
+          } else {
+            navigate(ROUTES.HOME) // Chuyển hướng User thường
+          }
+        } else {
+          navigate(ROUTES.HOME) // Fallback an toàn
+        }
       }, 1000)
+      
     } catch (error) {
       console.error('Login error:', error)
       

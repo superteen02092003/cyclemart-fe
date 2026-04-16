@@ -49,14 +49,14 @@ export default function RegisterPage() {
     
     if (!formData.phone.trim()) {
       newErrors.phone = 'Vui lòng nhập số điện thoại'
-    } else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Số điện thoại không hợp lệ'
+   } else if (!/^0[35789][0-9]{8}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'SĐT phải bắt đầu bằng số 0 và có 10 chữ số'
     }
     
     if (!formData.password) {
       newErrors.password = 'Vui lòng nhập mật khẩu'
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Mật khẩu phải có ít nhất 8 ký tự'
+    } else if (!/(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/.test(formData.password)) {
+      newErrors.password = 'Mật khẩu phải chứa ít nhất 1 chữ IN HOA và 1 ký tự đặc biệt (@,#,$...)'
     }
     
     return newErrors

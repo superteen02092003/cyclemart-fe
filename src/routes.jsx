@@ -12,6 +12,7 @@ import CommunityPage from '@/pages/Community'
 import LoginPage from '@/pages/Auth/LoginPage'
 import RegisterPage from '@/pages/Auth/RegisterPage'
 import ProfilePage from '@/pages/Profile'
+
 // Admin Pages
 import AdminDashboard from '@/pages/Admin'
 import AdminUsers from '@/pages/Admin/Users'
@@ -20,6 +21,8 @@ import AdminReports from '@/pages/Admin/Reports'
 import AdminCategories from '@/pages/Admin/Categories'
 import AdminTransactions from '@/pages/Admin/Transactions'
 import AdminStatistics from '@/pages/Admin/Statistics'
+// THÊM IMPORT TRANG MỚI Ở ĐÂY
+import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
 
 export const router = createBrowserRouter([
   {
@@ -54,6 +57,8 @@ export const router = createBrowserRouter([
       { path: 'categories', element: <AdminCategories /> },
       { path: 'transactions', element: <AdminTransactions /> },
       { path: 'statistics', element: <AdminStatistics /> },
+      // THÊM ROUTE MỚI VÀO ĐÂY
+      { path: 'priority-packages', element: <AdminPriorityPackages /> },
     ],
   },
 ])
