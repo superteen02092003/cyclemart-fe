@@ -69,8 +69,8 @@ function ProgressBar({ currentStep }) {
                   done
                     ? 'bg-navy border-navy text-white'
                     : active
-                    ? 'border-orange-500 bg-white text-orange-500'
-                    : 'bg-white border-border-light text-content-secondary'
+                      ? 'border-orange-500 bg-white text-orange-500'
+                      : 'bg-white border-border-light text-content-secondary'
                 )}
                 style={active ? { borderColor: '#ff6b35', color: '#ff6b35' } : {}}
               >
