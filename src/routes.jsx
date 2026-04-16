@@ -11,7 +11,7 @@ import InspectionPage from '@/pages/Inspection'
 import CommunityPage from '@/pages/Community'
 import LoginPage from '@/pages/Auth/LoginPage'
 import RegisterPage from '@/pages/Auth/RegisterPage'
-
+import ProfilePage from '@/pages/Profile'
 // Admin Pages
 import AdminDashboard from '@/pages/Admin'
 import AdminUsers from '@/pages/Admin/Users'
@@ -32,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'sell', element: <SellPage /> },
       { path: 'inspection', element: <InspectionPage /> },
       { path: 'community', element: <CommunityPage /> },
+      { path: 'profile', element: <ProfilePage /> },
     ],
   },
   {
