@@ -1,0 +1,54 @@
+import api from './api'
+
+export const categoryService = {
+  // Lấy tất cả danh mục
+  getAll: async () => {
+    try {
+      const response = await api.get('/categories')
+      return response.data
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+      throw error.response?.data || { message: 'Lỗi khi tải danh mục' }
+    }
+  },
+
+  // Lấy danh mục theo ID
+  getById: async (id) => {
+    try {
+      const response = await api.get(`/categories/${id}`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Danh mục không tồn tại' }
+    }
+  },
+
+  // Tạo danh mục mới
+  create: async (categoryData) => {
+    try {
+      const response = await api.post('/categories', categoryData)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Lỗi khi tạo danh mục' }
+    }
+  },
+
+  // Cập nhật danh mục
+  update: async (id, categoryData) => {
+    try {
+      const response = await api.put(`/categories/${id}`, categoryData)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Lỗi khi cập nhật danh mục' }
+    }
+  },
+
+  // Xóa danh mục
+  delete: async (id) => {
+    try {
+      await api.delete(`/categories/${id}`)
+      return { message: 'Xóa danh mục thành công' }
+    } catch (error) {
+      throw error.response?.data || { message: 'Lỗi khi xóa danh mục' }
+    }
+  }
+}

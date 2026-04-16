@@ -1,0 +1,23 @@
+// Mock brands data for fallback when API fails
+export const DEFAULT_BRANDS = [
+  { id: 1, name: 'Giant', description: 'Taiwan - Thương hiệu xe đạp hàng đầu thế giới', isActive: true },
+  { id: 2, name: 'Trek', description: 'Mỹ - Chuyên sản xuất xe đạp chất lượng cao', isActive: true },
+  { id: 3, name: 'Specialized', description: 'Mỹ - Nổi tiếng với dòng xe XC và road bike', isActive: true },
+  { id: 4, name: 'Cannondale', description: 'Mỹ - Nổi tiếng với công nghệ khung nhôm', isActive: true },
+  { id: 5, name: 'Scott', description: 'Thụy Sĩ - Thương hiệu uy tín toàn cầu', isActive: true },
+  { id: 6, name: 'Merida', description: 'Đài Loan - Sản xuất các dòng xe đạp đa dạng', isActive: true },
+  { id: 7, name: 'Bianchi', description: 'Ý - Hãng xe đạp lâu đời, nổi tiếng với màu verde', isActive: true },
+  { id: 8, name: 'Pinarello', description: 'Ý - Chuyên sản xuất road bike hạng sang', isActive: true },
+  { id: 9, name: 'Cervelo', description: 'Canada - Chuyên xe đua và máy đạp thể thao', isActive: true },
+  { id: 10, name: 'Colnago', description: 'Ý - Thương hiệu xe đạp cao cấp', isActive: true },
+  { id: 11, name: 'BMC', description: 'Thụy Sĩ - Sản xuất xe đạp và xe leo núi', isActive: true },
+  { id: 12, name: 'Orbea', description: 'Tây Ban Nha - Nổi tiếng với công nghệ hiện đại', isActive: true },
+  { id: 13, name: 'Cube', description: 'Đức - Hãng xe đạp phổ biến ở Châu Âu', isActive: true },
+  { id: 14, name: 'Focus', description: 'Đức - Chuyên xe leo núi và road', isActive: true },
+  { id: 15, name: 'Canyon', description: 'Đức - Bán hàng trực tuyến, giá cạnh tranh', isActive: true },
+  { id: 16, name: 'Santa Cruz', description: 'Mỹ - Chuyên xe MTB cao cấp', isActive: true },
+  { id: 17, name: 'Thống Nhất', description: 'Việt Nam - Hãng xe đạp Việt Nam', isActive: true },
+  { id: 18, name: 'Asama', description: 'Việt Nam - Sản xuất xe đạp giá rẻ', isActive: true },
+  { id: 19, name: 'Fornix', description: 'Việt Nam - Xe đạp toàn địa hình', isActive: true },
+  { id: 20, name: 'Khác', description: 'Các thương hiệu khác', isActive: true },
+]
