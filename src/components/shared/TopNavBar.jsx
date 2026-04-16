@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
 import { UserMenu } from '@/components/shared/UserMenu'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 import { cn } from '@/utils/cn'
 
 const NAV_LINKS = [
@@ -57,6 +58,7 @@ export function TopNavBar() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <UserMenu />
           </div>
 

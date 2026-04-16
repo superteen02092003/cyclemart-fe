@@ -5,6 +5,7 @@ import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import ReviewModal from '@/components/orders/ReviewModal';
+import DisputeDepositModal from '@/components/orders/DisputeDepositModal';
 
 const STATUS_LABELS = {
   PENDING_PAYMENT: { text: 'Chờ thanh toán', color: 'bg-navy/10 text-navy' },
@@ -12,12 +13,13 @@ const STATUS_LABELS = {
   IN_DELIVERY: { text: 'Đang giao hàng', color: 'bg-blue-500/10 text-blue-600' },
   DELIVERED: { text: 'Đã nhận hàng', color: 'bg-green/10 text-green' },
   RETURN_REQUESTED: { text: 'Yêu cầu hoàn hàng', color: 'bg-error/10 text-error' },
+  AWAITING_DISPUTE_DEPOSIT: { text: 'Chờ nộp cọc', color: 'bg-error/10 text-error' },
   DISPUTE_SYSTEM: { text: 'Đang tranh chấp', color: 'bg-error/10 text-error' },
   COMPLETED: { text: 'Hoàn tất', color: 'bg-green/10 text-green' },
   CANCELLED: { text: 'Đã hủy', color: 'bg-content-tertiary/20 text-content-secondary' },
 };
 
-function OrderCard({ order, openReturnModal, openReviewModal, simulateStatusUpdate }) {
+function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, simulateStatusUpdate }) {
   const isBuyer = order.role === 'BUYER';
   
   return (
@@ -82,9 +84,20 @@ function OrderCard({ order, openReturnModal, openReviewModal, simulateStatusUpda
 
           {order.status === 'RETURN_REQUESTED' && !isBuyer && (
              <>
-               <button onClick={() => simulateStatusUpdate(order.id, 'DISPUTE_SYSTEM')} className="py-2.5 px-4 text-xs font-bold text-content-secondary hover:bg-surface-secondary rounded-sm transition-colors">Từ chối (Mở Tranh Chấp)</button>
-               <button onClick={() => simulateStatusUpdate(order.id, 'CANCELLED')} className="py-2.5 px-6 bg-error hover:bg-red-600 text-white text-xs font-bold rounded-sm transition-colors">Chấp nhận Thu Hồi</button>
+               <button onClick={() => simulateStatusUpdate(order.id, 'AWAITING_DISPUTE_DEPOSIT')} className="py-2.5 px-4 text-xs font-bold text-content-secondary hover:bg-surface-secondary rounded-sm transition-colors cursor-pointer">Từ chối (Mở Tranh Chấp)</button>
+               <button onClick={() => simulateStatusUpdate(order.id, 'CANCELLED')} className="py-2.5 px-6 bg-error hover:bg-red-600 text-white text-xs font-bold rounded-sm transition-colors cursor-pointer">Chấp nhận Thu Hồi</button>
              </>
+          )}
+
+          {order.status === 'RETURN_REQUESTED' && isBuyer && (
+             <span className="py-2.5 text-xs text-content-secondary">Đang chờ người bán phản hồi...</span>
+          )}
+
+          {order.status === 'AWAITING_DISPUTE_DEPOSIT' && (
+             <button onClick={() => openDisputeModal(order)} className="py-2.5 px-6 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-xs font-bold rounded-sm transition-colors cursor-pointer flex items-center gap-2">
+                <span className="material-symbols-outlined text-[1rem]">gavel</span>
+                Nộp 200K Giải Quyết Tranh Chấp
+             </button>
           )}
 
           {order.status === 'COMPLETED' && isBuyer && (
@@ -108,6 +121,7 @@ export default function OrdersPage() {
   // States cho Modals
   const [returnOrder, setReturnOrder] = useState(null);
   const [reviewOrder, setReviewOrder] = useState(null);
+  const [disputeOrder, setDisputeOrder] = useState(null);
 
   const filteredOrders = useMemo(() => {
     return orders.filter(o => o.role === activeTab).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -134,6 +148,11 @@ export default function OrdersPage() {
   const handleReviewSuccess = (orderId) => {
     setReviewOrder(null);
     alert("Đánh giá của bạn đã được gửi thành công!");
+  };
+
+  const handleDisputeSuccess = (orderId) => {
+    setDisputeOrder(null);
+    simulateStatusUpdate(orderId, 'DISPUTE_SYSTEM');
   };
 
   return (
@@ -174,6 +193,7 @@ export default function OrdersPage() {
                order={order} 
                openReturnModal={setReturnOrder}
                openReviewModal={setReviewOrder}
+               openDisputeModal={setDisputeOrder}
                simulateStatusUpdate={simulateStatusUpdate}
              />
            ))}
@@ -186,6 +206,9 @@ export default function OrdersPage() {
       )}
       {reviewOrder && (
         <ReviewModal order={reviewOrder} onClose={() => setReviewOrder(null)} onSuccess={handleReviewSuccess} />
+      )}
+      {disputeOrder && (
+        <DisputeDepositModal order={disputeOrder} onClose={() => setDisputeOrder(null)} onSuccess={handleDisputeSuccess} />
       )}
     </div>
   );

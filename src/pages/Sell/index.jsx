@@ -352,6 +352,17 @@ export default function SellPage() {
                   ≈ {formatPrice(Number(formData.price))}
                 </p>
               )}
+              {formData.brand && formData.year && (
+                <div className="mt-3 bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-sm flex items-start gap-2">
+                  <span className="material-symbols-outlined text-blue-500 text-[1.2rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
+                  <div>
+                    <p className="text-sm font-semibold">Gợi ý giá thị trường</p>
+                    <p className="text-xs mt-0.5 leading-relaxed">
+                      Dựa trên phân tích các xe <strong>{formData.brand}</strong> đời <strong>{formData.year}</strong> tương tự đang giao dịch trên CycleMart, mức giá tốt nhất để dễ bán hiện tại là từ <strong>{formatPrice(12000000)} - {formatPrice(18500000)}</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <label className="flex items-center gap-2 cursor-pointer">
