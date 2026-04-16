@@ -1,8 +1,420 @@
-export default function BikeDetailPage() {
+import { useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { formatPrice } from '@/utils/formatPrice'
+import { MOCK_BIKES, MOCK_REVIEWS } from '@/constants/mockData'
+import { ROUTES } from '@/constants/routes'
+
+const conditionLabels = {
+  new: 'Mới 100%',
+  like_new: 'Như mới',
+  good: 'Tốt',
+  used: 'Đã dùng',
+  needs_repair: 'Cần sửa',
+}
+
+const categoryLabels = {
+  ROAD: 'Đường trường',
+  MTB: 'Địa hình (MTB)',
+  GRAVEL: 'Gravel',
+  FIXED: 'Fixed Gear',
+  URBAN: 'Đô thị',
+  FOLD: 'Xe gập',
+  EBIKE: 'E-Bike',
+}
+
+function StarRating({ rating, max = 5 }) {
   return (
-    <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-black text-primary-container mb-4">Chi tiết xe</h1>
-      <p className="text-on-surface-variant">Trang chi tiết xe — sẽ implement tiếp.</p>
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: max }).map((_, i) => (
+        <span
+          key={i}
+          className="material-symbols-outlined text-[0.9rem]"
+          style={{
+            fontVariationSettings: i < Math.round(rating) ? "'FILL' 1" : "'FILL' 0",
+            color: i < Math.round(rating) ? '#f59e0b' : '#d1d5db',
+          }}
+        >
+          star
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function OfferModal({ bike, onClose }) {
+  const [offerPrice, setOfferPrice] = useState('')
+  const [note, setNote] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+
+  const minPrice = bike.price * 0.5
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setSubmitted(true)
+  }
+
+  if (submitted) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white rounded-sm shadow-card-hover w-full max-w-md p-8 text-center">
+          <span
+            className="material-symbols-outlined text-green mb-3"
+            style={{ fontSize: '3rem', fontVariationSettings: "'FILL' 1", color: '#10b981' }}
+          >
+            check_circle
+          </span>
+          <h3 className="text-lg font-bold text-content-primary mb-2">Đã gửi đề xuất!</h3>
+          <p className="text-sm text-content-secondary mb-6">
+            Người bán sẽ xem xét và phản hồi đề xuất của bạn sớm nhất.
+          </p>
+          <Button variant="primary" onClick={onClose} fullWidth>
+            Đóng
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-sm shadow-card-hover w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
+          <h3 className="text-base font-bold text-content-primary">Đặt giá đề xuất</h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-secondary transition-colors"
+          >
+            <span className="material-symbols-outlined text-[1.1rem]">close</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Reference price */}
+          <div className="bg-surface-secondary rounded-sm px-4 py-3">
+            <p className="text-xs text-content-secondary mb-0.5">Giá niêm yết</p>
+            <p className="text-base font-bold text-content-primary">{formatPrice(bike.price)}</p>
+          </div>
+
+          {/* Offer price input */}
+          <div>
+            <label className="block text-sm font-medium text-content-primary mb-1.5">
+              Giá đề xuất của bạn (₫) <span className="text-error">*</span>
+            </label>
+            <input
+              type="number"
+              required
+              min={minPrice}
+              max={bike.price}
+              placeholder="Nhập giá đề xuất"
+              value={offerPrice}
+              onChange={(e) => setOfferPrice(e.target.value)}
+              className="w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors"
+            />
+            <p className="text-xs text-content-secondary mt-1">
+              Giá đề xuất tối thiểu 50% giá niêm yết ({formatPrice(minPrice)})
+            </p>
+          </div>
+
+          {/* Note */}
+          <div>
+            <label className="block text-sm font-medium text-content-primary mb-1.5">
+              Ghi chú (không bắt buộc)
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Lý do đặt giá, điều kiện kèm theo..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="secondary" onClick={onClose} fullWidth>
+              Hủy
+            </Button>
+            <button
+              type="submit"
+              className="flex-1 py-3 text-sm font-semibold text-white rounded-sm transition-colors"
+              style={{ backgroundColor: '#ff6b35' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+            >
+              Gửi đề xuất
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function BikeDetailPage() {
+  const { id } = useParams()
+  const bike = MOCK_BIKES.find((b) => b.id === id) ?? MOCK_BIKES[0]
+  const reviews = MOCK_REVIEWS.filter((r) => r.bikeId === bike.id)
+
+  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const [showBuyNotice, setShowBuyNotice] = useState(false)
+
+  const navigate = useNavigate()
+
+  const handleBuyNow = () => {
+    navigate(`/checkout/${bike.id}`)
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-sm text-content-secondary mb-6">
+        <Link to={ROUTES.HOME} className="hover:text-content-primary transition-colors">Trang chủ</Link>
+        <span className="material-symbols-outlined text-[0.9rem]">chevron_right</span>
+        <Link to={ROUTES.BROWSE} className="hover:text-content-primary transition-colors">Mua xe</Link>
+        <span className="material-symbols-outlined text-[0.9rem]">chevron_right</span>
+        <span className="text-content-primary font-medium line-clamp-1">{bike.title}</span>
+      </nav>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* ── Left column ──────────────────────────────────────────────── */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Image area */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden">
+            <div className="relative aspect-[16/9] bg-surface-secondary flex items-center justify-center">
+              <span
+                className="material-symbols-outlined text-content-tertiary"
+                style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
+              >
+                directions_bike
+              </span>
+              <div className="absolute bottom-3 right-3">
+                <Badge variant="subtle">
+                  <span className="material-symbols-outlined text-[0.75rem]">photo_library</span>
+                  0 ảnh
+                </Badge>
+              </div>
+              {bike.isVerified && (
+                <div className="absolute top-3 left-3">
+                  <Badge variant="verified">
+                    <span
+                      className="material-symbols-outlined text-[0.7rem]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >verified</span>
+                    Đã kiểm định
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Title (mobile) */}
+          <div className="lg:hidden">
+            <h1 className="text-xl font-bold text-content-primary mb-2">{bike.title}</h1>
+            <p className="text-2xl font-black text-content-primary">{formatPrice(bike.price)}</p>
+          </div>
+
+          {/* Description */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
+            <h2 className="text-base font-bold text-content-primary mb-3">Mô tả</h2>
+            <p className="text-sm text-content-secondary leading-relaxed whitespace-pre-line">
+              {bike.description || 'Chưa có mô tả chi tiết.'}
+            </p>
+          </div>
+
+          {/* Specs */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
+            <h2 className="text-base font-bold text-content-primary mb-4">Thông số kỹ thuật</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Loại xe', value: categoryLabels[bike.category] ?? bike.category },
+                { label: 'Thương hiệu', value: bike.brand },
+                { label: 'Model', value: bike.model },
+                { label: 'Năm sản xuất', value: bike.year },
+                { label: 'Chất liệu khung', value: bike.frameMaterial },
+                { label: 'Size khung', value: bike.frameSize ? `${bike.frameSize} cm` : 'Xe gập' },
+                { label: 'Groupset', value: bike.groupset },
+                { label: 'Tình trạng', value: conditionLabels[bike.condition] },
+              ].map(({ label, value }) => (
+                <div key={label} className="py-2 border-b border-border-light last:border-0">
+                  <p className="text-xs text-content-secondary mb-0.5">{label}</p>
+                  <p className="text-sm font-medium text-content-primary">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Reviews */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
+            <h2 className="text-base font-bold text-content-primary mb-4">
+              Đánh giá
+              {reviews.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-content-secondary">({reviews.length} đánh giá)</span>
+              )}
+            </h2>
+
+            {reviews.length === 0 ? (
+              <p className="text-sm text-content-secondary">Chưa có đánh giá nào.</p>
+            ) : (
+              <div className="space-y-4">
+                {reviews.slice(0, 3).map((rev) => (
+                  <div key={rev.id} className="pb-4 border-b border-border-light last:border-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                        style={{ backgroundColor: '#ff6b35' }}
+                      >
+                        {rev.reviewerName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-content-primary">{rev.reviewerName}</p>
+                        <StarRating rating={rev.rating} />
+                      </div>
+                      <span className="ml-auto text-xs text-content-secondary">{rev.createdAt}</span>
+                    </div>
+                    <p className="text-sm text-content-secondary pl-10">{rev.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right column (sticky) ─────────────────────────────────────── */}
+        <div className="space-y-4">
+          <div className="sticky top-24 space-y-4">
+            {/* Price card */}
+            <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
+              <h1 className="hidden lg:block text-lg font-bold text-content-primary mb-3 leading-snug">
+                {bike.title}
+              </h1>
+
+              <div className="flex items-end gap-2 mb-1">
+                <p className="text-3xl font-black text-content-primary">{formatPrice(bike.price)}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                {bike.isNegotiable && (
+                  <Badge variant="navy">Thương lượng</Badge>
+                )}
+                {bike.isVerified && (
+                  <Badge variant="verified">
+                    <span
+                      className="material-symbols-outlined text-[0.7rem]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >verified</span>
+                    Đã kiểm định
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-content-secondary mb-5">
+                <span className="material-symbols-outlined text-[0.9rem]">location_on</span>
+                {bike.location}
+                <span className="ml-auto flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[0.9rem]">visibility</span>
+                  {bike.views ?? 0} lượt xem
+                </span>
+              </div>
+
+              {/* Buy now */}
+              <button
+                onClick={handleBuyNow}
+                className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors"
+                style={{ backgroundColor: '#ff6b35' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+              >
+                Mua ngay
+              </button>
+
+              {/* showBuyNotice block removed because we navigate to checkout immediately */}
+
+              {/* Make offer */}
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() => setShowOfferModal(true)}
+                className="mb-4"
+              >
+                <span className="material-symbols-outlined text-[1rem]">gavel</span>
+                Đặt giá
+              </Button>
+
+              {/* Wishlist toggle */}
+              <button
+                onClick={() => setIsWishlisted(!isWishlisted)}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border text-sm font-semibold transition-colors ${
+                  isWishlisted
+                    ? 'border-red-300 text-red-500 bg-red-50'
+                    : 'border-border-light text-content-secondary hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                }`}
+              >
+                <span
+                  className="material-symbols-outlined text-[1rem]"
+                  style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
+                >
+                  favorite
+                </span>
+                {isWishlisted ? 'Đã thêm vào yêu thích' : 'Thêm vào yêu thích'}
+              </button>
+            </div>
+
+            {/* Seller card */}
+            <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
+              <h3 className="text-sm font-bold text-content-primary mb-3">Người bán</h3>
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0"
+                  style={{ backgroundColor: '#ff6b35' }}
+                >
+                  {bike.sellerName.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-content-primary">{bike.sellerName}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <StarRating rating={bike.sellerRating} />
+                    <span className="text-xs text-content-secondary ml-1">
+                      {bike.sellerRating?.toFixed(1)} ({bike.sellerReviewCount ?? 0})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 text-xs text-content-secondary">
+                    <span className="material-symbols-outlined text-[0.85rem]">location_on</span>
+                    {bike.location}
+                  </div>
+                </div>
+              </div>
+
+              <Link to={ROUTES.MESSAGES}>
+                <Button variant="secondary" fullWidth className="mt-4" size="sm">
+                  <span className="material-symbols-outlined text-[1rem]">chat_bubble</span>
+                  Nhắn tin
+                </Button>
+              </Link>
+            </div>
+
+            {/* Safety tip */}
+            <div className="bg-surface-secondary rounded-sm border border-border-light p-4">
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-[1rem] mt-0.5" style={{ color: '#ff6b35' }}>shield</span>
+                <div>
+                  <p className="text-xs font-semibold text-content-primary mb-0.5">Giao dịch an toàn</p>
+                  <p className="text-xs text-content-secondary leading-relaxed">
+                    Chỉ giao dịch qua nền tảng BikeConnect để được bảo vệ. Không chuyển tiền trực tiếp.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Offer modal */}
+      {showOfferModal && (
+        <OfferModal bike={bike} onClose={() => setShowOfferModal(false)} />
+      )}
     </div>
   )
 }

@@ -12,6 +12,11 @@ import CommunityPage from '@/pages/Community'
 import LoginPage from '@/pages/Auth/LoginPage'
 import RegisterPage from '@/pages/Auth/RegisterPage'
 import ProfilePage from '@/pages/Profile'
+import MyListingsPage from '@/pages/MyListings'
+import WishlistPage from '@/pages/Wishlist'
+import ChatPage from '@/pages/Chat'
+import CheckoutPage from '@/pages/Checkout'
+import OrdersPage from '@/pages/Orders'
 
 // Admin Pages
 import AdminDashboard from '@/pages/Admin'
@@ -36,6 +41,11 @@ export const router = createBrowserRouter([
       { path: 'inspection', element: <InspectionPage /> },
       { path: 'community', element: <CommunityPage /> },
       { path: 'profile', element: <ProfilePage /> },
+      { path: 'my-listings', element: <MyListingsPage /> },
+      { path: 'favorites', element: <WishlistPage /> },
+      { path: 'messages', element: <ChatPage /> },
+      { path: 'checkout/:id', element: <CheckoutPage /> },
+      { path: 'orders', element: <OrdersPage /> },
     ],
   },
   {

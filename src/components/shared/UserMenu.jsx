@@ -119,6 +119,15 @@ export function UserMenu() {
             </Link>
             
             <Link
+              to="/orders"
+              className="flex items-center gap-3 px-4 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
+              onClick={() => setIsOpen(false)}
+            >
+              <span className="material-symbols-outlined text-[1.1rem]">shopping_bag</span>
+              Đơn hàng của tôi
+            </Link>
+            
+            <Link
               to="/favorites"
               className="flex items-center gap-3 px-4 py-2 text-sm text-content-primary hover:bg-surface-secondary transition-colors"
               onClick={() => setIsOpen(false)}

@@ -7,4 +7,9 @@ export const ROUTES = {
   COMMUNITY: '/community',
   LOGIN: '/login',
   REGISTER: '/register',
+  PROFILE: '/profile',
+  MY_LISTINGS: '/my-listings',
+  WISHLIST: '/favorites',
+  MESSAGES: '/messages',
+  ORDERS: '/orders',
 }
