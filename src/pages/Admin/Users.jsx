@@ -1,95 +1,102 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
-
-// Mock data
-const USERS_DATA = [
-  {
-    id: 1,
-    name: 'Nguyễn Văn A',
-    email: 'nguyenvana@email.com',
-    type: 'seller',
-    status: 'active',
-    createdAt: '2024-01-15',
-    verified: true,
-  },
-  {
-    id: 2,
-    name: 'Trần Thị B',
-    email: 'tranthib@email.com',
-    type: 'buyer',
-    status: 'active',
-    createdAt: '2024-02-20',
-    verified: true,
-  },
-  {
-    id: 3,
-    name: 'Lê Văn C',
-    email: 'levanc@email.com',
-    type: 'seller',
-    status: 'suspended',
-    createdAt: '2024-03-10',
-    verified: false,
-  },
-]
+import { userService } from '@/services/user'
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState(USERS_DATA)
+  const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [filterType, setFilterType] = useState('all')
+  const [loading, setLoading] = useState(false)
 
-  const filteredUsers = filterType === 'all' ? users : users.filter((u) => u.type === filterType)
+  // Load users từ API
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true)
+      console.log('👥 Loading users from backend...')
+      const data = await userService.getAll()
+      console.log('✅ Users loaded:', data)
+      setUsers(data || [])
+    } catch (error) {
+      console.error('❌ Error loading users:', error)
+      alert(error.message || 'Lỗi khi tải danh sách người dùng')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredUsers = filterType === 'all' ? users : users.filter((u) => u.role === filterType.toUpperCase())
 
   const handleViewDetails = (user) => {
     setSelectedUser(user)
     setIsDetailModalOpen(true)
   }
 
-  const handleBanUser = (userId) => {
-    setUsers(users.map((u) => (u.id === userId ? { ...u, status: 'banned' } : u)))
-  }
-
-  const handleVerifyUser = (userId) => {
-    setUsers(users.map((u) => (u.id === userId ? { ...u, verified: true } : u)))
+  const handleDeleteUser = async (userId) => {
+    if (confirm('Bạn chắc chắn muốn xóa người dùng này?')) {
+      try {
+        setLoading(true)
+        console.log('🗑️ Deleting user:', userId)
+        await userService.delete(userId)
+        await loadUsers()
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert(error.message || 'Lỗi khi xóa người dùng')
+      } finally {
+        setLoading(false)
+      }
+    }
   }
 
   const columns = [
-    { key: 'name', label: 'Tên người dùng', width: '200px' },
+    { key: 'id', label: 'ID', width: '60px' },
+    { key: 'fullName', label: 'Tên người dùng', width: '200px' },
     { key: 'email', label: 'Email', width: '220px' },
+    { key: 'phone', label: 'Số điện thoại', width: '120px' },
     {
-      key: 'type',
+      key: 'roleDisplay',
       label: 'Loại',
-      render: (value) => (
-        <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${value === 'seller' ? 'bg-navy/10 text-content-primary' : 'bg-success/10 text-success'}`}>
-          {value === 'seller' ? 'Người bán' : 'Người mua'}
+      render: (value, item) => (
+        <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${
+          item.role === 'SELLER' ? 'bg-navy/10 text-content-primary' : 'bg-success/10 text-success'
+        }`}>
+          {value}
         </span>
       ),
     },
     {
-      key: 'status',
+      key: 'statusDisplay',
       label: 'Trạng thái',
-      render: (value) => (
-        <span
-          className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${
-            value === 'active'
-              ? 'bg-success/10 text-success'
-              : value === 'suspended'
-                ? 'bg-warning/10 text-warning'
-                : 'bg-error/10 text-error'
-          }`}
-        >
-          {value === 'active' ? 'Hoạt động' : value === 'suspended' ? 'Tạm khóa' : 'Cấm'}
+      render: (value, item) => (
+        <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${
+          item.status === 'ACTIVE' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+        }`}>
+          {value}
         </span>
       ),
     },
-    {
-      key: 'verified',
-      label: 'Xác thực',
-      render: (value) => (value ? <span className="text-success">✓ Đã xác thực</span> : <span className="text-warning">Chưa xác thực</span>),
+    { 
+      key: 'createdAt', 
+      label: 'Ngày tạo', 
+      width: '120px',
+      render: (value) => new Date(value).toLocaleDateString('vi-VN')
     },
-    { key: 'createdAt', label: 'Ngày tạo', width: '120px' },
   ]
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="flex items-center justify-center py-12">
+          <span className="text-content-secondary">Đang tải danh sách người dùng...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8">
@@ -122,11 +129,11 @@ export default function AdminUsers() {
         </div>
         <div className="bg-surface rounded-sm border border-border-light p-4 shadow-card">
           <p className="text-sm text-content-secondary font-medium">Hoạt động</p>
-          <p className="text-3xl font-bold text-success mt-2">{users.filter((u) => u.status === 'active').length}</p>
+          <p className="text-3xl font-bold text-success mt-2">{users.filter((u) => u.status === 'ACTIVE').length}</p>
         </div>
         <div className="bg-surface rounded-sm border border-border-light p-4 shadow-card">
-          <p className="text-sm text-content-secondary font-medium">Chưa xác thực</p>
-          <p className="text-3xl font-bold text-warning mt-2">{users.filter((u) => !u.verified).length}</p>
+          <p className="text-sm text-content-secondary font-medium">Người bán</p>
+          <p className="text-3xl font-bold text-navy mt-2">{users.filter((u) => u.role === 'SELLER').length}</p>
         </div>
       </div>
 
@@ -138,28 +145,17 @@ export default function AdminUsers() {
           <button
             key="view"
             onClick={() => handleViewDetails(user)}
-            className="px-3 py-2 text-sm font-medium text-content-primary hover:bg-navy/10 rounded-sm transition-colors"
+            className="px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-sm transition-colors"
           >
-            Xem chi tiết
+            Xem
           </button>,
-          !user.verified && (
-            <button
-              key="verify"
-              onClick={() => handleVerifyUser(user.id)}
-              className="px-3 py-2 text-sm font-medium text-success hover:bg-success/10 rounded-sm transition-colors"
-            >
-              Xác thực
-            </button>
-          ),
-          user.status === 'active' && (
-            <button
-              key="ban"
-              onClick={() => handleBanUser(user.id)}
-              className="px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-sm transition-colors"
-            >
-              Cấm
-            </button>
-          ),
+          <button
+            key="delete"
+            onClick={() => handleDeleteUser(user.id)}
+            className="px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-sm transition-colors"
+          >
+            Xóa
+          </button>,
         ]}
         className="bg-surface"
       />
@@ -173,27 +169,55 @@ export default function AdminUsers() {
       >
         {selectedUser && (
           <div className="space-y-4">
-            <div>
-              <p className="text-xs text-content-secondary font-medium uppercase">Tên người dùng</p>
-              <p className="text-content-primary font-medium mt-1">{selectedUser.name}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-content-secondary font-medium uppercase">ID</p>
+                <p className="text-content-primary font-medium mt-1">{selectedUser.id}</p>
+              </div>
+              <div>
+                <p className="text-xs text-content-secondary font-medium uppercase">Ngày tạo</p>
+                <p className="text-content-primary font-medium mt-1">
+                  {new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')}
+                </p>
+              </div>
             </div>
+            
+            <div>
+              <p className="text-xs text-content-secondary font-medium uppercase">Tên đầy đủ</p>
+              <p className="text-content-primary font-medium mt-1">{selectedUser.fullName}</p>
+            </div>
+            
             <div>
               <p className="text-xs text-content-secondary font-medium uppercase">Email</p>
               <p className="text-content-primary font-medium mt-1">{selectedUser.email}</p>
             </div>
+            
+            <div>
+              <p className="text-xs text-content-secondary font-medium uppercase">Số điện thoại</p>
+              <p className="text-content-primary font-medium mt-1">{selectedUser.phone}</p>
+            </div>
+            
             <div>
               <p className="text-xs text-content-secondary font-medium uppercase">Loại tài khoản</p>
-              <p className="text-content-primary font-medium mt-1">
-                {selectedUser.type === 'seller' ? 'Người bán' : 'Người mua'}
-              </p>
+              <p className="text-content-primary font-medium mt-1">{selectedUser.roleDisplay}</p>
             </div>
+            
             <div>
               <p className="text-xs text-content-secondary font-medium uppercase">Trạng thái</p>
-              <p className="text-content-primary font-medium mt-1">{selectedUser.status}</p>
+              <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium mt-1 ${
+                selectedUser.status === 'ACTIVE' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+              }`}>
+                {selectedUser.statusDisplay}
+              </span>
             </div>
-            <div>
-              <p className="text-xs text-content-secondary font-medium uppercase">Ngày tạo</p>
-              <p className="text-content-primary font-medium mt-1">{selectedUser.createdAt}</p>
+            
+            <div className="flex gap-2 pt-4">
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-border-light text-content-primary rounded-sm font-medium hover:bg-surface-tertiary transition-colors"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         )}
