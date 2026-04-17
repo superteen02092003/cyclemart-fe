@@ -84,17 +84,27 @@ export function BikeCard({
 
         {/* Content */}
         <div className="p-4">
-          {/* Title + rating row */}
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2 flex-1">
+          {/* Title */}
+          <div className="mb-1">
+            <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2">
               {bike.title}
             </h3>
-            <div className="flex items-center gap-0.5 flex-shrink-0">
+          </div>
+
+          {/* Seller + rating */}
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-1 text-content-secondary min-w-0">
+              <span className="material-symbols-outlined text-[0.9rem] flex-shrink-0">storefront</span>
+              <span className="text-xs truncate">{bike.sellerName || 'Người bán'}</span>
+            </div>
+            <div className="flex items-center gap-0.5 flex-shrink-0" title="Đánh giá người bán">
               <span
                 className="material-symbols-outlined text-[0.85rem]"
                 style={{ fontVariationSettings: "'FILL' 1", color: '#222222' }}
               >star</span>
-              <span className="text-xs font-semibold text-content-primary">{bike.sellerRating?.toFixed(1)}</span>
+              <span className="text-xs font-semibold text-content-primary">
+                {bike.sellerRating ? bike.sellerRating.toFixed(1) : 'Chưa có'}
+              </span>
             </div>
           </div>
 

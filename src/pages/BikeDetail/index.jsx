@@ -249,7 +249,7 @@ export default function BikeDetailPage() {
           {/* Reviews */}
           <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
             <h2 className="text-base font-bold text-content-primary mb-4">
-              Đánh giá
+              Đánh giá người bán
               {reviews.length > 0 && (
                 <span className="ml-2 text-sm font-normal text-content-secondary">({reviews.length} đánh giá)</span>
               )}
