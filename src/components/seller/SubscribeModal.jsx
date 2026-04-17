@@ -10,11 +10,11 @@ const LEVEL_CONFIG = {
     text: 'text-amber-600',
     icon: 'diamond',
     badge: 'Ưu tiên Cao nhất',
-    border: 'border-amber-400 shadow-amber-500/20 shadow-xl scale-105 z-10' // Phóng to & bóng đổ nổi bật
+    border: 'border-amber-400 shadow-amber-500/20 shadow-xl scale-105 z-10'
   },
   GOLD: {
     bg: 'bg-white',
-    text: 'text-[#ff6b35]', // Màu cam thương hiệu
+    text: 'text-[#ff6b35]',
     icon: 'workspace_premium',
     badge: 'Nổi bật',
     border: 'border-[#ff6b35]/50 hover:border-[#ff6b35] shadow-sm'
@@ -28,7 +28,6 @@ const LEVEL_CONFIG = {
   }
 }
 
-// Fallback phòng hờ trường hợp data lỗi
 const DEFAULT_CONFIG = { ...LEVEL_CONFIG.SILVER }
 
 export default function SubscribeModal({ postId, onClose }) {
@@ -37,7 +36,6 @@ export default function SubscribeModal({ postId, onClose }) {
 
   useEffect(() => {
     priorityService.getActivePackages().then((data) => {
-      // Sắp xếp tự động: PLATINUM (1) -> GOLD (2) -> SILVER (3)
       const sorted = [...data].sort((a, b) => {
         const order = { PLATINUM: 1, GOLD: 2, SILVER: 3 }
         return (order[a.priorityLevel] || 99) - (order[b.priorityLevel] || 99)
@@ -51,11 +49,12 @@ export default function SubscribeModal({ postId, onClose }) {
       setLoading(true)
       await priorityService.subscribePost(postId, packageId)
       alert('Đăng ký gói thành công! Bài viết của bạn đã được ưu tiên hiển thị.')
-      
-      // Gọi callback onClose (và lý tưởng là truyền thêm tín hiệu onSuccess để refetch data bên ngoài)
+
+      // ✅ Giữ logic của bạn
       if (typeof onClose === 'function') {
-        onClose(true) // true = success
+        onClose(true)
       }
+
     } catch (error) {
       alert(error.response?.data?.message || error.message || 'Lỗi khi đăng ký gói')
     } finally {
@@ -81,7 +80,7 @@ export default function SubscribeModal({ postId, onClose }) {
           </button>
         </div>
 
-        {/* Content (Danh sách gói) */}
+        {/* Content */}
         <div className="p-6 overflow-y-auto">
           {activePackages.length === 0 ? (
             <div className="text-center py-10">
@@ -102,14 +101,12 @@ export default function SubscribeModal({ postId, onClose }) {
                       config.border
                     )}
                   >
-                    {/* Ruy băng "Khuyên dùng" cho gói PLATINUM */}
                     {pkg.priorityLevel === 'PLATINUM' && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[0.65rem] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-md whitespace-nowrap">
                         Khuyên dùng
                       </div>
                     )}
 
-                    {/* Huy hiệu Cấp bậc */}
                     <div className={cn("flex items-center gap-1.5 mb-4", config.text)}>
                       <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
                         {config.icon}
@@ -119,11 +116,9 @@ export default function SubscribeModal({ postId, onClose }) {
                       </span>
                     </div>
 
-                    {/* Tên & Mô tả */}
                     <h3 className="font-bold text-xl text-content-primary mb-2 leading-tight">{pkg.name}</h3>
                     <p className="text-sm text-content-secondary mb-6 flex-grow">{pkg.description}</p>
 
-                    {/* Giá & Thời hạn */}
                     <div className="mt-auto pt-4 border-t border-black/5">
                       <div className="flex items-baseline gap-1 mb-1">
                         <span className={cn(
@@ -133,12 +128,12 @@ export default function SubscribeModal({ postId, onClose }) {
                           {formatPrice(pkg.price)}
                         </span>
                       </div>
+
                       <div className="flex items-center gap-1.5 text-sm text-content-secondary mb-5">
                         <span className="material-symbols-outlined text-[1rem]">schedule</span>
                         Thời hạn: <span className="font-semibold text-content-primary">{pkg.durationDays} ngày</span>
                       </div>
 
-                      {/* Nút Mua */}
                       <button
                         onClick={() => handleSubscribe(pkg.id)}
                         disabled={loading}
@@ -160,6 +155,7 @@ export default function SubscribeModal({ postId, onClose }) {
             </div>
           )}
         </div>
+
       </div>
     </div>
   )

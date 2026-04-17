@@ -6,7 +6,158 @@ import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
+<<<<<<< HEAD
 import { postService } from '@/services/post'
+=======
+import SubscribeModal from '@/components/seller/SubscribeModal'
+
+const STATUS_TABS = [
+  { value: 'ALL', label: 'Tất cả' },
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+  { value: 'ACTIVE', label: 'Đang bán' },
+  { value: 'SOLD', label: 'Đã bán' },
+  { value: 'REJECTED', label: 'Bị từ chối' },
+]
+
+const STATUS_CONFIG = {
+  DRAFT: { label: 'Nháp', badge: 'subtle' },
+  PENDING_REVIEW: { label: 'Chờ duyệt', badge: 'navy' },
+  ACTIVE: { label: 'Đang bán', badge: 'verified' },
+  SOLD: { label: 'Đã bán', badge: 'subtle' },
+  REJECTED: { label: 'Từ chối', badge: 'subtle' },
+}
+
+function ListingCard({ listing, onAction }) {
+  const cfg = STATUS_CONFIG[listing.status]
+
+  return (
+    <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
+      <div className="flex gap-4">
+        {/* Thumbnail placeholder */}
+        <div className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light">
+          <span
+            className="material-symbols-outlined text-content-tertiary"
+            style={{ fontSize: '2rem', fontVariationSettings: "'FILL' 0" }}
+          >
+            directions_bike
+          </span>
+        </div>
+
+        {/* Details */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2">
+              {listing.title}
+            </h3>
+            <Badge variant={cfg.badge} className="flex-shrink-0">
+              {cfg.label}
+            </Badge>
+          </div>
+
+          <p className="text-base font-bold text-content-primary mb-1">{formatPrice(listing.price)}</p>
+
+          <div className="flex items-center gap-3 text-xs text-content-secondary mb-2">
+            <span className="flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
+              {listing.views} lượt xem
+            </span>
+            <span className="flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[0.85rem]">calendar_today</span>
+              {listing.createdAt}
+            </span>
+          </div>
+
+          {/* Rejected reason */}
+          {listing.status === 'REJECTED' && listing.rejectedReason && (
+            <div className="flex items-start gap-1.5 bg-error/5 border border-error/20 rounded-sm px-3 py-2 mt-2">
+              <span className="material-symbols-outlined text-error text-[0.9rem] mt-0.5">error</span>
+              <p className="text-xs text-error">{listing.rejectedReason}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border-light">
+        {listing.status === 'DRAFT' && (
+          <>
+            <Link to={`${ROUTES.SELL}`}>
+              <Button variant="secondary" size="sm">
+                <span className="material-symbols-outlined text-[0.9rem]">edit</span>
+                Chỉnh sửa
+              </Button>
+            </Link>
+            <button
+              onClick={() => onAction('submit', listing.id)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+              style={{ backgroundColor: '#ff6b35' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+            >
+              <span className="material-symbols-outlined text-[0.9rem]">send</span>
+              Submit
+            </button>
+          </>
+        )}
+
+        {listing.status === 'PENDING_REVIEW' && (
+          <Button variant="secondary" size="sm" disabled>
+            <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
+            Đang xử lý...
+          </Button>
+        )}
+
+        {listing.status === 'ACTIVE' && (
+          <>
+            <Link to={`${ROUTES.SELL}`}>
+              <Button variant="secondary" size="sm">
+                <span className="material-symbols-outlined text-[0.9rem]">edit</span>
+                Chỉnh sửa
+              </Button>
+            </Link>
+            <button
+              onClick={() => onAction('hide', listing.id)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-content-secondary border border-border-light rounded-sm hover:bg-surface-secondary transition-colors"
+            >
+              <span className="material-symbols-outlined text-[0.9rem]">visibility_off</span>
+              Ẩn tin
+            </button>
+            <button
+              onClick={() => onAction('boost', listing.id)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+              style={{ backgroundColor: '#1e3a5f' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
+            >
+              <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
+              Mua gói ưu tiên
+            </button>
+          </>
+        )}
+
+        {listing.status === 'SOLD' && (
+          <Link to={`/bike/${listing.id}`}>
+            <Button variant="secondary" size="sm">
+              <span className="material-symbols-outlined text-[0.9rem]">open_in_new</span>
+              Xem
+            </Button>
+          </Link>
+        )}
+
+        {listing.status === 'REJECTED' && (
+          <Link to={`${ROUTES.SELL}`}>
+            <Button variant="secondary" size="sm">
+              <span className="material-symbols-outlined text-[0.9rem]">edit</span>
+              Chỉnh sửa lại
+            </Button>
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+>>>>>>> 743655d25d669de66a2d32bd3e907f6d13661480
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -211,6 +362,7 @@ export default function MyListingsPage() {
     }
   }
 
+<<<<<<< HEAD
   const showToast = (msg) => {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(''), 3000)
@@ -249,6 +401,41 @@ export default function MyListingsPage() {
 
   const handleInspect = (listing) => {
     setInspectionTarget(listing.id)
+=======
+  // State cho Modal Đăng ký gói ưu tiên
+  const [selectedPostId, setSelectedPostId] = useState(null)
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
+
+  const showToast = (msg) => {
+    setToastMsg(msg)
+    setTimeout(() => setToastMsg(''), 3000)
+  }
+
+  const handleAction = (action, id) => {
+    if (action === 'submit') {
+      setListings((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, status: 'PENDING_REVIEW' } : l))
+      )
+      showToast('Đã gửi tin để kiểm duyệt!')
+    } else if (action === 'hide') {
+      setListings((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, status: 'DRAFT' } : l))
+      )
+      showToast('Đã ẩn tin đăng.')
+    } else if (action === 'boost') {
+      // Mở modal và lưu lại ID của bài đăng đang được chọn
+      setSelectedPostId(id)
+      setShowSubscribeModal(true)
+    }
+    
+    const statusInfo = statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' }
+    
+    return (
+      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+        {statusInfo.label}
+      </span>
+    )
+>>>>>>> 743655d25d669de66a2d32bd3e907f6d13661480
   }
 
   const filtered = useMemo(
@@ -384,11 +571,24 @@ export default function MyListingsPage() {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* Inspection Modal */}
       {inspectionTarget && (
         <InspectionModal
           preselectedId={inspectionTarget}
           onClose={() => setInspectionTarget(null)}
+=======
+      {/* Modal mua gói ưu tiên */}
+      {showSubscribeModal && (
+        <SubscribeModal 
+          postId={selectedPostId} 
+          onClose={() => {
+            setShowSubscribeModal(false)
+            setSelectedPostId(null)
+            // (Tuỳ chọn) Bạn có thể gọi fetch lại API danh sách bài đăng ở đây
+            // để trạng thái của nút cập nhật nếu mua gói thành công.
+          }}
+>>>>>>> 743655d25d669de66a2d32bd3e907f6d13661480
         />
       )}
     </div>
