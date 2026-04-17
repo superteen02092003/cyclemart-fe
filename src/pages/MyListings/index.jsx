@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import InspectionModal from '@/components/inspection/InspectionModal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
-import { MOCK_MY_LISTINGS } from '@/constants/mockData'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
+import { postService } from '@/services/post'
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -25,20 +25,24 @@ const STATUS_CONFIG = {
   REJECTED: { label: 'Từ chối', badge: 'subtle' },
 }
 
-function ListingCard({ listing, onAction, onInspect }) {
-  const cfg = STATUS_CONFIG[listing.status]
+function ListingCard({ listing, onAction, onInspect, onDelete }) {
+  const cfg = STATUS_CONFIG[listing.status] || { label: listing.status, badge: 'subtle' }
 
   return (
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
       <div className="flex gap-4">
-        {/* Thumbnail placeholder */}
-        <div className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light">
-          <span
-            className="material-symbols-outlined text-content-tertiary"
-            style={{ fontSize: '2rem', fontVariationSettings: "'FILL' 0" }}
-          >
-            directions_bike
-          </span>
+        {/* Thumbnail */}
+        <div className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light overflow-hidden">
+          {listing.images && listing.images.length > 0 ? (
+            <img src={listing.images[0]} alt={listing.title} className="w-full h-full object-cover" />
+          ) : (
+            <span
+              className="material-symbols-outlined text-content-tertiary"
+              style={{ fontSize: '2rem', fontVariationSettings: "'FILL' 0" }}
+            >
+              directions_bike
+            </span>
+          )}
         </div>
 
         {/* Details */}
@@ -55,13 +59,17 @@ function ListingCard({ listing, onAction, onInspect }) {
           <p className="text-base font-bold text-content-primary mb-1">{formatPrice(listing.price)}</p>
 
           <div className="flex items-center gap-3 text-xs text-content-secondary mb-2">
-            <span className="flex items-center gap-0.5">
-              <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
-              {listing.views} lượt xem
-            </span>
+            {listing.views != null && (
+              <span className="flex items-center gap-0.5">
+                <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
+                {listing.views} lượt xem
+              </span>
+            )}
             <span className="flex items-center gap-0.5">
               <span className="material-symbols-outlined text-[0.85rem]">calendar_today</span>
-              {listing.createdAt}
+              {listing.createdAt
+                ? new Date(listing.createdAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'short', day: 'numeric' })
+                : ''}
             </span>
           </div>
 
@@ -160,6 +168,15 @@ function ListingCard({ listing, onAction, onInspect }) {
             </Button>
           </Link>
         )}
+
+        {/* Delete — always available */}
+        <button
+          onClick={() => onDelete(listing.id)}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-error border border-error/30 rounded-sm hover:bg-error/5 transition-colors ml-auto"
+        >
+          <span className="material-symbols-outlined text-[0.9rem]">delete</span>
+          Xóa
+        </button>
       </div>
     </div>
   )
@@ -167,9 +184,32 @@ function ListingCard({ listing, onAction, onInspect }) {
 
 export default function MyListingsPage() {
   const [activeTab, setActiveTab] = useState('ALL')
-  const [listings, setListings] = useState(MOCK_MY_LISTINGS)
+  const [listings, setListings] = useState([])
   const [toastMsg, setToastMsg] = useState('')
-  const [inspectionTarget, setInspectionTarget] = useState(null) // listingId khi mở modal
+  const [inspectionTarget, setInspectionTarget] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    loadMyListings()
+  }, [])
+
+  const loadMyListings = async () => {
+    try {
+      setLoading(true)
+      const data = await postService.getMyPosts()
+      setListings(data || [])
+    } catch (error) {
+      console.error('Error loading my listings:', error)
+      try {
+        const allPosts = await postService.getAll()
+        setListings(allPosts || [])
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const showToast = (msg) => {
     setToastMsg(msg)
@@ -192,6 +232,21 @@ export default function MyListingsPage() {
     }
   }
 
+  const handleDeleteListing = async (id) => {
+    if (!confirm('Bạn chắc chắn muốn xóa tin đăng này?')) return
+    try {
+      setLoading(true)
+      await postService.delete(id)
+      await loadMyListings()
+      showToast('Đã xóa tin đăng.')
+    } catch (error) {
+      console.error('Error deleting listing:', error)
+      alert(error.message || 'Lỗi khi xóa tin đăng')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleInspect = (listing) => {
     setInspectionTarget(listing.id)
   }
@@ -201,9 +256,18 @@ export default function MyListingsPage() {
     [activeTab, listings]
   )
 
-  // Stats
   const totalViews = listings.reduce((sum, l) => sum + (l.views ?? 0), 0)
   const activeCount = listings.filter((l) => l.status === 'ACTIVE').length
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center justify-center py-12">
+          <span className="text-content-secondary">Đang tải danh sách tin đăng...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
@@ -309,7 +373,13 @@ export default function MyListingsPage() {
       ) : (
         <div className="space-y-4">
           {filtered.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} onAction={handleAction} onInspect={handleInspect} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              onAction={handleAction}
+              onInspect={handleInspect}
+              onDelete={handleDeleteListing}
+            />
           ))}
         </div>
       )}
