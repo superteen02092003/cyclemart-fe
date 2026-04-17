@@ -6,6 +6,7 @@ import { formatPrice } from '@/utils/formatPrice'
 import { MOCK_MY_LISTINGS } from '@/constants/mockData'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
+import SubscribeModal from '@/components/seller/SubscribeModal'
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -159,6 +160,10 @@ export default function MyListingsPage() {
   const [listings, setListings] = useState(MOCK_MY_LISTINGS)
   const [toastMsg, setToastMsg] = useState('')
 
+  // State cho Modal Đăng ký gói ưu tiên
+  const [selectedPostId, setSelectedPostId] = useState(null)
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
+
   const showToast = (msg) => {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(''), 3000)
@@ -176,7 +181,9 @@ export default function MyListingsPage() {
       )
       showToast('Đã ẩn tin đăng.')
     } else if (action === 'boost') {
-      showToast('Tính năng mua gói ưu tiên sẽ ra mắt sớm!')
+      // Mở modal và lưu lại ID của bài đăng đang được chọn
+      setSelectedPostId(id)
+      setShowSubscribeModal(true)
     }
   }
 
@@ -296,6 +303,19 @@ export default function MyListingsPage() {
             <ListingCard key={listing.id} listing={listing} onAction={handleAction} />
           ))}
         </div>
+      )}
+
+      {/* Modal mua gói ưu tiên */}
+      {showSubscribeModal && (
+        <SubscribeModal 
+          postId={selectedPostId} 
+          onClose={() => {
+            setShowSubscribeModal(false)
+            setSelectedPostId(null)
+            // (Tuỳ chọn) Bạn có thể gọi fetch lại API danh sách bài đăng ở đây
+            // để trạng thái của nút cập nhật nếu mua gói thành công.
+          }}
+        />
       )}
     </div>
   )

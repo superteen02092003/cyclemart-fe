@@ -54,15 +54,27 @@ export function BikeCard({
           )}
 
           {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 flex-col">
+            {/* Tem kiểm định cũ */}
             {bike.isVerified && (
               <Badge variant="verified">
-                <span
-                  className="material-symbols-outlined text-[0.7rem]"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >verified</span>
+                <span className="material-symbols-outlined text-[0.7rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                 Đã kiểm định
               </Badge>
+            )}
+
+            {/* THÊM TEM ƯU TIÊN */}
+            {bike.activePriority && (
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-bold text-white shadow-md",
+                // Đổi màu tùy theo bậc ưu tiên (PLATINUM, GOLD, SILVER)
+                bike.activePriority.priorityLevel === 'PLATINUM' ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
+                bike.activePriority.priorityLevel === 'GOLD' ? 'bg-orange-500' :
+                'bg-blue-500'
+              )}>
+                <span className="material-symbols-outlined text-[0.8rem]">rocket_launch</span>
+                {bike.activePriority.name}
+              </div>
             )}
           </div>
 
