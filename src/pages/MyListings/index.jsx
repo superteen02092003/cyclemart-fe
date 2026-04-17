@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import InspectionModal from '@/components/inspection/InspectionModal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
@@ -24,7 +25,7 @@ const STATUS_CONFIG = {
   REJECTED: { label: 'Từ chối', badge: 'subtle' },
 }
 
-function ListingCard({ listing, onAction }) {
+function ListingCard({ listing, onAction, onInspect }) {
   const cfg = STATUS_CONFIG[listing.status]
 
   return (
@@ -129,6 +130,16 @@ function ListingCard({ listing, onAction }) {
               <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
               Mua gói ưu tiên
             </button>
+            <button
+              onClick={() => onInspect(listing)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+              style={{ backgroundColor: '#ff6b35' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+            >
+              <span className="material-symbols-outlined text-[0.9rem]">verified</span>
+              Đăng ký kiểm định
+            </button>
           </>
         )}
 
@@ -158,6 +169,7 @@ export default function MyListingsPage() {
   const [activeTab, setActiveTab] = useState('ALL')
   const [listings, setListings] = useState(MOCK_MY_LISTINGS)
   const [toastMsg, setToastMsg] = useState('')
+  const [inspectionTarget, setInspectionTarget] = useState(null) // listingId khi mở modal
 
   const showToast = (msg) => {
     setToastMsg(msg)
@@ -178,6 +190,10 @@ export default function MyListingsPage() {
     } else if (action === 'boost') {
       showToast('Tính năng mua gói ưu tiên sẽ ra mắt sớm!')
     }
+  }
+
+  const handleInspect = (listing) => {
+    setInspectionTarget(listing.id)
   }
 
   const filtered = useMemo(
@@ -293,9 +309,17 @@ export default function MyListingsPage() {
       ) : (
         <div className="space-y-4">
           {filtered.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} onAction={handleAction} />
+            <ListingCard key={listing.id} listing={listing} onAction={handleAction} onInspect={handleInspect} />
           ))}
         </div>
+      )}
+
+      {/* Inspection Modal */}
+      {inspectionTarget && (
+        <InspectionModal
+          preselectedId={inspectionTarget}
+          onClose={() => setInspectionTarget(null)}
+        />
       )}
     </div>
   )

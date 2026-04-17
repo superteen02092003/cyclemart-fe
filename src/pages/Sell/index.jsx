@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
+import InspectionModal from '@/components/inspection/InspectionModal'
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -106,6 +107,7 @@ export default function SellPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [showInspection, setShowInspection] = useState(false)
 
   const [formData, setFormData] = useState({
     // Step 1
@@ -151,28 +153,58 @@ export default function SellPage() {
 
   if (submitted) {
     return (
-      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <span
-          className="material-symbols-outlined mb-4"
-          style={{ fontSize: '4rem', fontVariationSettings: "'FILL' 1", color: '#10b981' }}
-        >
-          check_circle
-        </span>
-        <h2 className="text-2xl font-bold text-content-primary mb-3">Tin đăng đã gửi duyệt!</h2>
-        <p className="text-sm text-content-secondary mb-2">
-          Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Thường mất từ 24–48 giờ.
-        </p>
-        <p className="text-sm text-content-secondary mb-8">
-          Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to={ROUTES.MY_LISTINGS}>
-            <Button variant="primary">Xem tin đăng của tôi</Button>
-          </Link>
-          <Link to={ROUTES.BROWSE}>
-            <Button variant="outline">Về trang mua xe</Button>
-          </Link>
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16">
+        {/* Success */}
+        <div className="text-center mb-8">
+          <span
+            className="material-symbols-outlined mb-4"
+            style={{ fontSize: '4rem', fontVariationSettings: "'FILL' 1", color: '#10b981' }}
+          >
+            check_circle
+          </span>
+          <h2 className="text-2xl font-bold text-content-primary mb-3">Tin đăng đã gửi duyệt!</h2>
+          <p className="text-sm text-content-secondary mb-2">
+            Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Thường mất từ 24–48 giờ.
+          </p>
+          <p className="text-sm text-content-secondary mb-8">
+            Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link to={ROUTES.MY_LISTINGS}>
+              <Button variant="primary">Xem tin đăng của tôi</Button>
+            </Link>
+            <Link to={ROUTES.BROWSE}>
+              <Button variant="outline">Về trang mua xe</Button>
+            </Link>
+          </div>
         </div>
+
+        {/* Inspection upsell */}
+        <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-navy text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-content-primary mb-0.5">Tăng uy tín với kiểm định xe</p>
+              <p className="text-xs text-content-secondary mb-3">
+                Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(250000)}</strong>.
+              </p>
+              <button
+                onClick={() => setShowInspection(true)}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-sm"
+                style={{ backgroundColor: '#ff6b35' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+              >
+                <span className="material-symbols-outlined text-[1rem]">add_circle</span>
+                Đăng ký kiểm định ngay
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
       </div>
     )
   }
@@ -460,6 +492,28 @@ export default function SellPage() {
                 <p className={hintClass}>MP4 · Tối đa 60 giây · Tối đa 100MB</p>
               </div>
             </div>
+
+            {/* Inspection upsell */}
+            <div className="flex items-start gap-3 bg-navy/5 border border-navy/20 rounded-sm p-4">
+              <span className="material-symbols-outlined text-navy text-[1.3rem] mt-0.5 flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-content-primary mb-0.5">Thêm dịch vụ kiểm định xe</p>
+                <p className="text-xs text-content-secondary mb-2.5">
+                  Inspector đến tận nơi kiểm tra — xe đạt được gắn badge <strong>"Đã kiểm định"</strong>, tăng uy tín và bán nhanh hơn. Chỉ <strong>{formatPrice(250000)}</strong>.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowInspection(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-sm"
+                  style={{ backgroundColor: '#1e3a5f' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
+                >
+                  <span className="material-symbols-outlined text-[0.9rem]">add_circle</span>
+                  Đăng ký kiểm định
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -480,6 +534,8 @@ export default function SellPage() {
             Quay lại
           </Button>
         )}
+
+        {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
 
         {currentStep < 4 ? (
           <button
