@@ -1,55 +1,65 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { authService } from '@/services/auth'
+import { postService } from '@/services/post' 
+import { Badge } from '@/components/ui/Badge'
 import SubscribeModal from '@/components/seller/SubscribeModal'
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, updateUserContext } = useAuth()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ text: '', type: '' })
-  
-  // State để bật tắt bảng mua gói
   const [showSubscribeModal, setShowSubscribeModal] = useState(false)
-  
-  // State để quản lý chế độ hiển thị form hay văn bản
   const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [priorityPosts, setPriorityPosts] = useState([])
 
-  // State cho Thông tin cá nhân
   const [profile, setProfile] = useState({
     fullName: '',
     phone: ''
   })
 
-  // State cho Đổi mật khẩu
   const [passwords, setPasswords] = useState({
     oldPassword: '',
     newPassword: '',
     confirmNewPassword: ''
   })
 
-  // Load dữ liệu ban đầu
   useEffect(() => {
     if (user) {
       setProfile({
         fullName: user.fullName || '',
         phone: user.phone || ''
       })
+      fetchPriorityPosts()
     }
   }, [user])
+
+  const fetchPriorityPosts = async () => {
+    try {
+      const data = await postService.getMyPosts()
+      const activeOnes = (data?.content || data || []).filter(p => p.activePriority)
+      setPriorityPosts(activeOnes)
+    } catch (error) {
+      console.error("Lỗi lấy danh sách gói ưu tiên:", error)
+    }
+  }
 
   const showMessage = (text, type) => {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
 
-  // Xử lý Cập nhật thông tin
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
       await authService.updateProfile(profile)
+      updateUserContext({
+        fullName: profile.fullName,
+        phone: profile.phone
+      })
       showMessage('Cập nhật thông tin thành công!', 'success')
-      setIsEditingProfile(false) // Cập nhật xong thì quay về chế độ Xem
+      setIsEditingProfile(false)
     } catch (error) {
       showMessage(error.message || 'Có lỗi xảy ra', 'error')
     } finally {
@@ -57,7 +67,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Xử lý Hủy cập nhật (Khôi phục lại dữ liệu gốc)
   const handleCancelEdit = () => {
     setProfile({
       fullName: user?.fullName || '',
@@ -66,13 +75,11 @@ export default function ProfilePage() {
     setIsEditingProfile(false)
   }
 
-  // Xử lý Đổi mật khẩu
   const handleChangePassword = async (e) => {
     e.preventDefault()
     if (passwords.newPassword !== passwords.confirmNewPassword) {
       return showMessage('Mật khẩu mới không khớp!', 'error')
     }
-    
     setLoading(true)
     try {
       await authService.changePassword(passwords)
@@ -83,6 +90,17 @@ export default function ProfilePage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getDaysRemaining = (post) => {
+    if (post.activePriority.endDate) {
+      const end = new Date(post.activePriority.endDate)
+      const now = new Date()
+      const diffTime = end - now
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      return diffDays > 0 ? `${diffDays} ngày` : 'Sắp hết hạn'
+    }
+    return `${post.activePriority.durationDays} ngày`
   }
 
   return (
@@ -96,160 +114,100 @@ export default function ProfilePage() {
       )}
 
       <div className="space-y-6">
-        {/* Card: Thông tin cá nhân */}
+        {/* SECTION 1: THÔNG TIN CÁ NHÂN (Đã đưa lên đầu) */}
         <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-content-primary">Thông tin cá nhân</h2>
-            
-            {/* Nút bật form cập nhật */}
             {!isEditingProfile && (
-              <button 
-                onClick={() => setIsEditingProfile(true)}
-                className="px-4 py-2 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-sm font-semibold rounded-sm transition-colors"
-              >
+              <button onClick={() => setIsEditingProfile(true)} className="px-4 py-2 bg-[#ff6b35] text-white text-sm font-semibold rounded-sm transition-colors">
                 Cập nhật
               </button>
             )}
           </div>
           
-          {/* LOGIC HIỂN THỊ: Nếu đang KHÔNG edit thì hiện text, nếu edit thì hiện form */}
           {!isEditingProfile ? (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Email</label>
-                <p className="text-content-primary">{user?.email || 'Chưa cập nhật'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label>
-                <p className="text-content-primary">{user?.fullName || 'Chưa cập nhật'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label>
-                <p className="text-content-primary">{user?.phone || 'Chưa cập nhật'}</p>
-              </div>
+              <div><label className="block text-sm font-medium text-content-secondary mb-1">Email</label><p className="text-content-primary">{user?.email}</p></div>
+              <div><label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label><p className="text-content-primary">{user?.fullName}</p></div>
+              <div><label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label><p className="text-content-primary">{user?.phone}</p></div>
             </div>
           ) : (
-            <form onSubmit={handleUpdateProfile} className="space-y-4 border-t border-border-light pt-4 mt-4">
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Email (Không thể thay đổi)</label>
-                <input 
-                  type="email" 
-                  value={user?.email || ''} 
-                  disabled 
-                  className="w-full px-3 py-2 border border-border-light rounded-sm bg-surface-tertiary text-content-secondary"
-                />
-              </div>
-              
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label>
-                <input 
-                  type="text" 
-                  value={profile.fullName}
-                  onChange={(e) => setProfile({...profile, fullName: e.target.value})}
-                  className="w-full px-3 py-2 border border-border-light rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-                  placeholder="Nhập họ và tên của bạn"
-                />
+                <input type="text" value={profile.fullName} onChange={(e) => setProfile({...profile, fullName: e.target.value})} className="w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35]" />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label>
-                <input 
-                  type="text" 
-                  value={profile.phone}
-                  onChange={(e) => setProfile({...profile, phone: e.target.value})}
-                  className="w-full px-3 py-2 border border-border-light rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-                  placeholder="Nhập số điện thoại"
-                />
+                <input type="text" value={profile.phone} onChange={(e) => setProfile({...profile, phone: e.target.value})} className="w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35]" />
               </div>
-
               <div className="flex gap-3 pt-2">
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="px-4 py-2 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-sm font-semibold rounded-sm transition-colors disabled:opacity-50"
-                >
-                  Lưu thay đổi
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleCancelEdit}
-                  disabled={loading}
-                  className="px-4 py-2 border border-border-light text-content-secondary hover:bg-surface-secondary text-sm font-semibold rounded-sm transition-colors disabled:opacity-50"
-                >
-                  Hủy
-                </button>
+                <button type="submit" disabled={loading} className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50">Lưu</button>
+                <button type="button" onClick={handleCancelEdit} className="px-4 py-2 border rounded-sm">Hủy</button>
               </div>
             </form>
           )}
         </div>
 
-        {/* Card: Đổi mật khẩu */}
+        {/* SECTION 2: ĐỔI MẬT KHẨU */}
         <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
           <h2 className="text-lg font-semibold text-content-primary mb-4">Đổi mật khẩu</h2>
-          
           <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu cũ</label>
-              <input 
-                type="password" 
-                required
-                value={passwords.oldPassword}
-                onChange={(e) => setPasswords({...passwords, oldPassword: e.target.value})}
-                className="w-full px-3 py-2 border border-border-light rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-              />
+            <div className="grid grid-cols-1 gap-4">
+              <input type="password" placeholder="Mật khẩu cũ" required value={passwords.oldPassword} onChange={(e) => setPasswords({...passwords, oldPassword: e.target.value})} className="w-full px-3 py-2 border rounded-sm" />
+              <input type="password" placeholder="Mật khẩu mới" required value={passwords.newPassword} onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})} className="w-full px-3 py-2 border rounded-sm" />
+              <input type="password" placeholder="Xác nhận mật khẩu mới" required value={passwords.confirmNewPassword} onChange={(e) => setPasswords({...passwords, confirmNewPassword: e.target.value})} className="w-full px-3 py-2 border rounded-sm" />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu mới</label>
-              <input 
-                type="password" 
-                required
-                value={passwords.newPassword}
-                onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})}
-                className="w-full px-3 py-2 border border-border-light rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-content-secondary mb-1">Xác nhận mật khẩu mới</label>
-              <input 
-                type="password" 
-                required
-                value={passwords.confirmNewPassword}
-                onChange={(e) => setPasswords({...passwords, confirmNewPassword: e.target.value})}
-                className="w-full px-3 py-2 border border-border-light rounded-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="px-4 py-2 border border-[#ff6b35] text-[#ff6b35] hover:bg-[#ff6b35] hover:text-white text-sm font-semibold rounded-sm transition-colors disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="px-4 py-2 border border-[#ff6b35] text-[#ff6b35] hover:bg-[#ff6b35] hover:text-white font-semibold rounded-sm transition-all">
               Cập nhật mật khẩu
             </button>
           </form>
         </div>
-        
-        {/* THÊM CARD TEST MUA GÓI VÀO ĐÂY */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light mt-6">
-          <h2 className="text-lg font-semibold text-content-primary mb-4">Khu vực Test Tính năng Seller</h2>
-          <button 
-            onClick={() => setShowSubscribeModal(true)}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 font-bold"
-          >
-            Mở bảng mua gói Ưu Tiên (Test)
-          </button>
+
+        {/* SECTION 3: GÓI ƯU TIÊN ĐANG HOẠT ĐỘNG (Đã đưa xuống cuối) */}
+        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
+          <h2 className="text-lg font-semibold text-content-primary mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-amber-500">workspace_premium</span>
+            Gói ưu tiên đang hoạt động
+          </h2>
+          
+          {priorityPosts.length > 0 ? (
+            <div className="space-y-4">
+              {priorityPosts.map(post => (
+                <div key={post.id} className="flex items-center justify-between p-4 bg-surface-secondary rounded-sm border border-border-light">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-bold text-content-primary line-clamp-1">{post.title}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={post.activePriority.priorityLevel.toLowerCase()}>
+                        {post.activePriority.priorityLevel}
+                      </Badge>
+                      <span className="text-xs text-content-secondary">
+                        Còn lại: <span className="font-semibold text-navy">{getDaysRemaining(post)}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium text-content-secondary uppercase tracking-wider">
+                    {post.activePriority.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-surface-secondary rounded-sm border border-dashed border-border-light">
+              <p className="text-sm text-content-secondary mb-3">Bạn chưa sử dụng gói ưu tiên nào cho bài đăng.</p>
+              <button 
+                onClick={() => setShowSubscribeModal(true)}
+                className="px-4 py-2 bg-green-500 text-white rounded text-sm font-bold hover:bg-green-600 transition-colors"
+              >
+                Nâng cấp ngay (Test)
+              </button>
+            </div>
+          )}
         </div>
+      </div>
 
-      </div> {/* Đóng div space-y-6 */}
-
-      {/* 3. NHÚNG MODAL VÀO CUỐI CÙNG, TRUYỀN TẠM postId = 1 ĐỂ TEST */}
       {showSubscribeModal && (
-        <SubscribeModal 
-          postId={1} 
-          onClose={() => setShowSubscribeModal(false)} 
-        />
+        <SubscribeModal postId={1} onClose={() => setShowSubscribeModal(false)} />
       )}
     </div>
   )

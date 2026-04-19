@@ -7,7 +7,6 @@ export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    // Kiểm tra user đã đăng nhập chưa khi component mount
     const currentUser = authService.getCurrentUser()
     const isAuth = authService.isAuthenticated()
     
@@ -20,12 +19,9 @@ export function useAuth() {
     try {
       setIsLoading(true)
       const data = await authService.login(credentials)
-      
-      // Lấy user info từ localStorage sau khi login
       const currentUser = authService.getCurrentUser()
       setUser(currentUser)
       setIsAuthenticated(true)
-      
       return data
     } catch (error) {
       throw error
@@ -52,6 +48,19 @@ export function useAuth() {
     setIsAuthenticated(false)
   }
 
+ 
+  const updateUserContext = (updatedFields) => {
+    setUser(prevUser => {
+      const newUser = { ...prevUser, ...updatedFields }
+      // Lưu đè vào localStorage để khi F5 trang không bị quay lại dữ liệu cũ
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        localStorage.setItem('user', JSON.stringify(newUser))
+      }
+      return newUser
+    })
+  }
+
   return {
     user,
     isLoading,
@@ -59,5 +68,6 @@ export function useAuth() {
     login,
     register,
     logout,
+    updateUserContext, 
   }
 }
