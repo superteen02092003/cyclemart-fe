@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { BikeCard } from '@/components/shared/BikeCard'
 import { Button } from '@/components/ui/Button'
 import { BIKE_CATEGORIES } from '@/constants/categories'
-import { MOCK_BIKES } from '@/constants/mockData'
+import { bikePostService } from '@/services/bikePost'
 
 const BRANDS = ['Giant', 'Trek', 'Specialized', 'Cannondale', 'Merida', 'Cube', 'Scott', 'Brompton', 'Canyon', 'Pinarello']
 
@@ -62,6 +62,9 @@ function CheckboxGroup({ label, items, selected, onChange }) {
 }
 
 export default function BrowsePage() {
+  const [bikes, setBikes] = useState([])
+  const [loading, setLoading] = useState(false)
+
   // ── Filter state ──────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategories, setSelectedCategories] = useState([])
@@ -74,57 +77,34 @@ export default function BrowsePage() {
   const [sortBy, setSortBy] = useState('newest')
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // ── Filtered + sorted results ─────────────────────────────────────────────
-  const results = useMemo(() => {
-    let list = [...MOCK_BIKES]
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      list = list.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.brand.toLowerCase().includes(q) ||
-          b.model.toLowerCase().includes(q)
-      )
-    }
-    if (selectedCategories.length > 0) {
-      list = list.filter((b) => selectedCategories.includes(b.category))
-    }
-    if (selectedBrands.length > 0) {
-      list = list.filter((b) => selectedBrands.includes(b.brand))
-    }
-    if (selectedConditions.length > 0) {
-      list = list.filter((b) => selectedConditions.includes(b.condition))
-    }
-    if (minPrice !== '') {
-      list = list.filter((b) => b.price >= parseFloat(minPrice) * 1_000_000)
-    }
-    if (maxPrice !== '') {
-      list = list.filter((b) => b.price <= parseFloat(maxPrice) * 1_000_000)
-    }
-    if (location) {
-      list = list.filter((b) => b.location === location)
-    }
-    if (verifiedOnly) {
-      list = list.filter((b) => b.isVerified)
+  // Gọi API mỗi khi filter thay đổi
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const params = {
+          keyword: searchQuery || null,
+          minPrice: minPrice ? parseFloat(minPrice) * 1000000 : null,
+          maxPrice: maxPrice ? parseFloat(maxPrice) * 1000000 : null,
+          brand: selectedBrands.length > 0 ? selectedBrands[0] : null,
+          city: location || null,
+          page: 0,
+          size: 20,
+          sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'createdAt',
+          direction: sortBy === 'price_asc' ? 'asc' : 'desc'
+        }
+        const data = await bikePostService.search(params)
+        setBikes(data.content || [])
+      } catch (error) {
+        console.error("Lỗi khi tìm kiếm xe:", error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    switch (sortBy) {
-      case 'price_asc':
-        list.sort((a, b) => a.price - b.price)
-        break
-      case 'price_desc':
-        list.sort((a, b) => b.price - a.price)
-        break
-      case 'most_viewed':
-        list.sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
-        break
-      default: // newest
-        list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    }
-
-    return list
-  }, [searchQuery, selectedCategories, selectedBrands, selectedConditions, minPrice, maxPrice, location, verifiedOnly, sortBy])
+    const timer = setTimeout(fetchData, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery, selectedBrands, minPrice, maxPrice, location, sortBy])
 
   const clearFilters = () => {
     setSelectedCategories([])
@@ -145,7 +125,7 @@ export default function BrowsePage() {
     location !== '' ||
     verifiedOnly
 
-  // ── Sidebar content ───────────────────────────────────────────────────────
+  // ── Sidebar Component (Khai báo bên trong để truy cập state trực tiếp) ───
   const Sidebar = () => (
     <aside className="w-full">
       <div className="flex items-center justify-between mb-4">
@@ -161,7 +141,6 @@ export default function BrowsePage() {
         )}
       </div>
 
-      {/* Categories */}
       <CheckboxGroup
         label="Loại xe"
         items={FILTER_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))}
@@ -169,7 +148,6 @@ export default function BrowsePage() {
         onChange={setSelectedCategories}
       />
 
-      {/* Brands */}
       <CheckboxGroup
         label="Thương hiệu"
         items={BRANDS}
@@ -177,7 +155,6 @@ export default function BrowsePage() {
         onChange={setSelectedBrands}
       />
 
-      {/* Conditions */}
       <CheckboxGroup
         label="Tình trạng"
         items={CONDITIONS}
@@ -185,7 +162,6 @@ export default function BrowsePage() {
         onChange={setSelectedConditions}
       />
 
-      {/* Price range */}
       <div className="mb-5">
         <p className="text-xs font-bold text-content-primary uppercase tracking-wide mb-2">Khoảng giá (triệu ₫)</p>
         <div className="flex items-center gap-2">
@@ -209,7 +185,6 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* Location */}
       <div className="mb-5">
         <p className="text-xs font-bold text-content-primary uppercase tracking-wide mb-2">Khu vực</p>
         <select
@@ -223,7 +198,6 @@ export default function BrowsePage() {
         </select>
       </div>
 
-      {/* Verified only */}
       <div className="mb-5">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -297,7 +271,7 @@ export default function BrowsePage() {
           <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
             <p className="text-sm text-content-secondary">
               Tìm thấy{' '}
-              <span className="font-semibold text-content-primary">{results.length}</span> xe
+              <span className="font-semibold text-content-primary">{bikes.length}</span> xe
             </p>
             <div className="flex items-center gap-2">
               <span className="text-sm text-content-secondary">Sắp xếp:</span>
@@ -314,9 +288,11 @@ export default function BrowsePage() {
           </div>
 
           {/* Grid or empty state */}
-          {results.length > 0 ? (
+          {loading ? (
+             <div className="py-20 text-center text-content-secondary">Đang tìm kiếm xe...</div>
+          ) : bikes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-              {results.map((bike) => (
+              {bikes.map((bike) => (
                 <BikeCard key={bike.id} bike={bike} />
               ))}
             </div>

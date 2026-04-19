@@ -2,6 +2,7 @@
 import api from './api'
 
 export const bikePostService = {
+
   createPost: async (postData, images) => {
     // Sử dụng FormData để có thể gửi kèm file ảnh
     const formData = new FormData()
@@ -34,12 +35,27 @@ export const bikePostService = {
 
     // Gửi FormData - axios sẽ tự động xử lý Content-Type với boundary
     // Token Authorization sẽ được thêm bởi interceptor
-    const response = await api.post('/posts', formData, {
+const response = await api.post('/v1/posts', formData, {
       headers: {
         // Để trống Content-Type để axios tự tính boundary
       }
     })
     
+    return response.data
+  },
+
+  getAll: async (params) => {
+    const response = await api.get('/v1/posts', { params })
+    return response.data 
+  },
+
+  search: async (params) => {
+    const response = await api.get('/v1/posts/search', { params })
+    return response.data
+  },
+
+  getById: async (id) => {
+    const response = await api.get(`/v1/posts/${id}`)
     return response.data
   }
 }
