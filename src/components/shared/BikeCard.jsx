@@ -11,7 +11,6 @@ const conditionLabels = {
   needs_repair: 'Cần sửa',
 }
 
-// Airbnb listing card: white, 20px radius, three-layer shadow, image-first
 export function BikeCard({
   bike,
   className,
@@ -34,11 +33,10 @@ export function BikeCard({
           className
         )}
       >
-        {/* Image — hero of the card */}
         <div className={cn('relative overflow-hidden bg-surface-secondary', featured ? 'aspect-[4/3]' : 'aspect-[4/3]')}>
           {bike.images?.[0] ? (
             <img
-              src={bike.images[0]}
+              src={typeof bike.images[0] === 'string' ? bike.images[0] : bike.images[0].url}
               alt={bike.title}
               className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out"
             />
@@ -53,8 +51,21 @@ export function BikeCard({
             </div>
           )}
 
-          {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+          {/* Badges Container (Xếp dọc xuống) */}
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+            
+            {/* THÊM MỚI: Hiển thị Tem Ưu Tiên */}
+            {bike.activePriority && (
+              <Badge variant={bike.activePriority.priorityLevel.toLowerCase()}>
+                <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  diamond
+                </span>
+                {bike.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' :
+                 bike.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
+              </Badge>
+            )}
+
+            {/* Đã kiểm định */}
             {bike.isVerified && (
               <Badge variant="verified">
                 <span
@@ -66,7 +77,7 @@ export function BikeCard({
             )}
           </div>
 
-          {/* Wishlist — Airbnb style: transparent, heart outline */}
+          {/* Wishlist */}
           <button
             onClick={handleWishlistClick}
             className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center group/fav"
@@ -84,37 +95,24 @@ export function BikeCard({
 
         {/* Content */}
         <div className="p-4">
-          {/* Title */}
           <div className="mb-1">
             <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2">
               {bike.title}
             </h3>
           </div>
 
-          {/* Seller + rating */}
           <div className="flex items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-1 text-content-secondary min-w-0">
               <span className="material-symbols-outlined text-[0.9rem] flex-shrink-0">storefront</span>
               <span className="text-xs truncate">{bike.sellerName || 'Người bán'}</span>
             </div>
-            <div className="flex items-center gap-0.5 flex-shrink-0" title="Đánh giá người bán">
-              <span
-                className="material-symbols-outlined text-[0.85rem]"
-                style={{ fontVariationSettings: "'FILL' 1", color: '#222222' }}
-              >star</span>
-              <span className="text-xs font-semibold text-content-primary">
-                {bike.sellerRating ? bike.sellerRating.toFixed(1) : 'Chưa có'}
-              </span>
-            </div>
           </div>
 
-          {/* Meta */}
           <p className="text-xs text-content-secondary mb-1">
             {bike.brand} · {bike.year} · {bike.frameSize ? `${bike.frameSize}cm` : 'Xe gập'}
           </p>
           <p className="text-xs text-content-secondary mb-3">{bike.location}</p>
 
-          {/* Price */}
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold text-content-primary">
               <span className="text-base">{formatPrice(bike.price)}</span>
@@ -124,7 +122,6 @@ export function BikeCard({
             )}
           </div>
 
-          {/* Condition chip */}
           <div className="mt-2">
             <span className="inline-block text-xs text-content-secondary bg-surface-secondary rounded-xs px-2 py-0.5">
               {conditionLabels[bike.condition]}

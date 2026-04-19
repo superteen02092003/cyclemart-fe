@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import InspectionModal from '@/components/inspection/InspectionModal'
+import SubscribeModal from '@/components/seller/SubscribeModal' // THÊM MỚI: Import Modal mua gói
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
@@ -17,16 +18,21 @@ const STATUS_TABS = [
   { value: 'REJECTED', label: 'Bị từ chối' },
 ]
 
+// Lưu ý: Ở BE bạn dùng PostStatus.APPROVED, PENDING... Bạn có thể cần map lại cho khớp nếu gọi API thật.
 const STATUS_CONFIG = {
   DRAFT: { label: 'Nháp', badge: 'subtle' },
   PENDING_REVIEW: { label: 'Chờ duyệt', badge: 'navy' },
   ACTIVE: { label: 'Đang bán', badge: 'verified' },
+  APPROVED: { label: 'Đang bán', badge: 'verified' }, // Phụ trợ cho BE thật
+  PENDING: { label: 'Chờ duyệt', badge: 'navy' },     // Phụ trợ cho BE thật
   SOLD: { label: 'Đã bán', badge: 'subtle' },
   REJECTED: { label: 'Từ chối', badge: 'subtle' },
 }
 
 function ListingCard({ listing, onAction, onInspect, onDelete }) {
-  const cfg = STATUS_CONFIG[listing.status] || { label: listing.status, badge: 'subtle' }
+  // Lấy postStatus (BE thật) hoặc status (FE Mock)
+  const currentStatus = listing.postStatus || listing.status; 
+  const cfg = STATUS_CONFIG[currentStatus] || { label: currentStatus, badge: 'subtle' }
 
   return (
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
@@ -34,7 +40,11 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
         {/* Thumbnail */}
         <div className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light overflow-hidden">
           {listing.images && listing.images.length > 0 ? (
-            <img src={listing.images[0]} alt={listing.title} className="w-full h-full object-cover" />
+            <img 
+              src={typeof listing.images[0] === 'string' ? listing.images[0] : listing.images[0].url} 
+              alt={listing.title} 
+              className="w-full h-full object-cover" 
+            />
           ) : (
             <span
               className="material-symbols-outlined text-content-tertiary"
@@ -51,9 +61,22 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
             <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2">
               {listing.title}
             </h3>
-            <Badge variant={cfg.badge} className="flex-shrink-0">
-              {cfg.label}
-            </Badge>
+            
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              {/* THÊM MỚI: Hiển thị Tem Ưu Tiên (Nếu có) */}
+              {listing.activePriority && (
+                <Badge variant={listing.activePriority.priorityLevel.toLowerCase()}>
+                  <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    diamond
+                  </span>
+                  {listing.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' :
+                   listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
+                </Badge>
+              )}
+              <Badge variant={cfg.badge}>
+                {cfg.label}
+              </Badge>
+            </div>
           </div>
 
           <p className="text-base font-bold text-content-primary mb-1">{formatPrice(listing.price)}</p>
@@ -74,10 +97,10 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           </div>
 
           {/* Rejected reason */}
-          {listing.status === 'REJECTED' && listing.rejectedReason && (
+          {currentStatus === 'REJECTED' && listing.rejectionReason && (
             <div className="flex items-start gap-1.5 bg-error/5 border border-error/20 rounded-sm px-3 py-2 mt-2">
               <span className="material-symbols-outlined text-error text-[0.9rem] mt-0.5">error</span>
-              <p className="text-xs text-error">{listing.rejectedReason}</p>
+              <p className="text-xs text-error">{listing.rejectionReason}</p>
             </div>
           )}
         </div>
@@ -85,7 +108,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
 
       {/* Action buttons */}
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border-light">
-        {listing.status === 'DRAFT' && (
+        {currentStatus === 'DRAFT' && (
           <>
             <Link to={`${ROUTES.SELL}`}>
               <Button variant="secondary" size="sm">
@@ -106,14 +129,14 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           </>
         )}
 
-        {listing.status === 'PENDING_REVIEW' && (
+        {(currentStatus === 'PENDING_REVIEW' || currentStatus === 'PENDING') && (
           <Button variant="secondary" size="sm" disabled>
             <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
             Đang xử lý...
           </Button>
         )}
 
-        {listing.status === 'ACTIVE' && (
+        {(currentStatus === 'ACTIVE' || currentStatus === 'APPROVED') && (
           <>
             <Link to={`${ROUTES.SELL}`}>
               <Button variant="secondary" size="sm">
@@ -136,7 +159,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
             >
               <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
-              Mua gói ưu tiên
+              {listing.activePriority ? 'Đổi gói ưu tiên' : 'Mua gói ưu tiên'}
             </button>
             <button
               onClick={() => onInspect(listing)}
@@ -151,7 +174,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           </>
         )}
 
-        {listing.status === 'SOLD' && (
+        {currentStatus === 'SOLD' && (
           <Link to={`/bike/${listing.id}`}>
             <Button variant="secondary" size="sm">
               <span className="material-symbols-outlined text-[0.9rem]">open_in_new</span>
@@ -160,7 +183,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           </Link>
         )}
 
-        {listing.status === 'REJECTED' && (
+        {currentStatus === 'REJECTED' && (
           <Link to={`${ROUTES.SELL}`}>
             <Button variant="secondary" size="sm">
               <span className="material-symbols-outlined text-[0.9rem]">edit</span>
@@ -187,6 +210,7 @@ export default function MyListingsPage() {
   const [listings, setListings] = useState([])
   const [toastMsg, setToastMsg] = useState('')
   const [inspectionTarget, setInspectionTarget] = useState(null)
+  const [boostTarget, setBoostTarget] = useState(null) // THÊM MỚI: State cho Modal Mua gói
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -196,16 +220,12 @@ export default function MyListingsPage() {
   const loadMyListings = async () => {
     try {
       setLoading(true)
+      // Sử dụng API lấy danh sách bài đăng của user đang login
       const data = await postService.getMyPosts()
-      setListings(data || [])
+      // Nhớ trích xuất content nếu BE trả về Pageable
+      setListings(data?.content || data || [])
     } catch (error) {
       console.error('Error loading my listings:', error)
-      try {
-        const allPosts = await postService.getAll()
-        setListings(allPosts || [])
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError)
-      }
     } finally {
       setLoading(false)
     }
@@ -228,12 +248,13 @@ export default function MyListingsPage() {
       )
       showToast('Đã ẩn tin đăng.')
     } else if (action === 'boost') {
-      showToast('Tính năng mua gói ưu tiên sẽ ra mắt sớm!')
+      // THÊM MỚI: Mở modal khi bấm nút Mua gói
+      setBoostTarget(id)
     }
   }
 
   const handleDeleteListing = async (id) => {
-    if (!confirm('Bạn chắc chắn muốn xóa tin đăng này?')) return
+    if (!window.confirm('Bạn chắc chắn muốn xóa tin đăng này?')) return
     try {
       setLoading(true)
       await postService.delete(id)
@@ -251,13 +272,15 @@ export default function MyListingsPage() {
     setInspectionTarget(listing.id)
   }
 
-  const filtered = useMemo(
-    () => (activeTab === 'ALL' ? listings : listings.filter((l) => l.status === activeTab)),
+  const filtered = useMemo
+    (() => (activeTab === 'ALL' ? listings : listings.filter((l) => (l.postStatus || l.status) === activeTab || 
+         (activeTab === 'ACTIVE' && l.postStatus === 'APPROVED') || 
+         (activeTab === 'PENDING_REVIEW' && l.postStatus === 'PENDING'))),
     [activeTab, listings]
   )
 
   const totalViews = listings.reduce((sum, l) => sum + (l.views ?? 0), 0)
-  const activeCount = listings.filter((l) => l.status === 'ACTIVE').length
+  const activeCount = listings.filter((l) => (l.postStatus || l.status) === 'ACTIVE' || l.postStatus === 'APPROVED').length
 
   if (loading) {
     return (
@@ -319,7 +342,9 @@ export default function MyListingsPage() {
           const count =
             tab.value === 'ALL'
               ? listings.length
-              : listings.filter((l) => l.status === tab.value).length
+              : listings.filter((l) => (l.postStatus || l.status) === tab.value || 
+                   (tab.value === 'ACTIVE' && l.postStatus === 'APPROVED') || 
+                   (tab.value === 'PENDING_REVIEW' && l.postStatus === 'PENDING')).length
           return (
             <button
               key={tab.value}
@@ -389,6 +414,19 @@ export default function MyListingsPage() {
         <InspectionModal
           preselectedId={inspectionTarget}
           onClose={() => setInspectionTarget(null)}
+        />
+      )}
+
+      {/* THÊM MỚI: Modal Mua gói Ưu Tiên */}
+      {boostTarget && (
+        <SubscribeModal
+          postId={boostTarget}
+          onClose={() => setBoostTarget(null)}
+          onSuccess={() => {
+            setBoostTarget(null)
+            loadMyListings() // Reload lại để cập nhật Badge ưu tiên
+            showToast('Đăng ký gói ưu tiên thành công!')
+          }}
         />
       )}
     </div>

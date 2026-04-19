@@ -93,7 +93,7 @@ export default function PriorityPackages() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Giá (VNĐ)</label>
-            <input required type="number" min="1" value={formData.price} onChange={e => {
+            <input required type="number" min="0" value={formData.price} onChange={e => {
   const value = e.target.value;
   setFormData({
     ...formData,
