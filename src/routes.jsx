@@ -2,12 +2,12 @@ import { createBrowserRouter } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
+import { InspectorLayout } from '@/layouts/InspectorLayout.jsx' 
 
 import HomePage from '@/pages/Home'
 import BrowsePage from '@/pages/Browse'
 import BikeDetailPage from '@/pages/BikeDetail'
 import SellPage from '@/pages/Sell'
-import InspectionPage from '@/pages/Inspection'
 import CommunityPage from '@/pages/Community'
 import LoginPage from '@/pages/Auth/LoginPage'
 import RegisterPage from '@/pages/Auth/RegisterPage'
@@ -27,10 +27,15 @@ import AdminDisputes from '@/pages/Admin/Disputes'
 import AdminCategories from '@/pages/Admin/Categories'
 import AdminTransactions from '@/pages/Admin/Transactions'
 import AdminStatistics from '@/pages/Admin/Statistics'
-// THÊM IMPORT TRANG MỚI Ở ĐÂY
 import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
+import AdminInspections from "@/pages/Admin/Inspections.jsx"; // Trang dành cho Admin
+
+// Inspection / Inspector Pages
+import InspectionPage from "@/pages/Inspection/index.jsx"; // Trang dành cho Người bán (Seller) đăng ký
+import InspectorTasks from "@/pages/Inspector/Tasks.jsx"; // Trang dành cho Kiểm duyệt viên (Inspector) đi làm
 
 export const router = createBrowserRouter([
+  // 1. LUỒNG NGƯỜI DÙNG CHUNG (Kể cả người bán)
   {
     path: '/',
     element: <MainLayout />,
@@ -39,7 +44,7 @@ export const router = createBrowserRouter([
       { path: 'browse', element: <BrowsePage /> },
       { path: 'bike/:id', element: <BikeDetailPage /> },
       { path: 'sell', element: <SellPage /> },
-      { path: 'inspection', element: <InspectionPage /> },
+      { path: 'inspection', element: <InspectionPage /> }, // Seller vào đây để đăng ký kiểm định
       { path: 'community', element: <CommunityPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'my-listings', element: <MyListingsPage /> },
@@ -49,6 +54,8 @@ export const router = createBrowserRouter([
       { path: 'orders', element: <OrdersPage /> },
     ],
   },
+
+  // 2. LUỒNG ĐĂNG NHẬP / ĐĂNG KÝ
   {
     path: '/',
     element: <AuthLayout />,
@@ -57,6 +64,8 @@ export const router = createBrowserRouter([
       { path: 'register', element: <RegisterPage /> },
     ],
   },
+
+  // 3. LUỒNG ADMIN
   {
     path: '/admin',
     element: <AdminLayout />,
@@ -69,8 +78,17 @@ export const router = createBrowserRouter([
       { path: 'categories', element: <AdminCategories /> },
       { path: 'transactions', element: <AdminTransactions /> },
       { path: 'statistics', element: <AdminStatistics /> },
-      // THÊM ROUTE MỚI VÀO ĐÂY
       { path: 'priority-packages', element: <AdminPriorityPackages /> },
+      { path: 'inspections', element: <AdminInspections /> }, // Admin vào đây để phân công
+    ],
+  },
+
+  // 4. LUỒNG KIỂM DUYỆT VIÊN (INSPECTOR)
+  {
+    path: '/inspector',
+    element: <InspectorLayout />,
+    children: [
+      { path: 'tasks', element: <InspectorTasks /> }, // Inspector vào đây để xem lịch hẹn & cập nhật kết quả
     ],
   },
 ])

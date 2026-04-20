@@ -7,6 +7,8 @@ const ADMIN_MENU = [
   { title: 'Tổng quan', path: '/admin', icon: 'dashboard' },
   { title: 'Quản lý người dùng', path: '/admin/users', icon: 'group' },
   { title: 'Kiểm duyệt tin đăng', path: '/admin/listings', icon: 'fact_check' },
+  // 🔥 THÊM DÒNG NÀY: Mục Quản lý Kiểm định xe
+  { title: 'Kiểm định xe', path: '/admin/inspections', icon: 'verified' }, 
   { title: 'Báo cáo vi phạm', path: '/admin/reports', icon: 'report' },
   { title: 'Quản lý tranh chấp', path: '/admin/disputes', icon: 'gavel' },
   { title: 'Danh mục & thương hiệu', path: '/admin/categories', icon: 'label' },

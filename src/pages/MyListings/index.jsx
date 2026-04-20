@@ -63,7 +63,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
             </h3>
             
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              {/* THÊM MỚI: Hiển thị Tem Ưu Tiên (Nếu có) */}
+              {/* Hiển thị Tem Ưu Tiên (Nếu có) */}
               {listing.activePriority && (
                 <Badge variant={listing.activePriority.priorityLevel.toLowerCase()}>
                   <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -73,6 +73,18 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                    listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
                 </Badge>
               )}
+
+              {/* 🔥 THÊM MỚI: Nhãn Đã kiểm định */}
+              {listing.isVerified && (
+                <Badge variant="verified">
+                  <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    verified
+                  </span>
+                  Đã kiểm định
+                </Badge>
+              )}
+
+              {/* Nhãn Trạng thái tin */}
               <Badge variant={cfg.badge}>
                 {cfg.label}
               </Badge>
@@ -144,6 +156,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                 Chỉnh sửa
               </Button>
             </Link>
+            
             <button
               onClick={() => onAction('hide', listing.id)}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-content-secondary border border-border-light rounded-sm hover:bg-surface-secondary transition-colors"
@@ -151,26 +164,52 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               <span className="material-symbols-outlined text-[0.9rem]">visibility_off</span>
               Ẩn tin
             </button>
-            <button
-              onClick={() => onAction('boost', listing.id)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
-              style={{ backgroundColor: '#1e3a5f' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
-            >
-              <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
-              {listing.activePriority ? 'Đổi gói ưu tiên' : 'Mua gói ưu tiên'}
-            </button>
-            <button
-              onClick={() => onInspect(listing)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
-              style={{ backgroundColor: '#ff6b35' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-            >
-              <span className="material-symbols-outlined text-[0.9rem]">verified</span>
-              Đăng ký kiểm định
-            </button>
+
+            {/* 🔥 SỬA ĐỔI: Khóa nút Mua gói nếu đang có gói kích hoạt */}
+            {listing.activePriority ? (
+              <button
+                disabled
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-80"
+                style={{ backgroundColor: '#64748b' }}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]">check_circle</span>
+                Đang dùng: {listing.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' : listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
+              </button>
+            ) : (
+              <button
+                onClick={() => onAction('boost', listing.id)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+                style={{ backgroundColor: '#1e3a5f' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
+                Mua gói ưu tiên
+              </button>
+            )}
+
+            {/* 🔥 SỬA ĐỔI: Khóa nút Kiểm định nếu xe đã được kiểm định */}
+            {listing.isVerified ? (
+              <button
+                disabled
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-90"
+                style={{ backgroundColor: '#10b981' }}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                Xe đã kiểm định
+              </button>
+            ) : (
+              <button
+                onClick={() => onInspect(listing)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+                style={{ backgroundColor: '#ff6b35' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]">verified</span>
+                Đăng ký kiểm định
+              </button>
+            )}
           </>
         )}
 
@@ -192,7 +231,6 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           </Link>
         )}
 
-        {/* Delete — always available */}
         <button
           onClick={() => onDelete(listing.id)}
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-error border border-error/30 rounded-sm hover:bg-error/5 transition-colors ml-auto"

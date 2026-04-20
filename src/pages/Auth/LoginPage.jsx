@@ -72,6 +72,8 @@ export default function LoginPage() {
           const userObj = JSON.parse(userStr)
           if (userObj.role === 'ADMIN') {
             navigate('/admin') // Chuyển hướng Admin
+          } else if (userObj.role === 'INSPECTOR') {
+            navigate('/inspector/tasks') // Hoặc '/inspector' nếu có dashboard
           } else {
             navigate(ROUTES.HOME) // Chuyển hướng User thường
           }
