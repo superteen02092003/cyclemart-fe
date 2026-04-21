@@ -1,28 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
-import { MOCK_BIKES, MOCK_REVIEWS } from '@/constants/mockData'
 import { ROUTES } from '@/constants/routes'
-
-const conditionLabels = {
-  new: 'Mới 100%',
-  like_new: 'Như mới',
-  good: 'Tốt',
-  used: 'Đã dùng',
-  needs_repair: 'Cần sửa',
-}
-
-const categoryLabels = {
-  ROAD: 'Đường trường',
-  MTB: 'Địa hình (MTB)',
-  GRAVEL: 'Gravel',
-  FIXED: 'Fixed Gear',
-  URBAN: 'Đô thị',
-  FOLD: 'Xe gập',
-  EBIKE: 'E-Bike',
-}
+import { bikePostService } from '@/services/bikePost'
+import { sellerRatingService } from '@/services/sellerRating'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -154,17 +137,161 @@ function OfferModal({ bike, onClose }) {
 
 export default function BikeDetailPage() {
   const { id } = useParams()
-  const bike = MOCK_BIKES.find((b) => b.id === id) ?? MOCK_BIKES[0]
-  const reviews = MOCK_REVIEWS.filter((r) => r.bikeId === bike.id)
+  const navigate = useNavigate()
 
+  const [bike, setBike] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
-  const [showBuyNotice, setShowBuyNotice] = useState(false)
 
-  const navigate = useNavigate()
+  const [sellerInfo, setSellerInfo] = useState(null)
+  const [sellerRatings, setSellerRatings] = useState([])
+  const [loadingSellerInfo, setLoadingSellerInfo] = useState(false)
+
+  const [myRating, setMyRating] = useState(0)
+  const [myComment, setMyComment] = useState('')
+  const [submittingRating, setSubmittingRating] = useState(false)
+
+  useEffect(() => {
+    const fetchBikeData = async () => {
+      try {
+        setLoading(true)
+        const data = await bikePostService.getById(id)
+        setBike(data)
+        setError(null)
+      } catch (err) {
+        setError(err.message || 'Lỗi khi tải dữ liệu xe')
+        setBike(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (id) {
+      fetchBikeData()
+    }
+  }, [id])
+
+  // Fetch seller info khi có user ID
+  useEffect(() => {
+    const fetchSellerInfo = async () => {
+      if (!bike || !bike.userId) return
+
+      try {
+        setLoadingSellerInfo(true)
+
+        // Fetch seller info (getSellerInfo sẽ return SellerInfoResponse)
+        const infoResponse = await sellerRatingService.getSellerInfo(bike.userId)
+
+        // Debug log
+        console.log('SellerInfo Response:', infoResponse)
+
+        // Response từ API có thể là: { sellerName, sellerEmail, averageScore, totalRatings }
+        // hoặc { data: { sellerName, ... } }
+        const sellerInfoData = infoResponse.data || infoResponse
+
+        setSellerInfo(sellerInfoData)
+
+        // Fetch seller ratings nếu cần
+        try {
+          const ratingsResponse = await sellerRatingService.getSellerRatings(bike.userId, 0, 5)
+          console.log('SellerRatings Response:', ratingsResponse)
+
+          const ratingsData = ratingsResponse.data || ratingsResponse
+
+          const ratings = ratingsData.ratings?.content || []
+
+          setSellerRatings(Array.isArray(ratings) ? ratings : [])
+        } catch (ratingErr) {
+          console.warn('Lỗi khi tải ratings:', ratingErr)
+          setSellerRatings([])
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải thông tin seller:', err)
+        setSellerInfo(null)
+        setSellerRatings([])
+      } finally {
+        setLoadingSellerInfo(false)
+      }
+    }
+
+    fetchSellerInfo()
+  }, [bike])
 
   const handleBuyNow = () => {
     navigate(`/checkout/${bike.id}`)
+  }
+  const handleSubmitRating = async () => {
+    if (!myRating || !bike?.userId) return
+
+    try {
+      setSubmittingRating(true)
+
+      await sellerRatingService.createOrUpdateRating(
+        bike.userId,
+        myRating,
+        myComment
+      )
+
+      setMyRating(0)
+      setMyComment('')
+
+      const ratingsResponse = await sellerRatingService.getSellerRatings(bike.userId, 0, 5)
+
+      const ratingsData = ratingsResponse.data || ratingsResponse
+
+      const ratings = ratingsData.ratings?.content || []
+
+      setSellerRatings(Array.isArray(ratings) ? ratings : [])
+
+      const infoResponse = await sellerRatingService.getSellerInfo(bike.userId)
+      setSellerInfo(infoResponse.data || infoResponse)
+
+      alert('Đánh giá thành công!')
+    } catch (err) {
+      console.error('Lỗi khi gửi đánh giá:', err)
+
+      // ✅ Lấy message từ backend
+      const message =
+        err.response?.data?.message ||
+        'Gửi đánh giá thất bại!'
+
+      alert(message)
+    } finally {
+      setSubmittingRating(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <span className="material-symbols-outlined text-6xl text-content-tertiary mb-4 block" style={{ fontVariationSettings: "'FILL' 0" }}>
+              directions_bike
+            </span>
+            <p className="text-content-secondary">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !bike) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <span className="material-symbols-outlined text-6xl text-error mb-4 block">error</span>
+            <p className="text-content-secondary mb-4">{error || 'Không tìm thấy xe'}</p>
+            <Link to={ROUTES.BROWSE}>
+              <Button variant="primary">Quay lại danh sách</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -184,26 +311,34 @@ export default function BikeDetailPage() {
           {/* Image area */}
           <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden">
             <div className="relative aspect-[16/9] bg-surface-secondary flex items-center justify-center">
-              <span
-                className="material-symbols-outlined text-content-tertiary"
-                style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
-              >
-                directions_bike
-              </span>
+              {bike.images && bike.images.length > 0 ? (
+                <img
+                  src={bike.images[0]}
+                  alt={bike.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span
+                  className="material-symbols-outlined text-content-tertiary"
+                  style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
+                >
+                  directions_bike
+                </span>
+              )}
               <div className="absolute bottom-3 right-3">
                 <Badge variant="subtle">
                   <span className="material-symbols-outlined text-[0.75rem]">photo_library</span>
-                  0 ảnh
+                  {bike.images?.length || 0} ảnh
                 </Badge>
               </div>
-              {bike.isVerified && (
+              {bike.postStatus === 'APPROVED' && (
                 <div className="absolute top-3 left-3">
                   <Badge variant="verified">
                     <span
                       className="material-symbols-outlined text-[0.7rem]"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >verified</span>
-                    Đã kiểm định
+                    Đã duyệt
                   </Badge>
                 </div>
               )}
@@ -229,14 +364,14 @@ export default function BikeDetailPage() {
             <h2 className="text-base font-bold text-content-primary mb-4">Thông số kỹ thuật</h2>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Loại xe', value: categoryLabels[bike.category] ?? bike.category },
-                { label: 'Thương hiệu', value: bike.brand },
-                { label: 'Model', value: bike.model },
-                { label: 'Năm sản xuất', value: bike.year },
-                { label: 'Chất liệu khung', value: bike.frameMaterial },
-                { label: 'Size khung', value: bike.frameSize ? `${bike.frameSize} cm` : 'Xe gập' },
-                { label: 'Groupset', value: bike.groupset },
-                { label: 'Tình trạng', value: conditionLabels[bike.condition] },
+                { label: 'Loại xe', value: bike.categoryName || 'Không rõ' },
+                { label: 'Thương hiệu', value: bike.brand || 'Không rõ' },
+                { label: 'Model', value: bike.model || 'Không rõ' },
+                { label: 'Năm sản xuất', value: bike.year || 'Không rõ' },
+                { label: 'Chất liệu khung', value: bike.frameMaterial || 'Không rõ' },
+                { label: 'Size khung', value: bike.frameSize ? `${bike.frameSize} cm` : 'Không rõ' },
+                { label: 'Groupset', value: bike.groupset || 'Không rõ' },
+                { label: 'Hãm', value: bike.brakeType || 'Không rõ' },
               ].map(({ label, value }) => (
                 <div key={label} className="py-2 border-b border-border-light last:border-0">
                   <p className="text-xs text-content-secondary mb-0.5">{label}</p>
@@ -246,41 +381,86 @@ export default function BikeDetailPage() {
             </div>
           </div>
 
+          {/* Add Review */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
+            <h3 className="text-sm font-semibold text-content-primary mb-3">
+              Đánh giá của bạn
+            </h3>
+
+            {/* Chọn sao */}
+            <div className="flex items-center gap-1 mb-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span
+                  key={i}
+                  onClick={() => setMyRating(i + 1)}
+                  className="material-symbols-outlined cursor-pointer"
+                  style={{
+                    fontVariationSettings: i < myRating ? "'FILL' 1" : "'FILL' 0",
+                    color: i < myRating ? '#f59e0b' : '#d1d5db',
+                  }}
+                >
+        star
+      </span>
+              ))}
+            </div>
+
+            {/* Comment */}
+            <textarea
+              rows={3}
+              placeholder="Nhận xét của bạn..."
+              value={myComment}
+              onChange={(e) => setMyComment(e.target.value)}
+              className="w-full px-3 py-2 border border-border-light rounded-sm text-sm mb-3"
+            />
+
+            {/* Submit */}
+            <Button
+              disabled={!myRating || submittingRating}
+              onClick={handleSubmitRating}
+              fullWidth
+            >
+              {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
+            </Button>
+          </div>
           {/* Reviews */}
           <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
+
             <h2 className="text-base font-bold text-content-primary mb-4">
               Đánh giá người bán
-              {reviews.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-content-secondary">({reviews.length} đánh giá)</span>
+              {sellerRatings.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-content-secondary">({sellerRatings.length} đánh giá)</span>
               )}
             </h2>
 
-            {reviews.length === 0 ? (
+            {sellerRatings.length === 0 ? (
               <p className="text-sm text-content-secondary">Chưa có đánh giá nào.</p>
             ) : (
               <div className="space-y-4">
-                {reviews.slice(0, 3).map((rev) => (
+                {sellerRatings.map((rev) => (
                   <div key={rev.id} className="pb-4 border-b border-border-light last:border-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                         style={{ backgroundColor: '#ff6b35' }}
                       >
-                        {rev.reviewerName.charAt(0)}
+                        {rev.buyerName ? rev.buyerName.charAt(0) : '?'}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-content-primary">{rev.reviewerName}</p>
-                        <StarRating rating={rev.rating} />
+                        <p className="text-sm font-semibold text-content-primary">{rev.buyerName || 'Khách hàng'}</p>
+                        <StarRating rating={rev.score} />
                       </div>
-                      <span className="ml-auto text-xs text-content-secondary">{rev.createdAt}</span>
+                      <span className="ml-auto text-xs text-content-secondary">
+                        {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong'}
+                      </span>
                     </div>
-                    <p className="text-sm text-content-secondary pl-10">{rev.comment}</p>
+                    <p className="text-sm text-content-secondary pl-10">{rev.comment || 'Không có nhận xét'}</p>
                   </div>
                 ))}
               </div>
             )}
           </div>
         </div>
+
 
         {/* ── Right column (sticky) ─────────────────────────────────────── */}
         <div className="space-y-4">
@@ -296,26 +476,26 @@ export default function BikeDetailPage() {
               </div>
 
               <div className="flex flex-wrap gap-2 mb-4">
-                {bike.isNegotiable && (
+                {bike.allowNegotiation && (
                   <Badge variant="navy">Thương lượng</Badge>
                 )}
-                {bike.isVerified && (
+                {bike.postStatus === 'APPROVED' && (
                   <Badge variant="verified">
                     <span
                       className="material-symbols-outlined text-[0.7rem]"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >verified</span>
-                    Đã kiểm định
+                    Đã duyệt
                   </Badge>
                 )}
               </div>
 
               <div className="flex items-center gap-2 text-xs text-content-secondary mb-5">
                 <span className="material-symbols-outlined text-[0.9rem]">location_on</span>
-                {bike.location}
+                {bike.district && bike.city ? `${bike.district}, ${bike.city}` : bike.city || 'Không xác định'}
                 <span className="ml-auto flex items-center gap-1">
                   <span className="material-symbols-outlined text-[0.9rem]">visibility</span>
-                  {bike.views ?? 0} lượt xem
+                  0 lượt xem
                 </span>
               </div>
 
@@ -365,34 +545,67 @@ export default function BikeDetailPage() {
             {/* Seller card */}
             <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
               <h3 className="text-sm font-bold text-content-primary mb-3">Người bán</h3>
-              <div className="flex items-start gap-3">
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0"
-                  style={{ backgroundColor: '#ff6b35' }}
-                >
-                  {bike.sellerName.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-content-primary">{bike.sellerName}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <StarRating rating={bike.sellerRating} />
-                    <span className="text-xs text-content-secondary ml-1">
-                      {bike.sellerRating?.toFixed(1)} ({bike.sellerReviewCount ?? 0})
-                    </span>
+              {loadingSellerInfo ? (
+                <p className="text-xs text-content-secondary">Đang tải thông tin...</p>
+              ) : sellerInfo ? (
+                <>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#ff6b35' }}
+                    >
+                      {sellerInfo.sellerName ? sellerInfo.sellerName.charAt(0) : '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-content-primary">{sellerInfo.sellerName || 'Người bán'}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <StarRating rating={sellerInfo.averageScore || 0} />
+                        <span className="text-xs text-content-secondary ml-1">
+                          {sellerInfo.averageScore?.toFixed(1) || '0.0'} ({sellerInfo.totalRatings || 0})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 text-xs text-content-secondary">
+                        <span className="material-symbols-outlined text-[0.85rem]">location_on</span>
+                        {bike.district && bike.city ? `${bike.district}, ${bike.city}` : bike.city || 'Không xác định'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-content-secondary">
-                    <span className="material-symbols-outlined text-[0.85rem]">location_on</span>
-                    {bike.location}
-                  </div>
-                </div>
-              </div>
 
-              <Link to={ROUTES.MESSAGES}>
-                <Button variant="secondary" fullWidth className="mt-4" size="sm">
-                  <span className="material-symbols-outlined text-[1rem]">chat_bubble</span>
-                  Nhắn tin
-                </Button>
-              </Link>
+                  <Link to={ROUTES.MESSAGES}>
+                    <Button variant="secondary" fullWidth className="mt-4" size="sm">
+                      <span className="material-symbols-outlined text-[1rem]">chat_bubble</span>
+                      Nhắn tin
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#ff6b35' }}
+                    >
+                      ?
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-content-primary">Người bán</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <StarRating rating={0} />
+                        <span className="text-xs text-content-secondary ml-1">
+                          0.0 (0)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Link to={ROUTES.MESSAGES}>
+                    <Button variant="secondary" fullWidth className="mt-4" size="sm">
+                      <span className="material-symbols-outlined text-[1rem]">chat_bubble</span>
+                      Nhắn tin
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Safety tip */}
@@ -402,7 +615,7 @@ export default function BikeDetailPage() {
                 <div>
                   <p className="text-xs font-semibold text-content-primary mb-0.5">Giao dịch an toàn</p>
                   <p className="text-xs text-content-secondary leading-relaxed">
-                    Chỉ giao dịch qua nền tảng BikeConnect để được bảo vệ. Không chuyển tiền trực tiếp.
+                    Chỉ giao dịch qua nền tảng CycleMart để được bảo vệ. Không chuyển tiền trực tiếp.
                   </p>
                 </div>
               </div>
