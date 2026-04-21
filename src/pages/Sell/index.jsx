@@ -128,9 +128,8 @@ export default function SellPage() {
 
   const loadCategories = async () => {
     try {
-      const data = await categoryService.getAll()
-      const activeCategories = data.filter(cat => cat.isActive)
-      setCategories(activeCategories)
+      const data = await categoryService.getAllChildren()
+      setCategories(data)
     } catch (error) {
       console.error('Error loading categories:', error)
     }
