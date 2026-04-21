@@ -8,6 +8,7 @@ import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
+import api from '@/services/api' // Đảm bảo đã import api
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -16,21 +17,20 @@ const STATUS_TABS = [
   { value: 'ACTIVE', label: 'Đang bán' },
   { value: 'SOLD', label: 'Đã bán' },
   { value: 'REJECTED', label: 'Bị từ chối' },
+  { value: 'INSPECTIONS', label: 'Dịch vụ Kiểm định' }, // 🔥 THÊM TAB NÀY
 ]
 
-// Lưu ý: Ở BE bạn dùng PostStatus.APPROVED, PENDING... Bạn có thể cần map lại cho khớp nếu gọi API thật.
 const STATUS_CONFIG = {
   DRAFT: { label: 'Nháp', badge: 'subtle' },
   PENDING_REVIEW: { label: 'Chờ duyệt', badge: 'navy' },
   ACTIVE: { label: 'Đang bán', badge: 'verified' },
-  APPROVED: { label: 'Đang bán', badge: 'verified' }, // Phụ trợ cho BE thật
-  PENDING: { label: 'Chờ duyệt', badge: 'navy' },     // Phụ trợ cho BE thật
+  APPROVED: { label: 'Đang bán', badge: 'verified' }, 
+  PENDING: { label: 'Chờ duyệt', badge: 'navy' },     
   SOLD: { label: 'Đã bán', badge: 'subtle' },
   REJECTED: { label: 'Từ chối', badge: 'subtle' },
 }
 
 function ListingCard({ listing, onAction, onInspect, onDelete }) {
-  // Lấy postStatus (BE thật) hoặc status (FE Mock)
   const currentStatus = listing.postStatus || listing.status; 
   const cfg = STATUS_CONFIG[currentStatus] || { label: currentStatus, badge: 'subtle' }
 
@@ -74,13 +74,23 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                 </Badge>
               )}
 
-              {/* 🔥 THÊM MỚI: Nhãn Đã kiểm định */}
+              {/* Nhãn Đã kiểm định */}
               {listing.isVerified && (
                 <Badge variant="verified">
                   <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
                     verified
                   </span>
                   Đã kiểm định
+                </Badge>
+              )}
+
+              {/* 🔥 THÊM MỚI: Tem Không đạt kiểm định (Chỉ hiện trong MyListings) */}
+              {!listing.isVerified && listing.inspectionStatus === 'FAILED' && (
+                <Badge className="bg-error/10 text-error border border-error/20">
+                  <span className="material-symbols-outlined text-[0.8rem]">
+                    cancel
+                  </span>
+                  Chưa đạt kiểm định
                 </Badge>
               )}
 
@@ -165,7 +175,6 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               Ẩn tin
             </button>
 
-            {/* 🔥 SỬA ĐỔI: Khóa nút Mua gói nếu đang có gói kích hoạt */}
             {listing.activePriority ? (
               <button
                 disabled
@@ -188,7 +197,6 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               </button>
             )}
 
-            {/* 🔥 SỬA ĐỔI: Khóa nút Kiểm định nếu xe đã được kiểm định */}
             {listing.isVerified ? (
               <button
                 disabled
@@ -243,12 +251,99 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
   )
 }
 
+function InspectionHistory() {
+  const [inspections, setInspections] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMyInspections = async () => {
+      try {
+        const res = await api.get('/v1/inspections/me?page=0&size=50');
+        if (res.data?.content) {
+          setInspections(res.data.content);
+        }
+      } catch (error) {
+        console.error("Lỗi lấy danh sách kiểm định:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMyInspections();
+  }, []);
+
+  if (isLoading) {
+    return <div className="p-10 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-navy mx-auto"></div></div>;
+  }
+
+  if (inspections.length === 0) {
+    return (
+      <div className="bg-white p-10 text-center rounded-sm border border-border-light shadow-sm mt-4">
+        <span className="material-symbols-outlined text-4xl text-content-tertiary mb-2">health_and_safety</span>
+        <p className="text-content-secondary font-medium">Bạn chưa đăng ký dịch vụ kiểm định nào.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <h2 className="text-lg font-bold text-navy flex items-center gap-2 mb-4">
+        <span className="material-symbols-outlined text-[#ff6b35]">fact_check</span>
+        Lịch sử đăng ký kiểm định
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {inspections.map(ins => (
+          <div key={ins.id} className="bg-white p-5 rounded-sm border border-border-light shadow-sm relative overflow-hidden">
+            <div className={cn(
+              "absolute top-0 left-0 w-1 h-full",
+              ins.status === 'PASSED' ? "bg-green-500" : 
+              ins.status === 'FAILED' ? "bg-error" : "bg-warning"
+            )} />
+            
+            <div className="pl-3">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-navy line-clamp-1">{ins.postTitle}</h3>
+                <span className={cn(
+                  "text-[0.7rem] font-bold px-2 py-1 rounded-sm uppercase tracking-wider whitespace-nowrap ml-3",
+                  ins.status === 'PASSED' ? "bg-green-100 text-green-700" : 
+                  ins.status === 'FAILED' ? "bg-error/10 text-error" : "bg-warning/10 text-warning-content"
+                )}>
+                  {ins.status === 'PENDING' ? 'Chờ xếp lịch' :
+                   ins.status === 'ASSIGNED' ? 'Đã xếp lịch' :
+                   ins.status === 'INSPECTING' ? 'Đang kiểm tra' :
+                   ins.status === 'PASSED' ? 'Đạt' : 'Không đạt'}
+                </span>
+              </div>
+              
+              <div className="text-sm text-content-secondary space-y-1.5 mt-3">
+                <p className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[1rem]">calendar_clock</span>
+                  {ins.scheduledDateTime ? new Date(ins.scheduledDateTime).toLocaleString('vi-VN') : 'Chưa xếp lịch'}
+                </p>
+                <p className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[1rem]">engineering</span>
+                  Inspector: <span className="font-medium text-navy">{ins.inspectorName || 'Đang chờ phân công...'}</span>
+                </p>
+                {ins.resultNote && (
+                  <div className="mt-3 p-3 bg-surface-secondary rounded-sm border border-border-light">
+                    <p className="text-xs font-bold text-navy mb-1">Ghi chú kết quả:</p>
+                    <p className="text-sm italic">{ins.resultNote}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MyListingsPage() {
   const [activeTab, setActiveTab] = useState('ALL')
   const [listings, setListings] = useState([])
   const [toastMsg, setToastMsg] = useState('')
   const [inspectionTarget, setInspectionTarget] = useState(null)
-  const [boostTarget, setBoostTarget] = useState(null) // THÊM MỚI: State cho Modal Mua gói
+  const [boostTarget, setBoostTarget] = useState(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -258,9 +353,7 @@ export default function MyListingsPage() {
   const loadMyListings = async () => {
     try {
       setLoading(true)
-      // Sử dụng API lấy danh sách bài đăng của user đang login
       const data = await postService.getMyPosts()
-      // Nhớ trích xuất content nếu BE trả về Pageable
       setListings(data?.content || data || [])
     } catch (error) {
       console.error('Error loading my listings:', error)
@@ -286,7 +379,6 @@ export default function MyListingsPage() {
       )
       showToast('Đã ẩn tin đăng.')
     } else if (action === 'boost') {
-      // THÊM MỚI: Mở modal khi bấm nút Mua gói
       setBoostTarget(id)
     }
   }
@@ -377,12 +469,15 @@ export default function MyListingsPage() {
       {/* Status tabs */}
       <div className="flex gap-1 bg-surface-secondary rounded-sm p-1 mb-6 overflow-x-auto">
         {STATUS_TABS.map((tab) => {
-          const count =
-            tab.value === 'ALL'
-              ? listings.length
-              : listings.filter((l) => (l.postStatus || l.status) === tab.value || 
+          let count = 0;
+          if (tab.value === 'ALL') {
+            count = listings.length;
+          } else if (tab.value !== 'INSPECTIONS') {
+            count = listings.filter((l) => (l.postStatus || l.status) === tab.value || 
                    (tab.value === 'ACTIVE' && l.postStatus === 'APPROVED') || 
-                   (tab.value === 'PENDING_REVIEW' && l.postStatus === 'PENDING')).length
+                   (tab.value === 'PENDING_REVIEW' && l.postStatus === 'PENDING')).length;
+          }
+
           return (
             <button
               key={tab.value}
@@ -395,7 +490,7 @@ export default function MyListingsPage() {
               )}
             >
               {tab.label}
-              {count > 0 && (
+              {tab.value !== 'INSPECTIONS' && count > 0 && (
                 <span className={cn(
                   'text-xs px-1.5 py-0.5 rounded-full',
                   activeTab === tab.value ? 'bg-surface-secondary text-content-primary' : 'bg-border-light text-content-secondary'
@@ -408,8 +503,10 @@ export default function MyListingsPage() {
         })}
       </div>
 
-      {/* Listing cards */}
-      {filtered.length === 0 ? (
+      {/* Nội dung bên dưới Tabs */}
+      {activeTab === 'INSPECTIONS' ? (
+        <InspectionHistory />
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <span
             className="material-symbols-outlined text-content-tertiary mb-3"
@@ -455,14 +552,14 @@ export default function MyListingsPage() {
         />
       )}
 
-      {/* THÊM MỚI: Modal Mua gói Ưu Tiên */}
+      {/* Modal Mua gói Ưu Tiên */}
       {boostTarget && (
         <SubscribeModal
           postId={boostTarget}
           onClose={() => setBoostTarget(null)}
           onSuccess={() => {
             setBoostTarget(null)
-            loadMyListings() // Reload lại để cập nhật Badge ưu tiên
+            loadMyListings()
             showToast('Đăng ký gói ưu tiên thành công!')
           }}
         />
