@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/utils/cn'
 import { formatPrice } from '@/utils/formatPrice'
-import { MOCK_MY_LISTINGS, MOCK_INSPECTION_REQUESTS } from '@/constants/mockData'
+import { inspectionService } from '@/services/inspection'
+import { postService } from '@/services/post'
 
 const INSPECTION_FEE = 250000
 
@@ -22,11 +23,12 @@ const STEPS = [
 
 // ─── Request Card ─────────────────────────────────────────────
 function RequestCard({ req }) {
-  const cfg = STATUS_CONFIG[req.status]
+  const cfg = STATUS_CONFIG[req.status] || { label: req.status, color: 'bg-gray-50 text-gray-700 border-gray-200' }
+  
   return (
-    <div className="bg-surface-secondary rounded-sm border border-border-light p-4">
+    <div className="bg-surface-secondary rounded-sm border border-border-light p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-2">
-        <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2">{req.listingTitle}</h3>
+        <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2">{req.postTitle}</h3>
         <span className={cn('flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border', cfg.color)}>
           {cfg.label}
         </span>
@@ -37,8 +39,9 @@ function RequestCard({ req }) {
           {req.address}
         </span>
         <span className="flex items-center gap-1">
-          <span className="material-symbols-outlined text-[0.8rem]">calendar_today</span>
-          {req.scheduledDate}
+          <span className="material-symbols-outlined text-[0.8rem]">schedule</span>
+          {/* Hiển thị cả ngày và giờ */}
+          {new Date(req.scheduledDateTime).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
         </span>
         {req.inspectorName && (
           <span className="flex items-center gap-1">
@@ -66,54 +69,91 @@ function RequestCard({ req }) {
 // ─── Main Modal ───────────────────────────────────────────────
 export default function InspectionModal({ onClose, preselectedId }) {
   const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
-  const [requests, setRequests] = useState(MOCK_INSPECTION_REQUESTS)
+  const [requests, setRequests] = useState([])
+  const [activeListings, setActiveListings] = useState([])
   const [toast, setToast] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  // Form state
-  const activeListings = MOCK_MY_LISTINGS.filter((l) => l.status === 'ACTIVE')
-  const defaultId = preselectedId ?? activeListings[0]?.id ?? ''
-  const [form, setForm] = useState({ listingId: defaultId, address: '', scheduledDate: '', note: '' })
+  const [form, setForm] = useState({ listingId: preselectedId || '', address: '', scheduledDateTime: '', note: '' })
   const [formStep, setFormStep] = useState(1)
 
-  const selected = activeListings.find((l) => l.id === form.listingId)
+  // Load danh sách bài đăng của User để chọn xe
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        const data = await postService.getMyPosts()
+        const listings = data?.content || data || []
+        setActiveListings(listings)
+        
+        // Tự động chọn xe đầu tiên nếu chưa có
+        if (!form.listingId && listings.length > 0) {
+          setForm(prev => ({ ...prev, listingId: listings[0].id }))
+        }
+      } catch (error) {
+        console.error("Lỗi tải danh sách xe:", error)
+      }
+    }
+    fetchListings()
+  }, [])
+
+  // Load danh sách yêu cầu kiểm định khi mở tab requests
+  useEffect(() => {
+    if (tab === 'requests') {
+      loadMyRequests()
+    }
+  }, [tab])
+
+  const loadMyRequests = async () => {
+    setLoading(true)
+    try {
+      const data = await inspectionService.getMyRequests({ page: 0, size: 50 })
+      setRequests(data?.content || [])
+    } catch (error) {
+      console.error("Lỗi tải lịch sử yêu cầu:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const showToast = (msg) => {
     setToast(msg)
     setTimeout(() => setToast(''), 3500)
   }
 
-  const handleSubmit = () => {
-    const newReq = {
-      id: `ins${Date.now()}`,
-      listingId: form.listingId,
-      listingTitle: selected?.title ?? '',
-      address: form.address,
-      scheduledDate: form.scheduledDate,
-      note: form.note,
-      fee: INSPECTION_FEE,
-      status: 'PENDING',
-      inspectorName: null,
-      inspectorPhone: null,
-      createdAt: new Date().toISOString().split('T')[0],
-      result: null,
-      resultNote: null,
+  // Tìm bài đăng đang được chọn trong Form
+  const selected = activeListings.find((l) => String(l.id) === String(form.listingId))
+
+  // Gửi API tạo Yêu cầu
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      await inspectionService.createRequest({
+        postId: form.listingId,
+        address: form.address,
+        scheduledDateTime: form.scheduledDateTime,
+        note: form.note
+      })
+
+      showToast('Đăng ký kiểm định thành công! Đang chờ Admin phân công.')
+      setForm({ listingId: activeListings[0]?.id || '', address: '', scheduledDateTime: '', note: '' })
+      setFormStep(1)
+      setTab('requests') // Chuyển tab để tải lại danh sách
+    } catch (error) {
+      alert(error.response?.data?.message || 'Lỗi khi đăng ký kiểm định')
+    } finally {
+      setLoading(false)
     }
-    setRequests((prev) => [newReq, ...prev])
-    setForm({ listingId: defaultId, address: '', scheduledDate: '', note: '' })
-    setFormStep(1)
-    setTab('requests')
-    showToast('Đăng ký kiểm định thành công! Chúng tôi sẽ liên hệ để xác nhận lịch.')
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white w-full max-w-2xl rounded-sm shadow-xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-2xl rounded-sm shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-light flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-light flex-shrink-0 bg-surface">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-navy text-[1.3rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            <h2 className="text-base font-bold text-content-primary">Dịch vụ Kiểm định xe</h2>
+            <h2 className="text-base font-bold text-content-primary uppercase tracking-wide">Dịch vụ Kiểm định xe</h2>
           </div>
           <button onClick={onClose} className="text-content-tertiary hover:text-content-primary transition-colors">
             <span className="material-symbols-outlined">close</span>
@@ -121,10 +161,10 @@ export default function InspectionModal({ onClose, preselectedId }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border-light flex-shrink-0">
+        <div className="flex border-b border-border-light flex-shrink-0 bg-white">
           {[
             { key: 'register', label: 'Đăng ký mới', icon: 'add_circle' },
-            { key: 'requests', label: `Yêu cầu của tôi (${requests.length})`, icon: 'list_alt' },
+            { key: 'requests', label: `Yêu cầu của tôi`, icon: 'list_alt' },
           ].map((t) => (
             <button
               key={t.key}
@@ -133,7 +173,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
                 'flex items-center gap-1.5 px-5 py-3 text-sm font-semibold border-b-2 transition-colors',
                 tab === t.key
                   ? 'border-navy text-navy'
-                  : 'border-transparent text-content-secondary hover:text-content-primary'
+                  : 'border-transparent text-content-secondary hover:text-content-primary hover:bg-surface-secondary'
               )}
             >
               <span className="material-symbols-outlined text-[1rem]">{t.icon}</span>
@@ -144,29 +184,29 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
         {/* Toast */}
         {toast && (
-          <div className="flex items-center gap-2 mx-6 mt-4 px-4 py-2.5 bg-green-50 border border-green-200 rounded-sm text-sm font-medium text-green-800 flex-shrink-0">
-            <span className="material-symbols-outlined text-green-600 text-[1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+          <div className="flex items-center gap-2 mx-6 mt-4 px-4 py-3 bg-green-50 border border-green-200 rounded-sm text-sm font-medium text-green-800 flex-shrink-0 shadow-sm animate-fade-in">
+            <span className="material-symbols-outlined text-green-600 text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
             {toast}
           </div>
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 bg-white">
 
           {/* ── Tab: Đăng ký mới ── */}
           {tab === 'register' && (
-            <div className="px-6 py-5 space-y-5">
+            <div className="px-6 py-5 space-y-6">
 
               {/* How it works */}
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-4">
                 {STEPS.map((s, i) => (
-                  <div key={i} className="text-center relative pt-4">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-navy text-white text-[0.65rem] font-bold flex items-center justify-center">
+                  <div key={i} className="text-center relative pt-4 group">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-navy text-white text-[0.7rem] font-bold flex items-center justify-center shadow-sm">
                       {i + 1}
                     </div>
-                    <span className="material-symbols-outlined text-navy text-[1.5rem]" style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
-                    <p className="text-xs font-semibold text-content-primary mt-1 mb-0.5">{s.title}</p>
-                    <p className="text-[0.7rem] text-content-secondary leading-relaxed">{s.desc}</p>
+                    <span className="material-symbols-outlined text-navy/80 text-[1.8rem] group-hover:text-[#ff6b35] transition-colors mt-2" style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
+                    <p className="text-xs font-bold text-content-primary mt-2 mb-1 leading-tight">{s.title}</p>
+                    <p className="text-[0.7rem] text-content-secondary leading-relaxed px-1">{s.desc}</p>
                   </div>
                 ))}
               </div>
@@ -175,21 +215,21 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
               {/* Form step 1 */}
               {formStep === 1 && (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {/* Bike */}
                   <div>
-                    <label className="block text-sm font-semibold text-content-primary mb-1.5">
-                      Chọn xe cần kiểm định <span className="text-error">*</span>
+                    <label className="block text-sm font-bold text-content-primary mb-1.5 uppercase tracking-wide">
+                      1. Chọn xe cần kiểm định <span className="text-error">*</span>
                     </label>
                     {activeListings.length === 0 ? (
-                      <p className="text-sm text-content-secondary bg-surface-secondary rounded-sm px-4 py-3">
-                        Bạn chưa có tin đăng nào đang hoạt động.
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-4 py-3">
+                        Bạn chưa có bài đăng nào. Hãy đăng bán xe trước khi yêu cầu kiểm định nhé!
                       </p>
                     ) : (
                       <select
                         value={form.listingId}
                         onChange={(e) => setForm({ ...form, listingId: e.target.value })}
-                        className="w-full border border-border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy"
+                        className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy bg-white transition-colors"
                       >
                         {activeListings.map((l) => (
                           <option key={l.id} value={l.id}>{l.title} — {formatPrice(l.price)}</option>
@@ -200,52 +240,50 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
                   {/* Address */}
                   <div>
-                    <label className="block text-sm font-semibold text-content-primary mb-1.5">
-                      Địa chỉ kiểm định <span className="text-error">*</span>
+                    <label className="block text-sm font-bold text-content-primary mb-1.5 uppercase tracking-wide">
+                      2. Địa chỉ xem xe <span className="text-error">*</span>
                     </label>
                     <input
                       type="text"
                       placeholder="VD: 123 Nguyễn Huệ, Quận 1, TP. HCM"
                       value={form.address}
                       onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      className="w-full border border-border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy"
+                      className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy transition-colors"
                     />
                   </div>
 
-                  {/* Date */}
+                  {/* Date & Time (DATETIME-LOCAL) */}
                   <div>
-                    <label className="block text-sm font-semibold text-content-primary mb-1.5">
-                      Ngày mong muốn <span className="text-error">*</span>
+                    <label className="block text-sm font-bold text-content-primary mb-1.5 uppercase tracking-wide">
+                      3. Ngày & Giờ mong muốn <span className="text-error">*</span>
                     </label>
                     <input
-                      type="date"
-                      min={new Date().toISOString().split('T')[0]}
-                      value={form.scheduledDate}
-                      onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })}
-                      className="w-full border border-border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy"
+                      type="datetime-local"
+                      value={form.scheduledDateTime}
+                      onChange={(e) => setForm({ ...form, scheduledDateTime: e.target.value })}
+                      className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy transition-colors"
                     />
                   </div>
 
                   {/* Note */}
                   <div>
-                    <label className="block text-sm font-semibold text-content-primary mb-1.5">
-                      Ghi chú <span className="text-content-tertiary font-normal">(tuỳ chọn)</span>
+                    <label className="block text-sm font-bold text-content-primary mb-1.5 uppercase tracking-wide">
+                      4. Ghi chú <span className="text-content-tertiary font-normal normal-case">(tuỳ chọn)</span>
                     </label>
                     <textarea
                       rows={2}
-                      placeholder="VD: Nhà có cầu thang, gọi trước khi đến..."
+                      placeholder="VD: Gọi điện cho tôi trước khi đến 30 phút..."
                       value={form.note}
                       onChange={(e) => setForm({ ...form, note: e.target.value })}
-                      className="w-full border border-border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy resize-none"
+                      className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy resize-none transition-colors"
                     />
                   </div>
 
                   {/* Fee */}
-                  <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-sm px-4 py-3">
-                    <span className="material-symbols-outlined text-amber-600 text-[1rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
-                    <p className="text-sm text-amber-800">
-                      Phí kiểm định: <strong>{formatPrice(INSPECTION_FEE)}</strong>. Thanh toán trước khi Inspector đến.
-                      Phí không hoàn lại nếu xe không đạt.
+                  <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-sm px-4 py-3">
+                    <span className="material-symbols-outlined text-blue-600 text-[1.2rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
+                    <p className="text-sm text-blue-800 leading-relaxed">
+                      Phí dịch vụ kiểm định: <strong className="text-lg">Miễn phí (Giai đoạn Beta)</strong>. Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
                     </p>
                   </div>
                 </div>
@@ -253,22 +291,26 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
               {/* Form step 2: confirm */}
               {formStep === 2 && (
-                <div className="space-y-4">
-                  <p className="text-sm text-content-secondary">Xác nhận thông tin đăng ký:</p>
-                  <div className="bg-surface-secondary rounded-sm divide-y divide-border-light">
+                <div className="space-y-5 animate-fade-in">
+                  <p className="text-sm font-semibold text-content-primary">Vui lòng kiểm tra lại thông tin trước khi gửi yêu cầu:</p>
+                  <div className="bg-surface rounded-sm border border-border-light divide-y divide-border-light shadow-sm">
                     {[
-                      { label: 'Xe',     value: selected?.title },
-                      { label: 'Địa chỉ', value: form.address },
-                      { label: 'Ngày',   value: form.scheduledDate },
-                      { label: 'Phí',    value: formatPrice(INSPECTION_FEE) },
+                      { label: 'Xe cần kiểm định', value: selected?.title },
+                      { label: 'Địa chỉ xem xe', value: form.address },
+                      { label: 'Thời gian', value: form.scheduledDateTime ? new Date(form.scheduledDateTime).toLocaleString('vi-VN') : '' },
+                      { label: 'Phí dịch vụ', value: 'Miễn phí' },
                     ].map(({ label, value }) => (
-                      <div key={label} className="flex justify-between px-4 py-2.5 text-sm">
-                        <span className="text-content-secondary">{label}</span>
-                        <span className="font-medium text-content-primary text-right max-w-[65%]">{value}</span>
+                      <div key={label} className="flex justify-between px-4 py-3 text-sm">
+                        <span className="text-content-secondary font-medium">{label}</span>
+                        <span className="font-bold text-content-primary text-right max-w-[60%]">{value}</span>
                       </div>
                     ))}
                   </div>
-                  {form.note && <p className="text-sm text-content-secondary italic">Ghi chú: {form.note}</p>}
+                  {form.note && (
+                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-sm">
+                      <p className="text-sm text-amber-800 italic"><strong>Ghi chú:</strong> {form.note}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -276,23 +318,27 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
           {/* ── Tab: Yêu cầu của tôi ── */}
           {tab === 'requests' && (
-            <div className="px-6 py-5">
-              {requests.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <span className="material-symbols-outlined text-content-tertiary mb-3 text-[3rem]" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
-                  <p className="font-semibold text-content-primary mb-1">Chưa có yêu cầu nào</p>
-                  <p className="text-sm text-content-secondary mb-4">Đăng ký kiểm định để tăng uy tín cho xe của bạn.</p>
+            <div className="px-6 py-5 bg-surface min-h-[300px]">
+              {loading ? (
+                <div className="flex justify-center items-center h-full py-20 text-content-secondary">
+                  Đang tải dữ liệu...
+                </div>
+              ) : requests.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <span className="material-symbols-outlined text-content-tertiary mb-4 text-[4rem]" style={{ fontVariationSettings: "'FILL' 0" }}>search_off</span>
+                  <p className="text-lg font-bold text-content-primary mb-2">Chưa có yêu cầu nào</p>
+                  <p className="text-sm text-content-secondary mb-6 max-w-sm">Hãy đăng ký dịch vụ kiểm định để tăng gấp 3 lần tỷ lệ bán được xe của bạn.</p>
                   <button
                     onClick={() => setTab('register')}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-sm"
+                    className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-bold text-white rounded-sm hover:shadow-md transition-all"
                     style={{ backgroundColor: '#ff6b35' }}
                   >
-                    <span className="material-symbols-outlined text-[1rem]">add</span>
+                    <span className="material-symbols-outlined text-[1.1rem]">add</span>
                     Đăng ký ngay
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {requests.map((req) => <RequestCard key={req.id} req={req} />)}
                 </div>
               )}
@@ -302,23 +348,24 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
         {/* Footer */}
         {tab === 'register' && (
-          <div className="px-6 py-4 border-t border-border-light flex justify-end gap-3 flex-shrink-0">
+          <div className="px-6 py-4 border-t border-border-light flex justify-end gap-3 flex-shrink-0 bg-surface">
             {formStep === 2 && (
               <button
                 onClick={() => setFormStep(1)}
-                className="px-4 py-2 text-sm font-semibold border border-border rounded-sm text-content-primary hover:bg-surface-secondary"
+                disabled={loading}
+                className="px-5 py-2.5 text-sm font-bold border border-border-light rounded-sm text-content-primary hover:bg-surface-secondary transition-colors"
               >
-                Quay lại
+                Quay lại sửa
               </button>
             )}
-            <button onClick={onClose} className="px-4 py-2 text-sm font-semibold border border-border rounded-sm text-content-secondary hover:bg-surface-secondary">
+            <button onClick={onClose} disabled={loading} className="px-5 py-2.5 text-sm font-bold border border-border-light rounded-sm text-content-secondary hover:bg-surface-secondary transition-colors">
               Đóng
             </button>
             {formStep === 1 ? (
               <button
                 onClick={() => setFormStep(2)}
-                disabled={!form.listingId || !form.address || !form.scheduledDate}
-                className="px-5 py-2 text-sm font-semibold text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!form.listingId || !form.address || !form.scheduledDateTime || loading}
+                className="px-6 py-2.5 text-sm font-bold text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 style={{ backgroundColor: '#1e3a5f' }}
               >
                 Tiếp theo
@@ -326,10 +373,11 @@ export default function InspectionModal({ onClose, preselectedId }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="px-5 py-2 text-sm font-semibold text-white rounded-sm"
+                disabled={loading}
+                className="px-6 py-2.5 text-sm font-bold text-white rounded-sm hover:shadow-md transition-all flex items-center gap-2"
                 style={{ backgroundColor: '#ff6b35' }}
               >
-                Xác nhận & Thanh toán
+                {loading ? 'Đang xử lý...' : 'Xác nhận Gửi yêu cầu'}
               </button>
             )}
           </div>
