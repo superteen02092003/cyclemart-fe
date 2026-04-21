@@ -49,8 +49,15 @@ export default function RegisterPage() {
     
     if (!formData.phone.trim()) {
       newErrors.phone = 'Vui lòng nhập số điện thoại'
-   } else if (!/^0[35789][0-9]{8}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'SĐT phải bắt đầu bằng số 0 và có 10 chữ số'
+    } else {
+      const phoneDigits = formData.phone.replace(/\s/g, '')
+      if (!/^0/.test(phoneDigits)) {
+        newErrors.phone = 'SĐT phải bắt đầu bằng số 0'
+      } else if (phoneDigits.length !== 10) {
+        newErrors.phone = 'SĐT phải có đúng 10 chữ số'
+      } else if (!/^0[0-9]{9}$/.test(phoneDigits)) {
+        newErrors.phone = 'SĐT không hợp lệ'
+      }
     }
     
     if (!formData.password) {
@@ -83,13 +90,30 @@ export default function RegisterPage() {
         navigate(ROUTES.LOGIN)
       }, 2000)
     } catch (error) {
-      console.error('Register error:', error)
-      
-      // Hiển thị lỗi từ server
-      if (error.message) {
+      console.error('❌ Register error:', error)
+      console.log('Error type:', typeof error)
+      console.log('Error structure:', error)
+
+      // Nếu error là object với các key (email, phone, fullName, password) - lỗi từ backend
+      if (typeof error === 'object' && error !== null && !error.message) {
+        console.log('✅ Backend validation errors:', error)
+        setErrors(error)
+
+        // Hiển thị toast với lỗi đầu tiên
+        const firstError = Object.values(error)[0]
+        if (firstError) {
+          showToast(firstError, 'error')
+        }
+      }
+      // Nếu error có message
+      else if (error.message) {
+        console.log('⚠️ General error message:', error.message)
         setErrors({ submit: error.message })
         showToast(error.message, 'error')
-      } else {
+      }
+      // Fallback
+      else {
+        console.log('⚠️ Unknown error format')
         setErrors({ submit: 'Đăng ký thất bại. Vui lòng thử lại.' })
         showToast('Đăng ký thất bại. Vui lòng thử lại.', 'error')
       }
@@ -108,11 +132,6 @@ export default function RegisterPage() {
         </h1>
         <p className="text-sm text-content-secondary mb-8">Tham gia cộng đồng CycleMart</p>
 
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-sm">
-            <p className="text-sm text-error">{errors.submit}</p>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
