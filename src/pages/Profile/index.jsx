@@ -54,6 +54,10 @@ export default function ProfilePage() {
   const [showAllRecentPosts, setShowAllRecentPosts] = useState(false)
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [profileUserId])
+
+  useEffect(() => {
     const loadProfile = async () => {
       if (!profileUserId) return
 
