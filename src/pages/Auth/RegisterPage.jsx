@@ -22,20 +22,64 @@ export default function RegisterPage() {
   const normalizeBackendErrors = (error) => {
     if (!error) return {}
 
+    const normalizeFieldMessage = (field, message) => {
+      if (!message) return ''
+      const lower = String(message).toLowerCase()
+
+      if (field === 'fullName') {
+        if (lower.includes('tên chỉ được chứa chữ cái và khoảng trắng')) {
+          return 'Tên chỉ được chứa chữ cái và khoảng trắng'
+        }
+        if (lower.includes('tên không được để trống')) {
+          return 'Tên không được để trống'
+        }
+        if (lower.includes('tên phải từ 2-100 ký tự')) {
+          return 'Tên phải từ 2-100 ký tự'
+        }
+      }
+
+      if (field === 'password') {
+        if (lower.includes('password phải có ít nhất 8 ký tự')) {
+          return 'Password phải có ít nhất 8 ký tự'
+        }
+        if (lower.includes('password không được để trống')) {
+          return 'Password không được để trống'
+        }
+        if (lower.includes('password phải có ít nhất 1 chữ hoa và 1 ký tự đặc biệt')) {
+          return 'Password phải có ít nhất 1 chữ hoa và 1 ký tự đặc biệt'
+        }
+      }
+
+      return message
+    }
+
     if (typeof error === 'string') {
       if (error.toLowerCase().includes('số điện thoại') || error.toLowerCase().includes('phone')) {
         return { phone: error }
+      }
+      if (error.toLowerCase().includes('tên') || error.toLowerCase().includes('full name')) {
+        return { fullName: normalizeFieldMessage('fullName', error) }
+      }
+      if (error.toLowerCase().includes('password') || error.toLowerCase().includes('mật khẩu')) {
+        return { password: normalizeFieldMessage('password', error) }
       }
       return { submit: error }
     }
 
     if (typeof error === 'object') {
       if (error.errors && typeof error.errors === 'object') {
-        return error.errors
+        return Object.fromEntries(
+          Object.entries(error.errors).map(([field, message]) => [field, normalizeFieldMessage(field, message)])
+        )
       }
 
       if (error.phone || error.email || error.fullName || error.password) {
-        return error
+        return {
+          ...(error.phone ? { phone: normalizeFieldMessage('phone', error.phone) } : {}),
+          ...(error.email ? { email: normalizeFieldMessage('email', error.email) } : {}),
+          ...(error.fullName ? { fullName: normalizeFieldMessage('fullName', error.fullName) } : {}),
+          ...(error.password ? { password: normalizeFieldMessage('password', error.password) } : {}),
+        }
       }
 
       if (error.message) {
@@ -44,6 +88,12 @@ export default function RegisterPage() {
 
         if (lowerMessage.includes('số điện thoại') || lowerMessage.includes('phone')) {
           return { phone: message }
+        }
+        if (lowerMessage.includes('tên') || lowerMessage.includes('full name')) {
+          return { fullName: normalizeFieldMessage('fullName', message) }
+        }
+        if (lowerMessage.includes('password') || lowerMessage.includes('mật khẩu')) {
+          return { password: normalizeFieldMessage('password', message) }
         }
 
         return { submit: message }

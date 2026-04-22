@@ -9,13 +9,15 @@ const normalizeVietnameseText = (value) => {
   if (typeof value !== 'string' || !value) return value
 
   try {
-    const hasMojibake = /[ÃÂáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/.test(value)
+    const hasMojibake = /[ÃÂáàảãạăắằẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/.test(value)
     if (!hasMojibake) return value
     return decodeURIComponent(escape(value))
   } catch {
     return value
   }
 }
+
+const isValidFullName = (value) => /^[A-Za-zÀ-ỹĐđ\s]+$/.test(value.trim())
 
 export default function ProfilePage() {
   const { user, updateUserContext } = useAuth()
@@ -24,6 +26,8 @@ export default function ProfilePage() {
   const [showSubscribeModal, setShowSubscribeModal] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [priorityPosts, setPriorityPosts] = useState([])
+  const [profileErrors, setProfileErrors] = useState({})
+  const [passwordErrors, setPasswordErrors] = useState({})
 
   const [profile, setProfile] = useState({
     fullName: '',
@@ -61,15 +65,66 @@ export default function ProfilePage() {
     setTimeout(() => setMessage({ text: '', type: '' }), 3000)
   }
 
+  const handleProfileChange = (field, value) => {
+    let nextValue = value
+
+    if (field === 'phone') {
+      nextValue = value.replace(/\D/g, '').slice(0, 10)
+    }
+
+    setProfile(prev => ({
+      ...prev,
+      [field]: nextValue
+    }))
+
+    if (profileErrors[field]) {
+      setProfileErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }))
+    }
+  }
+
+  const validateProfileForm = () => {
+    const errors = {}
+    const name = profile.fullName.trim()
+    const phone = profile.phone.trim()
+
+    if (!name) {
+      errors.fullName = 'Vui lòng nhập họ và tên'
+    } else if (!isValidFullName(name)) {
+      errors.fullName = 'Tên chỉ được chứa chữ cái và khoảng trắng'
+    }
+
+    if (!phone) {
+      errors.phone = 'Vui lòng nhập số điện thoại'
+    } else if (!/^\d{10}$/.test(phone)) {
+      errors.phone = 'Số điện thoại phải đúng 10 chữ số'
+    }
+
+    return errors
+  }
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
+
+    const errors = validateProfileForm()
+    if (Object.keys(errors).length > 0) {
+      setProfileErrors(errors)
+      return
+    }
+
     setLoading(true)
     try {
-      await authService.updateProfile(profile)
-      updateUserContext({
-        fullName: profile.fullName,
-        phone: profile.phone
+      await authService.updateProfile({
+        fullName: profile.fullName.trim(),
+        phone: profile.phone.trim()
       })
+      updateUserContext({
+        fullName: profile.fullName.trim(),
+        phone: profile.phone.trim()
+      })
+      setProfileErrors({})
       showMessage('Cập nhật thông tin thành công!', 'success')
       setIsEditingProfile(false)
     } catch (error) {
@@ -81,24 +136,84 @@ export default function ProfilePage() {
 
   const handleCancelEdit = () => {
     setProfile({
-      fullName: user?.fullName || '',
+      fullName: normalizeVietnameseText(user?.fullName) || '',
       phone: user?.phone || ''
     })
+    setProfileErrors({})
     setIsEditingProfile(false)
+  }
+
+  const handlePasswordChange = (field, value) => {
+    setPasswords(prev => ({
+      ...prev,
+      [field]: value
+    }))
+
+    if (passwordErrors[field]) {
+      setPasswordErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }))
+    }
+  }
+
+  const validatePasswordForm = () => {
+    const errors = {}
+
+    if (!passwords.oldPassword.trim()) {
+      errors.oldPassword = 'Mật khẩu cũ không được để trống'
+    }
+
+    if (!passwords.newPassword.trim()) {
+      errors.newPassword = 'Mật khẩu mới không được để trống'
+    } else if (passwords.newPassword.length < 8) {
+      errors.newPassword = 'Password phải có ít nhất 8 ký tự'
+    } else if (!/(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/.test(passwords.newPassword)) {
+      errors.newPassword = 'Password phải có ít nhất 1 chữ hoa và 1 ký tự đặc biệt'
+    }
+
+    if (!passwords.confirmNewPassword.trim()) {
+      errors.confirmNewPassword = 'Xác nhận mật khẩu mới không được để trống'
+    } else if (passwords.newPassword !== passwords.confirmNewPassword) {
+      errors.confirmNewPassword = 'Mật khẩu mới không khớp'
+    }
+
+    return errors
   }
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
-    if (passwords.newPassword !== passwords.confirmNewPassword) {
-      return showMessage('Mật khẩu mới không khớp!', 'error')
+
+    const errors = validatePasswordForm()
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors)
+      return
     }
+
     setLoading(true)
     try {
-      await authService.changePassword(passwords)
+      await authService.changePassword({
+        oldPassword: passwords.oldPassword,
+        newPassword: passwords.newPassword,
+        confirmNewPassword: passwords.confirmNewPassword,
+      })
       showMessage('Đổi mật khẩu thành công!', 'success')
       setPasswords({ oldPassword: '', newPassword: '', confirmNewPassword: '' })
+      setPasswordErrors({})
     } catch (error) {
-      showMessage(error.message || 'Mật khẩu cũ không đúng', 'error')
+      const backendMessage =
+        error?.errors?.oldPassword ||
+        error?.message ||
+        error?.errors?.newPassword ||
+        error?.errors?.confirmNewPassword ||
+        'Đổi mật khẩu thất bại'
+
+      setPasswordErrors(prev => ({
+        ...prev,
+        oldPassword: error?.errors?.oldPassword || prev.oldPassword || '',
+        submit: error?.errors?.oldPassword ? '' : backendMessage,
+      }))
+      showMessage(backendMessage, 'error')
     } finally {
       setLoading(false)
     }
@@ -147,11 +262,24 @@ export default function ProfilePage() {
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label>
-                <input type="text" value={profile.fullName} onChange={(e) => setProfile({...profile, fullName: e.target.value})} className="w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35]" />
+                <input
+                  type="text"
+                  value={profile.fullName}
+                  onChange={(e) => handleProfileChange('fullName', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${profileErrors.fullName ? 'border-error' : ''}`}
+                />
+                {profileErrors.fullName && <p className="text-xs text-error mt-1">{profileErrors.fullName}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label>
-                <input type="text" value={profile.phone} onChange={(e) => setProfile({...profile, phone: e.target.value})} className="w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35]" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={profile.phone}
+                  onChange={(e) => handleProfileChange('phone', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${profileErrors.phone ? 'border-error' : ''}`}
+                />
+                {profileErrors.phone && <p className="text-xs text-error mt-1">{profileErrors.phone}</p>}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={loading} className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50">Lưu</button>
@@ -166,10 +294,44 @@ export default function ProfilePage() {
           <h2 className="text-lg font-semibold text-content-primary mb-4">Đổi mật khẩu</h2>
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
-              <input type="password" placeholder="Mật khẩu cũ" required value={passwords.oldPassword} onChange={(e) => setPasswords({...passwords, oldPassword: e.target.value})} className="w-full px-3 py-2 border rounded-sm" />
-              <input type="password" placeholder="Mật khẩu mới" required value={passwords.newPassword} onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})} className="w-full px-3 py-2 border rounded-sm" />
-              <input type="password" placeholder="Xác nhận mật khẩu mới" required value={passwords.confirmNewPassword} onChange={(e) => setPasswords({...passwords, confirmNewPassword: e.target.value})} className="w-full px-3 py-2 border rounded-sm" />
+              <div>
+                <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu cũ</label>
+                <input
+                  type="password"
+                  placeholder="Nhập mật khẩu cũ"
+                  required
+                  value={passwords.oldPassword}
+                  onChange={(e) => handlePasswordChange('oldPassword', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.oldPassword ? 'border-error' : 'border-border-light'}`}
+                />
+                {passwordErrors.oldPassword && <p className="text-xs text-error mt-1">{passwordErrors.oldPassword}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  placeholder="Ít nhất 8 ký tự"
+                  required
+                  value={passwords.newPassword}
+                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.newPassword ? 'border-error' : 'border-border-light'}`}
+                />
+                {passwordErrors.newPassword && <p className="text-xs text-error mt-1">{passwordErrors.newPassword}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-content-secondary mb-1">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  placeholder="Nhập lại mật khẩu mới"
+                  required
+                  value={passwords.confirmNewPassword}
+                  onChange={(e) => handlePasswordChange('confirmNewPassword', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.confirmNewPassword ? 'border-error' : 'border-border-light'}`}
+                />
+                {passwordErrors.confirmNewPassword && <p className="text-xs text-error mt-1">{passwordErrors.confirmNewPassword}</p>}
+              </div>
             </div>
+            {passwordErrors.submit && !passwordErrors.oldPassword && <p className="text-xs text-error">{passwordErrors.submit}</p>}
             <button type="submit" disabled={loading} className="px-4 py-2 border border-[#ff6b35] text-[#ff6b35] hover:bg-[#ff6b35] hover:text-white font-semibold rounded-sm transition-all">
               Cập nhật mật khẩu
             </button>

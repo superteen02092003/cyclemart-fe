@@ -7,24 +7,34 @@ export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    const currentUser = authService.getCurrentUser()
-    const isAuth = authService.isAuthenticated()
-    
-    setUser(currentUser)
-    setIsAuthenticated(isAuth)
-    setIsLoading(false)
+    try {
+      const currentUser = authService.getCurrentUser()
+      const isAuth = authService.isAuthenticated()
+
+      if (!isAuth) {
+        authService.logout()
+        setUser(null)
+        setIsAuthenticated(false)
+      } else {
+        setUser(currentUser)
+        setIsAuthenticated(true)
+      }
+    } catch {
+      authService.logout()
+      setUser(null)
+      setIsAuthenticated(false)
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
   const login = async (credentials) => {
     try {
       setIsLoading(true)
-      const data = await authService.login(credentials)
+      await authService.login(credentials)
       const currentUser = authService.getCurrentUser()
       setUser(currentUser)
       setIsAuthenticated(true)
-      return data
-    } catch (error) {
-      throw error
     } finally {
       setIsLoading(false)
     }
@@ -33,10 +43,7 @@ export function useAuth() {
   const register = async (userData) => {
     try {
       setIsLoading(true)
-      const data = await authService.register(userData)
-      return data
-    } catch (error) {
-      throw error
+      return await authService.register(userData)
     } finally {
       setIsLoading(false)
     }

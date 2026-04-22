@@ -6,6 +6,7 @@ import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { bikePostService } from '@/services/bikePost'
 import { sellerRatingService } from '@/services/sellerRating'
+import { authService } from '@/services/auth'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -30,8 +31,6 @@ function OfferModal({ bike, onClose }) {
   const [offerPrice, setOfferPrice] = useState('')
   const [note, setNote] = useState('')
   const [submitted, setSubmitted] = useState(false)
-
-  const minPrice = bike.price * 0.5
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -89,16 +88,12 @@ function OfferModal({ bike, onClose }) {
             <input
               type="number"
               required
-              min={minPrice}
               max={bike.price}
               placeholder="Nhập giá đề xuất"
               value={offerPrice}
               onChange={(e) => setOfferPrice(e.target.value)}
               className="w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors"
             />
-            <p className="text-xs text-content-secondary mt-1">
-              Giá đề xuất tối thiểu 50% giá niêm yết ({formatPrice(minPrice)})
-            </p>
           </div>
 
           {/* Note */}
@@ -155,7 +150,12 @@ export default function BikeDetailPage() {
   const [submittingRating, setSubmittingRating] = useState(false)
   const [ratingError, setRatingError] = useState('')
 
+  const currentUser = authService.getCurrentUser()
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub
   const sellerId = bike?.userId ?? bike?.sellerId ?? bike?.ownerId ?? bike?.user?.id
+  const isOwnPost = Boolean(
+    currentUserId && sellerId && String(currentUserId) === String(sellerId)
+  )
 
   useEffect(() => {
     const fetchBikeData = async () => {
@@ -494,29 +494,47 @@ export default function BikeDetailPage() {
                 </span>
               </div>
 
-              {/* Buy now */}
-              <button
-                onClick={handleBuyNow}
-                className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors"
-                style={{ backgroundColor: '#ff6b35' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-              >
-                Mua ngay
-              </button>
+              {isOwnPost ? (
+                <div className="mb-3 rounded-sm border border-navy/15 bg-navy/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-navy text-white flex-shrink-0">
+                      <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>person</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-navy">Bài của tôi</p>
+                      <p className="text-xs text-content-secondary mt-1 leading-relaxed">
+                        Bạn đang xem bài đăng của chính mình. Hãy chỉnh sửa nội dung, ảnh hoặc theo dõi phản hồi trong mục tin của tôi.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Buy now */}
+                  <button
+                    onClick={handleBuyNow}
+                    className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors"
+                    style={{ backgroundColor: '#ff6b35' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+                  >
+                    Mua ngay
+                  </button>
 
-              {/* showBuyNotice block removed because we navigate to checkout immediately */}
+                  {/* showBuyNotice block removed because we navigate to checkout immediately */}
 
-              {/* Make offer */}
-              <Button
-                variant="outline"
-                fullWidth
-                onClick={() => setShowOfferModal(true)}
-                className="mb-4"
-              >
-                <span className="material-symbols-outlined text-[1rem]">gavel</span>
-                Đặt giá
-              </Button>
+                  {/* Make offer */}
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={() => setShowOfferModal(true)}
+                    className="mb-4"
+                  >
+                    <span className="material-symbols-outlined text-[1rem]">gavel</span>
+                    Đặt giá
+                  </Button>
+                </>
+              )}
 
               {/* Wishlist toggle */}
               <button
@@ -620,7 +638,7 @@ export default function BikeDetailPage() {
       </div>
 
       {/* Offer modal */}
-      {showOfferModal && (
+      {!isOwnPost && showOfferModal && (
         <OfferModal bike={bike} onClose={() => setShowOfferModal(false)} />
       )}
     </div>
