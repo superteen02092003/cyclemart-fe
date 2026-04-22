@@ -2,24 +2,15 @@ import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { categoryService } from '@/services/category'
-import { brandService } from '@/services/brand'
-
-const MOCK_BRANDS_DATA = [
-  { id: 1, name: 'Honda', category: 'Xe máy', productCount: 450, status: 'active' },
-  { id: 2, name: 'Yamaha', category: 'Xe máy', productCount: 380, status: 'active' },
-  { id: 3, name: 'Trek', category: 'Xe đạp', productCount: 120, status: 'active' },
-  { id: 4, name: 'Giant', category: 'Xe đạp', productCount: 95, status: 'active' },
-]
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([])
-  const [brands, setBrands] = useState([])
-  const [activeTab, setActiveTab] = useState('categories')
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
-  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({}) // State lưu lỗi validate
+
   const [categoryFormData, setCategoryFormData] = useState({ 
     name: '', 
     description: '',
@@ -27,60 +18,79 @@ export default function AdminCategories() {
     parentId: null,
     isActive: true 
   })
-  const [brandFormData, setBrandFormData] = useState({ name: '', description: '', isActive: true })
 
-  // Load categories và brands từ API
+  // Load categories từ API
   useEffect(() => {
     loadCategories()
-    loadBrands()
   }, [])
 
   const loadCategories = async () => {
     try {
       setLoading(true)
-      console.log('📂 Loading categories from backend...')
       const data = await categoryService.getAll()
-      console.log('✅ Categories loaded:', data)
       setCategories(data || [])
     } catch (error) {
       console.error('❌ Error loading categories:', error)
+      alert('Không thể tải danh sách danh mục.')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadBrands = async () => {
-    try {
-      console.log('🏷️ Loading brands from backend...')
-      const data = await brandService.getAll()
-      console.log('✅ Brands loaded:', data)
-      setBrands(data || [])
-    } catch (error) {
-      console.error('❌ Error loading brands, using mock data:', error)
-      setBrands(MOCK_BRANDS_DATA)
+  // VALIDATE FRONTEND
+  const validateForm = () => {
+    const newErrors = {}
+    
+    if (!categoryFormData.name || categoryFormData.name.trim() === '') {
+      newErrors.name = 'Tên danh mục không được để trống'
+    } else if (categoryFormData.name.length < 2 || categoryFormData.name.length > 100) {
+      newErrors.name = 'Tên danh mục phải từ 2 đến 100 ký tự'
     }
+
+    if (categoryFormData.description && categoryFormData.description.length > 500) {
+      newErrors.description = 'Mô tả không được vượt quá 500 ký tự'
+    }
+
+    if (categoryFormData.displayOrder === '' || categoryFormData.displayOrder === null) {
+      newErrors.displayOrder = 'Thứ tự hiển thị không được để trống'
+    } else if (categoryFormData.displayOrder < 0 || categoryFormData.displayOrder > 9999) {
+      newErrors.displayOrder = 'Thứ tự hiển thị phải từ 0 đến 9999'
+    }
+
+    // Tùy chọn: Validate không cho phép danh mục cha tự chọn chính nó (nếu đang update)
+    if (selectedItem && categoryFormData.parentId === selectedItem.id) {
+       newErrors.parentId = 'Danh mục không thể là cha của chính nó'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0 // Trả về true nếu không có lỗi
   }
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault()
+    
+    // Kiểm tra validate trước khi gọi API
+    if (!validateForm()) return;
+
     try {
       setLoading(true)
       if (selectedItem) {
         // Update
-        console.log('📝 Updating category:', selectedItem.id, categoryFormData)
         await categoryService.update(selectedItem.id, categoryFormData)
       } else {
         // Create
-        console.log('➕ Creating new category:', categoryFormData)
         await categoryService.create(categoryFormData)
       }
       await loadCategories()
-      setIsCategoryModalOpen(false)
-      setCategoryFormData({ name: '', description: '', displayOrder: 1, parentId: null, isActive: true })
-      setSelectedItem(null)
+      closeModal()
     } catch (error) {
       console.error('Error saving category:', error)
-      alert(error.message || 'Lỗi khi lưu danh mục')
+      // Hiển thị lỗi từ backend nếu có (Backend trả về mảng/object lỗi)
+      if (error.response?.data?.message) {
+         alert('Lỗi: ' + error.response.data.message)
+      } else {
+         alert('Lỗi khi lưu danh mục')
+      }
     } finally {
       setLoading(false)
     }
@@ -90,63 +100,28 @@ export default function AdminCategories() {
     if (confirm('Bạn chắc chắn muốn xóa danh mục này?')) {
       try {
         setLoading(true)
-        console.log('🗑️ Deleting category:', id)
         await categoryService.delete(id)
         await loadCategories()
       } catch (error) {
         console.error('Error deleting category:', error)
-        alert(error.message || 'Lỗi khi xóa danh mục')
+        alert(error.response?.data?.message || 'Lỗi khi xóa danh mục')
       } finally {
         setLoading(false)
       }
     }
   }
 
-  const handleBrandSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      setLoading(true)
-      if (selectedItem) {
-        // Update
-        console.log('📝 Updating brand:', selectedItem.id, brandFormData)
-        await brandService.update(selectedItem.id, brandFormData)
-      } else {
-        // Create
-        console.log('➕ Creating new brand:', brandFormData)
-        await brandService.create(brandFormData)
-      }
-      await loadBrands()
-      setIsBrandModalOpen(false)
-      setBrandFormData({ name: '', description: '', isActive: true })
-      setSelectedItem(null)
-    } catch (error) {
-      console.error('Error saving brand:', error)
-      alert(error.message || 'Lỗi khi lưu thương hiệu')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteBrand = async (id) => {
-    if (confirm('Bạn chắc chắn muốn xóa thương hiệu này?')) {
-      try {
-        setLoading(true)
-        console.log('🗑️ Deleting brand:', id)
-        await brandService.delete(id)
-        await loadBrands()
-      } catch (error) {
-        console.error('Error deleting brand:', error)
-        alert(error.message || 'Lỗi khi xóa thương hiệu')
-      } finally {
-        setLoading(false)
-      }
-    }
+  const closeModal = () => {
+    setIsCategoryModalOpen(false)
+    setSelectedItem(null)
+    setCategoryFormData({ name: '', description: '', displayOrder: 1, parentId: null, isActive: true })
+    setErrors({}) // Xóa lỗi khi đóng modal
   }
 
   const categoryColumns = [
     { key: 'id', label: 'ID', width: '60px' },
     { key: 'name', label: 'Tên danh mục', width: '200px' },
-    { key: 'description', label: 'Mô tả', width: '200px' },
+    { key: 'description', label: 'Mô tả', width: '250px' },
     { key: 'displayOrder', label: 'Thứ tự', width: '80px' },
     { 
       key: 'parentName', 
@@ -154,7 +129,7 @@ export default function AdminCategories() {
       width: '150px',
       render: (value, item) => (
         <span className="text-content-primary">
-          {item.parentId === null ? 'Danh mục gốc' : (value || 'Không xác định')}
+          {item.parentId === null ? 'Danh mục gốc' : (value || `ID: ${item.parentId}`)}
         </span>
       )
     },
@@ -171,201 +146,128 @@ export default function AdminCategories() {
     },
   ]
 
-  const brandColumns = [
-    { key: 'id', label: 'ID', width: '60px' },
-    { key: 'name', label: 'Tên thương hiệu', width: '150px' },
-    { key: 'description', label: 'Mô tả', width: '250px' },
-    {
-      key: 'isActive',
-      label: 'Trạng thái',
-      render: (value) => (
-        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-          value ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-        }`}>
-          {value ? 'Hoạt động' : 'Không hoạt động'}
-        </span>
-      ),
-    },
-  ]
-
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-content-primary">Danh mục & Thương hiệu</h1>
-        <p className="text-content-secondary mt-2">Quản lý danh mục và thương hiệu xe</p>
+        <h1 className="text-3xl font-bold text-content-primary">Quản lý Danh mục</h1>
+        <p className="text-content-secondary mt-2">Thêm, sửa, xóa các danh mục xe trên hệ thống</p>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-6 flex gap-4 border-b border-border-light">
-        <button
-          onClick={() => setActiveTab('categories')}
-          className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-            activeTab === 'categories'
-              ? 'border-navy text-content-primary'
-              : 'border-transparent text-content-secondary hover:text-content-primary'
-          }`}
-        >
-          Danh mục ({categories.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('brands')}
-          className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-            activeTab === 'brands'
-              ? 'border-navy text-content-primary'
-              : 'border-transparent text-content-secondary hover:text-content-primary'
-          }`}
-        >
-          Thương hiệu ({brands.length})
-        </button>
-      </div>
+      <div>
+        <div className="mb-6 flex justify-between items-center">
+          <span className="text-content-secondary font-medium">Tổng số: {categories.length} danh mục</span>
+          <button
+            onClick={() => {
+              closeModal()
+              setIsCategoryModalOpen(true)
+            }}
+            className="px-4 py-2 bg-navy text-white rounded-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            + Thêm danh mục
+          </button>
+        </div>
 
-      {/* Categories Tab */}
-      {activeTab === 'categories' && (
-        <div>
-          <div className="mb-6 flex justify-end">
+        <Table
+          columns={categoryColumns}
+          data={categories}
+          actions={(item) => [
             <button
+              key="view"
               onClick={() => {
-                setSelectedItem(null)
-                setCategoryFormData({ name: '', description: '', displayOrder: 1, parentId: null, isActive: true })
+                setSelectedItem(item)
+                setIsViewModalOpen(true)
+              }}
+              className="px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-sm transition-colors"
+              title="Xem chi tiết"
+            >
+              Xem
+            </button>,
+            <button
+              key="edit"
+              onClick={() => {
+                setSelectedItem(item)
+                setCategoryFormData({ 
+                  name: item.name, 
+                  description: item.description || '',
+                  displayOrder: item.displayOrder !== null ? item.displayOrder : 1,
+                  parentId: item.parentId,
+                  isActive: item.isActive 
+                })
+                setErrors({}) // Reset lỗi
                 setIsCategoryModalOpen(true)
               }}
-              className="px-4 py-2 bg-navy text-white rounded-sm font-medium hover:opacity-90 transition-opacity"
+              className="px-3 py-2 text-sm font-medium text-content-primary hover:bg-navy/10 rounded-sm transition-colors"
             >
-              + Thêm danh mục
-            </button>
-          </div>
-
-          <Table
-            columns={categoryColumns}
-            data={categories}
-            actions={(item) => [
-              <button
-                key="view"
-                onClick={() => {
-                  setSelectedItem(item)
-                  setIsViewModalOpen(true)
-                }}
-                className="px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-sm transition-colors"
-                title="Xem chi tiết"
-              >
-                Xem
-              </button>,
-              <button
-                key="edit"
-                onClick={() => {
-                  setSelectedItem(item)
-                  setCategoryFormData({ 
-                    name: item.name, 
-                    description: item.description || '',
-                    displayOrder: item.displayOrder || 1,
-                    parentId: item.parentId,
-                    isActive: item.isActive 
-                  })
-                  setIsCategoryModalOpen(true)
-                }}
-                className="px-3 py-2 text-sm font-medium text-content-primary hover:bg-navy/10 rounded-sm transition-colors"
-              >
-                Chỉnh sửa
-              </button>,
-              <button
-                key="delete"
-                onClick={() => handleDeleteCategory(item.id)}
-                className="px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-sm transition-colors"
-              >
-                Xóa
-              </button>,
-            ]}
-            className="bg-surface"
-          />
-        </div>
-      )}
-
-      {/* Brands Tab */}
-      {activeTab === 'brands' && (
-        <div>
-          <div className="mb-6 flex justify-end">
+              Sửa
+            </button>,
             <button
-              onClick={() => {
-                setSelectedItem(null)
-                setBrandFormData({ name: '', description: '', isActive: true })
-                setIsBrandModalOpen(true)
-              }}
-              className="px-4 py-2 bg-navy text-white rounded-sm font-medium hover:opacity-90 transition-opacity"
+              key="delete"
+              onClick={() => handleDeleteCategory(item.id)}
+              className="px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-sm transition-colors"
             >
-              + Thêm thương hiệu
-            </button>
-          </div>
-
-          <Table
-            columns={brandColumns}
-            data={brands}
-            actions={(item) => [
-              <button
-                key="edit"
-                onClick={() => {
-                  setSelectedItem(item)
-                  setBrandFormData({ name: item.name, description: item.description || '', isActive: item.isActive })
-                  setIsBrandModalOpen(true)
-                }}
-                className="px-3 py-2 text-sm font-medium text-content-primary hover:bg-navy/10 rounded-sm transition-colors"
-              >
-                Chỉnh sửa
-              </button>,
-              <button
-                key="delete"
-                onClick={() => handleDeleteBrand(item.id)}
-                className="px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-sm transition-colors"
-              >
-                Xóa
-              </button>,
-            ]}
-            className="bg-surface"
-          />
-        </div>
-      )}
+              Xóa
+            </button>,
+          ]}
+          className="bg-surface"
+        />
+      </div>
 
       {/* Add/Edit Category Modal */}
       <Modal
         isOpen={isCategoryModalOpen}
-        onClose={() => {
-          setIsCategoryModalOpen(false)
-          setSelectedItem(null)
-          setCategoryFormData({ name: '', description: '', displayOrder: 1, parentId: null, isActive: true })
-        }}
+        onClose={closeModal}
         title={selectedItem ? 'Chỉnh sửa danh mục' : 'Thêm danh mục'}
         size="md"
       >
         <form onSubmit={handleCategorySubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-content-primary block mb-1">Tên danh mục *</label>
+            <label className="text-sm font-medium text-content-primary block mb-1">Tên danh mục <span className="text-error">*</span></label>
             <input
               type="text"
-              required
-              className="w-full px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
+              className={`w-full px-4 py-2 border rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50 ${
+                errors.name ? 'border-error bg-red-50' : 'border-border-light'
+              }`}
               placeholder="Nhập tên danh mục"
               value={categoryFormData.name}
-              onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+              onChange={(e) => {
+                setCategoryFormData({ ...categoryFormData, name: e.target.value })
+                if (errors.name) setErrors({...errors, name: null})
+              }}
             />
+            {errors.name && <p className="text-xs text-error mt-1">{errors.name}</p>}
           </div>
+
           <div>
             <label className="text-sm font-medium text-content-primary block mb-1">Mô tả</label>
             <textarea
-              className="w-full px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
+              className={`w-full px-4 py-2 border rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50 ${
+                errors.description ? 'border-error bg-red-50' : 'border-border-light'
+              }`}
               placeholder="Nhập mô tả danh mục"
               rows="3"
               value={categoryFormData.description}
-              onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+              onChange={(e) => {
+                setCategoryFormData({ ...categoryFormData, description: e.target.value })
+                if (errors.description) setErrors({...errors, description: null})
+              }}
             />
+             {errors.description && <p className="text-xs text-error mt-1">{errors.description}</p>}
           </div>
+
           <div>
             <label className="text-sm font-medium text-content-primary block mb-1">Danh mục cha</label>
             <select
-              className="w-full px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
+              className={`w-full px-4 py-2 border rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50 ${
+                 errors.parentId ? 'border-error' : 'border-border-light'
+              }`}
               value={categoryFormData.parentId || ''}
-              onChange={(e) => setCategoryFormData({ 
-                ...categoryFormData, 
-                parentId: e.target.value === '' ? null : parseInt(e.target.value)
-              })}
+              onChange={(e) => {
+                setCategoryFormData({ 
+                  ...categoryFormData, 
+                  parentId: e.target.value === '' ? null : parseInt(e.target.value)
+                })
+                if(errors.parentId) setErrors({...errors, parentId: null})
+              }}
             >
               <option value="">Danh mục gốc (không có cha)</option>
               {categories
@@ -377,116 +279,56 @@ export default function AdminCategories() {
                 ))
               }
             </select>
-            <p className="text-xs text-content-secondary mt-1">
-              Chọn "Danh mục gốc" để tạo danh mục chính, hoặc chọn danh mục có sẵn để tạo danh mục con
-            </p>
+            {errors.parentId ? (
+               <p className="text-xs text-error mt-1">{errors.parentId}</p>
+            ) : (
+               <p className="text-xs text-content-secondary mt-1">
+                 Chọn "Danh mục gốc" để tạo danh mục chính, hoặc chọn danh mục khác làm cha
+               </p>
+            )}
           </div>
+
           <div>
-            <label className="text-sm font-medium text-content-primary block mb-1">Thứ tự hiển thị</label>
+            <label className="text-sm font-medium text-content-primary block mb-1">Thứ tự hiển thị <span className="text-error">*</span></label>
             <input
               type="number"
-              min="1"
-              className="w-full px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
-              placeholder="Nhập thứ tự hiển thị"
+              className={`w-full px-4 py-2 border rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50 ${
+                errors.displayOrder ? 'border-error bg-red-50' : 'border-border-light'
+              }`}
+              placeholder="Ví dụ: 1"
               value={categoryFormData.displayOrder}
-              onChange={(e) => setCategoryFormData({ ...categoryFormData, displayOrder: parseInt(e.target.value) || 1 })}
+              onChange={(e) => {
+                const val = e.target.value === '' ? '' : parseInt(e.target.value);
+                setCategoryFormData({ ...categoryFormData, displayOrder: val })
+                if (errors.displayOrder) setErrors({...errors, displayOrder: null})
+              }}
             />
+            {errors.displayOrder && <p className="text-xs text-error mt-1">{errors.displayOrder}</p>}
           </div>
+
           <div>
-            <label className="text-sm font-medium text-content-primary block mb-1">
+            <label className="text-sm font-medium text-content-primary flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={categoryFormData.isActive}
                 onChange={(e) => setCategoryFormData({ ...categoryFormData, isActive: e.target.checked })}
-                className="mr-2"
+                className="mr-2 w-4 h-4 text-navy focus:ring-navy rounded-sm"
               />
               Kích hoạt danh mục
             </label>
           </div>
-          <div className="flex gap-2 pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 bg-navy text-white rounded-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {loading ? 'Đang lưu...' : 'Lưu'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsCategoryModalOpen(false)
-                setSelectedItem(null)
-                setCategoryFormData({ name: '', description: '', displayOrder: 1, parentId: null, isActive: true })
-              }}
-              className="flex-1 px-4 py-2 border border-border-light text-content-primary rounded-sm font-medium hover:bg-surface-tertiary transition-colors"
-            >
-              Hủy
-            </button>
-          </div>
-        </form>
-      </Modal>
 
-      {/* Add/Edit Brand Modal */}
-      <Modal
-        isOpen={isBrandModalOpen}
-        onClose={() => {
-          setIsBrandModalOpen(false)
-          setSelectedItem(null)
-          setBrandFormData({ name: '', description: '', isActive: true })
-        }}
-        title={selectedItem ? 'Chỉnh sửa thương hiệu' : 'Thêm thương hiệu'}
-        size="md"
-      >
-        <form onSubmit={handleBrandSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-content-primary block mb-1">Tên thương hiệu *</label>
-            <input
-              type="text"
-              required
-              className="w-full px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
-              placeholder="Nhập tên thương hiệu"
-              value={brandFormData.name}
-              onChange={(e) => setBrandFormData({ ...brandFormData, name: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-content-primary block mb-1">Mô tả</label>
-            <textarea
-              className="w-full px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
-              placeholder="Nhập mô tả thương hiệu (tối đa 500 ký tự)"
-              rows="3"
-              maxLength="500"
-              value={brandFormData.description}
-              onChange={(e) => setBrandFormData({ ...brandFormData, description: e.target.value })}
-            />
-            <p className="text-xs text-content-secondary mt-1">{brandFormData.description?.length || 0}/500</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-content-primary block mb-1">
-              <input
-                type="checkbox"
-                checked={brandFormData.isActive}
-                onChange={(e) => setBrandFormData({ ...brandFormData, isActive: e.target.checked })}
-                className="mr-2"
-              />
-              Kích hoạt thương hiệu
-            </label>
-          </div>
           <div className="flex gap-2 pt-4">
             <button
               type="submit"
               disabled={loading}
               className="flex-1 px-4 py-2 bg-navy text-white rounded-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {loading ? 'Đang lưu...' : 'Lưu'}
+              {loading ? 'Đang xử lý...' : 'Lưu danh mục'}
             </button>
             <button
               type="button"
-              onClick={() => {
-                setIsBrandModalOpen(false)
-                setSelectedItem(null)
-                setBrandFormData({ name: '', description: '', isActive: true })
-              }}
+              onClick={closeModal}
               className="flex-1 px-4 py-2 border border-border-light text-content-primary rounded-sm font-medium hover:bg-surface-tertiary transition-colors"
             >
               Hủy
@@ -547,17 +389,18 @@ export default function AdminCategories() {
               </span>
             </div>
             
-            <div className="flex gap-2 pt-4">
+            <div className="flex gap-2 pt-4 mt-2 border-t border-border-light">
               <button
                 onClick={() => {
                   setIsViewModalOpen(false)
                   setCategoryFormData({ 
                     name: selectedItem.name, 
                     description: selectedItem.description || '',
-                    displayOrder: selectedItem.displayOrder || 1,
+                    displayOrder: selectedItem.displayOrder !== null ? selectedItem.displayOrder : 1,
                     parentId: selectedItem.parentId,
                     isActive: selectedItem.isActive 
                   })
+                  setErrors({})
                   setIsCategoryModalOpen(true)
                 }}
                 className="flex-1 px-4 py-2 bg-navy text-white rounded-sm font-medium hover:opacity-90 transition-opacity"
@@ -580,5 +423,3 @@ export default function AdminCategories() {
     </div>
   )
 }
-
-

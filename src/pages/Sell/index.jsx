@@ -62,13 +62,13 @@ const inputErrorClass =
 const labelClass = 'block text-sm font-medium text-content-primary mb-1.5'
 const hintClass = 'text-xs text-content-secondary mt-1'
 
-function ProgressBar({ currentStep }) {
+function ProgressBar({ currentStep, steps }) {
   return (
     <div className="mb-8">
       <div className="flex items-start gap-0 relative">
         {/* Connector line */}
         <div className="absolute top-4 left-0 right-0 h-0.5 bg-border-light z-0" />
-        {STEPS.map((step, idx) => {
+        {steps.map((step, idx) => {
           const done = step.id < currentStep
           const active = step.id === currentStep
           return (
@@ -105,7 +105,7 @@ function ProgressBar({ currentStep }) {
         })}
       </div>
       <p className="sm:hidden text-center text-sm font-semibold text-content-primary mt-3">
-        Bước {currentStep}: {STEPS[currentStep - 1].label}
+        Bước {currentStep}: {steps[currentStep - 1]?.label}
       </p>
     </div>
   )
@@ -155,8 +155,18 @@ export default function SellPage() {
     allowNegotiation: false, // isNegotiable -> allowNegotiation
     city: 'HO_CHI_MINH', // Default to HCM
     district: '',
-    // Step 4 — images
+    // Step 4 & 5 (Kiểm định)
+    requestInspection: false,
+    inspectionAddress: '',
+    inspectionScheduledDate: '',
+    inspectionNote: ''
   })
+
+  // Động lực hoá số bước: Nếu tick kiểm định thì có thêm bước 5
+  const dynamicSteps = formData.requestInspection 
+    ? [...STEPS, { id: 5, label: 'ĐK Kiểm định' }] 
+    : STEPS;
+  const totalSteps = dynamicSteps.length;
 
   // Helper function to get input class based on validation
   const getInputClass = (fieldName, isRequired = false) => {
@@ -197,8 +207,9 @@ export default function SellPage() {
       return
     }
 
-    if (currentStep < 4) setCurrentStep(currentStep + 1)
+    if (currentStep < totalSteps) setCurrentStep(currentStep + 1)
   }
+  
   const handleBack = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
@@ -226,10 +237,21 @@ export default function SellPage() {
       }
       if (!formData.price) errors.push('Giá niêm yết')
       if (!formData.district) errors.push('Quận/Huyện')
+      
+      // Validate bước 5 (Kiểm định)
+      if (formData.requestInspection) {
+        if (!formData.inspectionAddress) errors.push('Địa chỉ xem xe (Kiểm định)')
+        if (!formData.inspectionScheduledDate) {
+          errors.push('Ngày & Giờ hẹn (Kiểm định)')
+        } else if (new Date(formData.inspectionScheduledDate) <= new Date()) {
+          errors.push('Ngày hẹn kiểm định không được ở trong quá khứ')
+        }
+      }
+
       // Bỏ validation ảnh: if (selectedImages.length < 3) errors.push('Hình ảnh (tối thiểu 3 ảnh)')
 
       if (errors.length > 0) {
-        const errorMessage = `Vui lòng điền đầy đủ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
+        const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
         alert(errorMessage)
         return
       }
@@ -250,7 +272,7 @@ export default function SellPage() {
       setSubmitted(true)
     } catch (error) {
       console.error('Error creating post:', error)
-      alert(error.message || 'Lỗi khi tạo bài đăng')
+      alert(error.response?.data?.message || error.message || 'Lỗi khi tạo bài đăng')
     } finally {
       setLoading(false)
     }
@@ -319,30 +341,32 @@ export default function SellPage() {
           </div>
         </div>
 
-        {/* Inspection upsell */}
-        <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-navy text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-content-primary mb-0.5">Tăng uy tín với kiểm định xe</p>
-              <p className="text-xs text-content-secondary mb-3">
-                Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(250000)}</strong>.
-              </p>
-              <button
-                onClick={() => setShowInspection(true)}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-sm"
-                style={{ backgroundColor: '#ff6b35' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-              >
-                <span className="material-symbols-outlined text-[1rem]">add_circle</span>
-                Đăng ký kiểm định ngay
-              </button>
+        {/* Nếu chưa chọn đăng ký kiểm định lúc tạo bài thì hiện upsell */}
+        {!formData.requestInspection && (
+          <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-navy text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-content-primary mb-0.5">Tăng uy tín với kiểm định xe</p>
+                <p className="text-xs text-content-secondary mb-3">
+                  Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(250000)}</strong>.
+                </p>
+                <button
+                  onClick={() => setShowInspection(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-sm"
+                  style={{ backgroundColor: '#ff6b35' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+                >
+                  <span className="material-symbols-outlined text-[1rem]">add_circle</span>
+                  Đăng ký kiểm định ngay
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
       </div>
@@ -358,7 +382,7 @@ export default function SellPage() {
       </div>
 
       {/* Progress bar */}
-      <ProgressBar currentStep={currentStep} />
+      <ProgressBar currentStep={currentStep} steps={dynamicSteps} />
 
       {/* Draft saved notice */}
       {draftSaved && (
@@ -645,29 +669,79 @@ export default function SellPage() {
               </div>
             )}
 
-            {/* Inspection upsell */}
-            <div className="flex items-start gap-3 bg-navy/5 border border-navy/20 rounded-sm p-4">
-              <span className="material-symbols-outlined text-navy text-[1.3rem] mt-0.5 flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-content-primary mb-0.5">Thêm dịch vụ kiểm định xe</p>
-                <p className="text-xs text-content-secondary mb-2.5">
-                  Inspector đến tận nơi kiểm tra — xe đạt được gắn badge <strong>"Đã kiểm định"</strong>, tăng uy tín và bán nhanh hơn. Chỉ <strong>{formatPrice(250000)}</strong>.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowInspection(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-sm"
-                  style={{ backgroundColor: '#1e3a5f' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
-                >
-                  <span className="material-symbols-outlined text-[0.9rem]">add_circle</span>
-                  Đăng ký kiểm định
-                </button>
-              </div>
+            {/* ── SỬA Ở ĐÂY: Checkbox Đăng ký Kiểm định Ngay ── */}
+            <div className="mt-8 pt-6 border-t border-border-light">
+              <label className="flex items-start gap-3 cursor-pointer p-4 bg-surface rounded-sm border border-border-light hover:border-navy transition-colors">
+                <input
+                  type="checkbox"
+                  checked={formData.requestInspection}
+                  onChange={set('requestInspection')}
+                  className="mt-1 w-5 h-5 text-navy focus:ring-navy rounded-sm"
+                />
+                <div>
+                  <span className="block text-sm font-bold text-content-primary">Tôi muốn đăng ký kiểm định xe này ngay</span>
+                  <span className="block text-xs text-content-secondary mt-1 leading-relaxed">
+                    Chuyên viên của chúng tôi sẽ đến tận nơi kiểm tra. Xe vượt qua kiểm định sẽ nhận được huy hiệu <strong className="text-success">"Đã kiểm định"</strong>, giúp bán nhanh hơn gấp 5 lần!
+                  </span>
+                </div>
+              </label>
+            </div>
+            {/* ──────────────────────────────────────────────── */}
+          </div>
+        )}
+
+        {/* ── Step 5: KIỂM ĐỊNH (Chỉ hiện khi tick Checkbox) ── */}
+        {currentStep === 5 && formData.requestInspection && (
+          <div className="space-y-5 animate-fade-in">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Thông tin Kiểm định
+            </h2>
+
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-sm mb-4 flex items-start gap-3">
+              <span className="material-symbols-outlined text-blue-600 mt-0.5 text-[1.2rem]">security</span>
+              <p className="text-sm text-blue-800 leading-relaxed">
+                <strong>Bảo mật thông tin:</strong> Địa chỉ kiểm định và ghi chú này chỉ hiển thị nội bộ cho Quản trị viên và Nhân viên phân công. Sẽ <strong>không</strong> hiển thị công khai trên bài đăng của bạn.
+              </p>
+            </div>
+
+            <div>
+              <label className={labelClass}>Địa chỉ xem xe <span className="text-error">*</span></label>
+              <input
+                type="text"
+                value={formData.inspectionAddress}
+                onChange={set('inspectionAddress')}
+                className={getInputClass('inspectionAddress', true)}
+                placeholder="Nhập địa chỉ chính xác để nhân viên đến kiểm tra"
+                required
+              />
+              {!formData.inspectionAddress && <p className="text-xs text-error mt-1">Vui lòng nhập địa chỉ xem xe</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Ngày & Giờ hẹn <span className="text-error">*</span></label>
+              <input
+                type="datetime-local"
+                value={formData.inspectionScheduledDate}
+                onChange={set('inspectionScheduledDate')}
+                className={getInputClass('inspectionScheduledDate', true)}
+                required
+              />
+              {!formData.inspectionScheduledDate && <p className="text-xs text-error mt-1">Vui lòng chọn ngày giờ hẹn</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Ghi chú <span className="text-content-tertiary font-normal">(Tuỳ chọn)</span></label>
+              <textarea
+                value={formData.inspectionNote}
+                onChange={set('inspectionNote')}
+                className={inputClass}
+                rows={3}
+                placeholder="VD: Xe nằm ở tầng hầm chung cư, đến nơi vui lòng gọi điện thoại..."
+              />
             </div>
           </div>
         )}
+
       </div>
 
       {/* Navigation buttons */}
@@ -689,7 +763,7 @@ export default function SellPage() {
 
         {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
 
-        {currentStep < 4 ? (
+        {currentStep < totalSteps ? (
           <button
             onClick={handleNext}
             className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors"

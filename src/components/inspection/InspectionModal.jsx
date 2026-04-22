@@ -76,18 +76,23 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
   const [form, setForm] = useState({ listingId: preselectedId || '', address: '', scheduledDateTime: '', note: '' })
   const [formStep, setFormStep] = useState(1)
+  const [errors, setErrors] = useState({}) // State lưu lỗi validate
 
   // Load danh sách bài đăng của User để chọn xe
-  useEffect(() => {
+ useEffect(() => {
     const fetchListings = async () => {
       try {
         const data = await postService.getMyPosts()
+        // Dữ liệu có thể nằm trong .content (nếu BE phân trang) hoặc mảng trực tiếp
         const listings = data?.content || data || []
-        setActiveListings(listings)
         
-        // Tự động chọn xe đầu tiên nếu chưa có
-        if (!form.listingId && listings.length > 0) {
-          setForm(prev => ({ ...prev, listingId: listings[0].id }))
+        // 🔥 LỌC: Chỉ lấy những xe có trạng thái là APPROVED (Đã duyệt)
+        const approvedOnly = listings.filter(l => l.postStatus === 'APPROVED')
+        
+        setActiveListings(approvedOnly)
+        
+        if (!form.listingId && approvedOnly.length > 0) {
+          setForm(prev => ({ ...prev, listingId: approvedOnly[0].id }))
         }
       } catch (error) {
         console.error("Lỗi tải danh sách xe:", error)
@@ -123,6 +128,40 @@ export default function InspectionModal({ onClose, preselectedId }) {
   // Tìm bài đăng đang được chọn trong Form
   const selected = activeListings.find((l) => String(l.id) === String(form.listingId))
 
+  // HÀM VALIDATE FORM
+  const validateForm = () => {
+    const newErrors = {}
+
+    if (!form.listingId) {
+      newErrors.listingId = 'Vui lòng chọn xe cần kiểm định'
+    }
+
+    if (!form.address || form.address.trim() === '') {
+      newErrors.address = 'Vui lòng nhập địa chỉ xem xe'
+    }
+
+    if (!form.scheduledDateTime) {
+      newErrors.scheduledDateTime = 'Vui lòng chọn ngày và giờ hẹn'
+    } else {
+      // Chặn ngày giờ trong quá khứ
+      const selectedDate = new Date(form.scheduledDateTime)
+      const now = new Date()
+      if (selectedDate <= now) {
+        newErrors.scheduledDateTime = 'Ngày giờ hẹn không được ở trong quá khứ'
+      }
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  // Chuyển sang bước 2 (Xác nhận)
+  const handleNextStep = () => {
+    if (validateForm()) {
+      setFormStep(2)
+    }
+  }
+
   // Gửi API tạo Yêu cầu
   const handleSubmit = async () => {
     try {
@@ -139,6 +178,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
       setFormStep(1)
       setTab('requests') // Chuyển tab để tải lại danh sách
     } catch (error) {
+      // Bắt lỗi từ Backend (nếu có validate lỗi)
       alert(error.response?.data?.message || 'Lỗi khi đăng ký kiểm định')
     } finally {
       setLoading(false)
@@ -226,15 +266,25 @@ export default function InspectionModal({ onClose, preselectedId }) {
                         Bạn chưa có bài đăng nào. Hãy đăng bán xe trước khi yêu cầu kiểm định nhé!
                       </p>
                     ) : (
-                      <select
-                        value={form.listingId}
-                        onChange={(e) => setForm({ ...form, listingId: e.target.value })}
-                        className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy bg-white transition-colors"
-                      >
-                        {activeListings.map((l) => (
-                          <option key={l.id} value={l.id}>{l.title} — {formatPrice(l.price)}</option>
-                        ))}
-                      </select>
+                      <>
+                        <select
+                          value={form.listingId}
+                          onChange={(e) => {
+                            setForm({ ...form, listingId: e.target.value })
+                            if(errors.listingId) setErrors({...errors, listingId: null})
+                          }}
+                          className={cn(
+                            "w-full border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors bg-white",
+                            errors.listingId ? "border-error focus:border-error focus:ring-error bg-red-50" : "border-border-light focus:border-navy focus:ring-navy"
+                          )}
+                        >
+                          <option value="">-- Chọn bài đăng của bạn --</option>
+                          {activeListings.map((l) => (
+                            <option key={l.id} value={l.id}>{l.title} — {formatPrice(l.price)}</option>
+                          ))}
+                        </select>
+                        {errors.listingId && <p className="text-xs text-error mt-1">{errors.listingId}</p>}
+                      </>
                     )}
                   </div>
 
@@ -247,9 +297,16 @@ export default function InspectionModal({ onClose, preselectedId }) {
                       type="text"
                       placeholder="VD: 123 Nguyễn Huệ, Quận 1, TP. HCM"
                       value={form.address}
-                      onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy transition-colors"
+                      onChange={(e) => {
+                        setForm({ ...form, address: e.target.value })
+                        if(errors.address) setErrors({...errors, address: null})
+                      }}
+                      className={cn(
+                        "w-full border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors",
+                        errors.address ? "border-error focus:border-error focus:ring-error bg-red-50" : "border-border-light focus:border-navy focus:ring-navy"
+                      )}
                     />
+                    {errors.address && <p className="text-xs text-error mt-1">{errors.address}</p>}
                   </div>
 
                   {/* Date & Time (DATETIME-LOCAL) */}
@@ -260,9 +317,16 @@ export default function InspectionModal({ onClose, preselectedId }) {
                     <input
                       type="datetime-local"
                       value={form.scheduledDateTime}
-                      onChange={(e) => setForm({ ...form, scheduledDateTime: e.target.value })}
-                      className="w-full border border-border-light rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy transition-colors"
+                      onChange={(e) => {
+                        setForm({ ...form, scheduledDateTime: e.target.value })
+                        if(errors.scheduledDateTime) setErrors({...errors, scheduledDateTime: null})
+                      }}
+                      className={cn(
+                        "w-full border rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:ring-1 transition-colors",
+                        errors.scheduledDateTime ? "border-error focus:border-error focus:ring-error bg-red-50" : "border-border-light focus:border-navy focus:ring-navy"
+                      )}
                     />
+                    {errors.scheduledDateTime && <p className="text-xs text-error mt-1">{errors.scheduledDateTime}</p>}
                   </div>
 
                   {/* Note */}
@@ -363,9 +427,9 @@ export default function InspectionModal({ onClose, preselectedId }) {
             </button>
             {formStep === 1 ? (
               <button
-                onClick={() => setFormStep(2)}
-                disabled={!form.listingId || !form.address || !form.scheduledDateTime || loading}
-                className="px-6 py-2.5 text-sm font-bold text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                onClick={handleNextStep}
+                disabled={loading}
+                className="px-6 py-2.5 text-sm font-bold text-white rounded-sm transition-all"
                 style={{ backgroundColor: '#1e3a5f' }}
               >
                 Tiếp theo
