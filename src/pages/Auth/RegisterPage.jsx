@@ -117,12 +117,17 @@ export default function RegisterPage() {
       await register(formData)
       
       // Hiển thị toast thành công
-      showToast('Đăng ký thành công! Chuyển hướng đến trang đăng nhập...', 'success')
+      showToast('Đăng ký thành công! Chuyển hướng đến xác thực email...', 'success')
       
-      // Chuyển hướng đến trang đăng nhập sau 2 giây
+      // Chuyển hướng đến trang xác thực OTP sau 1.5 giây
       setTimeout(() => {
-        navigate(ROUTES.LOGIN)
-      }, 2000)
+        navigate('/verify-otp', {
+          state: {
+            email: formData.email,
+            password: formData.password
+          }
+        })
+      }, 1500)
     } catch (error) {
       console.error('❌ Register error:', error)
       console.log('Error type:', typeof error)

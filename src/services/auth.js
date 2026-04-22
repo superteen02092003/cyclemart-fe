@@ -83,7 +83,7 @@ export const authService = {
     }
   },
 
-  // API Đổi mật khẩu 
+  // Đổi mật khẩu 
 
   changePassword: async (passwordData) => {
     try {
@@ -91,6 +91,31 @@ export const authService = {
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Đổi mật khẩu thất bại' }
+    }
+  },
+
+  // Xác thực OTP
+  verifyOtp: async (data) => {
+    try {
+      const response = await api.post('/auth/verify-otp', {
+        email: data.email,
+        otpCode: data.otpCode
+      })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Xác thực OTP thất bại' }
+    }
+  },
+
+  // Gửi lại OTP
+  resendOtp: async (email) => {
+    try {
+      const response = await api.post('/auth/send-otp', null, {
+        params: { email }
+      })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Gửi lại OTP thất bại' }
     }
   }
 

@@ -86,16 +86,30 @@ export function UserMenu() {
           {/* User Info Header */}
           <div className="px-4 py-3 border-b border-border-light">
             <p className="text-sm font-semibold text-content-primary truncate">
+              {user?.fullName || user?.email}
+            </p>
+            <p className="text-xs text-content-secondary truncate">
               {user?.email}
             </p>
-            <p className="text-xs text-content-secondary">Thành viên CycleMart</p>
-            <div className="flex items-center gap-1 mt-1">
+            {user?.phone && (
+              <p className="text-xs text-content-secondary">
+                {user.phone}
+              </p>
+            )}
+            <div className="flex items-center gap-1 mt-2">
               <span 
                 className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: '#10b981' }}
               ></span>
-              <span className="text-xs text-green">Đang hoạt động</span>
+              <span className="text-xs text-green">
+                {user?.statusDisplay || 'Đang hoạt động'}
+              </span>
             </div>
+            {user?.point !== undefined && (
+              <p className="text-xs text-content-tertiary mt-1">
+                Điểm: <span className="font-semibold text-orange">{user.point}</span>
+              </p>
+            )}
           </div>
           
           {/* Menu Items */}

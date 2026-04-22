@@ -58,6 +58,9 @@ export const jwtUtils = {
         fullName: normalizeVietnameseText(payload.fullName),
         phone: payload.phone,
         role: payload.role,
+        status: payload.status,
+        statusDisplay: payload.statusDisplay,
+        point: payload.point,
         exp: payload.exp,
         iat: payload.iat,
       }
