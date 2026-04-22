@@ -338,13 +338,6 @@ export default function ProfilePage() {
         <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-content-primary">Đổi mật khẩu</h2>
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(true)}
-              className="text-sm font-semibold text-orange hover:underline"
-            >
-              Quên mật khẩu
-            </button>
           </div>
 
           <form onSubmit={handleChangePassword} className="space-y-4">
