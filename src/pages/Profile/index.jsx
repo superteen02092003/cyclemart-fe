@@ -5,6 +5,18 @@ import { postService } from '@/services/post'
 import { Badge } from '@/components/ui/Badge'
 import SubscribeModal from '@/components/seller/SubscribeModal'
 
+const normalizeVietnameseText = (value) => {
+  if (typeof value !== 'string' || !value) return value
+
+  try {
+    const hasMojibake = /[ÃÂáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/.test(value)
+    if (!hasMojibake) return value
+    return decodeURIComponent(escape(value))
+  } catch {
+    return value
+  }
+}
+
 export default function ProfilePage() {
   const { user, updateUserContext } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -27,7 +39,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setProfile({
-        fullName: user.fullName || '',
+        fullName: normalizeVietnameseText(user.fullName) || '',
         phone: user.phone || ''
       })
       fetchPriorityPosts()
@@ -128,7 +140,7 @@ export default function ProfilePage() {
           {!isEditingProfile ? (
             <div className="space-y-4">
               <div><label className="block text-sm font-medium text-content-secondary mb-1">Email</label><p className="text-content-primary">{user?.email}</p></div>
-              <div><label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label><p className="text-content-primary">{user?.fullName}</p></div>
+              <div><label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label><p className="text-content-primary">{normalizeVietnameseText(user?.fullName) || 'Chưa cập nhật'}</p></div>
               <div><label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label><p className="text-content-primary">{user?.phone}</p></div>
             </div>
           ) : (

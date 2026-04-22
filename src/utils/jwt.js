@@ -1,12 +1,34 @@
 // JWT utility functions
+const normalizeVietnameseText = (value) => {
+  if (typeof value !== 'string' || !value) return value
+
+  try {
+    const hasMojibake = /[ÃÂáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/.test(value)
+    if (!hasMojibake) return value
+
+    return decodeURIComponent(escape(value))
+  } catch {
+    return value
+  }
+}
+
 export const jwtUtils = {
   // Decode JWT token
   decode: (token) => {
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload
-    } catch (error) {
-      console.error('Error decoding JWT:', error)
+      if (!token || typeof token !== 'string') return null
+
+      const parts = token.split('.')
+      if (parts.length < 2 || !parts[1]) return null
+
+      // JWT payload is base64url, normalize before decoding
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+      const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+      const decoded = atob(paddedBase64)
+
+      return JSON.parse(decoded)
+    } catch {
+      console.error('Error decoding JWT')
       return null
     }
   },
@@ -19,7 +41,7 @@ export const jwtUtils = {
       
       const currentTime = Math.floor(Date.now() / 1000)
       return payload.exp < currentTime
-    } catch (error) {
+    } catch {
       return true
     }
   },
@@ -31,15 +53,15 @@ export const jwtUtils = {
       if (!payload) return null
       
       return {
-        id: payload.id,             // Thêm id
-        email: payload.sub,
-        fullName: payload.fullName, // Thêm fullName
-        phone: payload.phone,       // Thêm phone
-        role: payload.role,         // Thêm role
+        id: payload.id,
+        email: normalizeVietnameseText(payload.sub),
+        fullName: normalizeVietnameseText(payload.fullName),
+        phone: payload.phone,
+        role: payload.role,
         exp: payload.exp,
         iat: payload.iat,
       }
-    } catch (error) {
+    } catch {
       return null
     }
   },
@@ -52,7 +74,7 @@ export const jwtUtils = {
       
       const currentTime = Math.floor(Date.now() / 1000)
       return Math.max(0, payload.exp - currentTime)
-    } catch (error) {
+    } catch {
       return 0
     }
   }

@@ -153,6 +153,9 @@ export default function BikeDetailPage() {
   const [myRating, setMyRating] = useState(0)
   const [myComment, setMyComment] = useState('')
   const [submittingRating, setSubmittingRating] = useState(false)
+  const [ratingError, setRatingError] = useState('')
+
+  const sellerId = bike?.userId ?? bike?.sellerId ?? bike?.ownerId ?? bike?.user?.id
 
   useEffect(() => {
     const fetchBikeData = async () => {
@@ -175,40 +178,21 @@ export default function BikeDetailPage() {
     fetchBikeData()
   }, [id])
 
-  // Fetch seller info khi có user ID
   useEffect(() => {
     const fetchSellerInfo = async () => {
-      if (!bike || !bike.userId) return
+      if (!sellerId) return
 
       try {
         setLoadingSellerInfo(true)
 
-        // Fetch seller info (getSellerInfo sẽ return SellerInfoResponse)
-        const infoResponse = await sellerRatingService.getSellerInfo(bike.userId)
-
-        // Debug log
-        console.log('SellerInfo Response:', infoResponse)
-
-        // Response từ API có thể là: { sellerName, sellerEmail, averageScore, totalRatings }
-        // hoặc { data: { sellerName, ... } }
-        const sellerInfoData = infoResponse.data || infoResponse
-
+        const infoResponse = await sellerRatingService.getSellerInfo(sellerId)
+        const sellerInfoData = infoResponse?.data || infoResponse || null
         setSellerInfo(sellerInfoData)
 
-        // Fetch seller ratings nếu cần
-        try {
-          const ratingsResponse = await sellerRatingService.getSellerRatings(bike.userId, 0, 5)
-          console.log('SellerRatings Response:', ratingsResponse)
-
-          const ratingsData = ratingsResponse.data || ratingsResponse
-
-          const ratings = ratingsData.ratings?.content || []
-
-          setSellerRatings(Array.isArray(ratings) ? ratings : [])
-        } catch (ratingErr) {
-          console.warn('Lỗi khi tải ratings:', ratingErr)
-          setSellerRatings([])
-        }
+        const ratingsResponse = await sellerRatingService.getSellerRatings(sellerId, 0, 5)
+        const ratingsData = ratingsResponse?.data || ratingsResponse || {}
+        const ratings = ratingsData?.ratings?.content || ratingsData?.content || ratingsData?.ratings || []
+        setSellerRatings(Array.isArray(ratings) ? ratings : [])
       } catch (err) {
         console.error('Lỗi khi tải thông tin seller:', err)
         setSellerInfo(null)
@@ -219,46 +203,50 @@ export default function BikeDetailPage() {
     }
 
     fetchSellerInfo()
-  }, [bike])
+  }, [sellerId])
 
   const handleBuyNow = () => {
     navigate(`/checkout/${bike.id}`)
   }
+
   const handleSubmitRating = async () => {
-    if (!myRating || !bike?.userId) return
+    if (!sellerId) {
+      setRatingError('Không tìm thấy người bán để gửi đánh giá.')
+      return
+    }
+    if (!myRating) {
+      setRatingError('Vui lòng chọn số sao đánh giá.')
+      return
+    }
 
     try {
       setSubmittingRating(true)
+      setRatingError('')
 
-      await sellerRatingService.createOrUpdateRating(
-        bike.userId,
-        myRating,
-        myComment
-      )
+      const payload = {
+        sellerId,
+        score: myRating,
+        comment: myComment,
+      }
+
+      await sellerRatingService.createOrUpdateRating(payload.sellerId, payload.score, payload.comment)
 
       setMyRating(0)
       setMyComment('')
 
-      const ratingsResponse = await sellerRatingService.getSellerRatings(bike.userId, 0, 5)
-
-      const ratingsData = ratingsResponse.data || ratingsResponse
-
-      const ratings = ratingsData.ratings?.content || []
-
+      const ratingsResponse = await sellerRatingService.getSellerRatings(sellerId, 0, 5)
+      const ratingsData = ratingsResponse?.data || ratingsResponse || {}
+      const ratings = ratingsData?.ratings?.content || ratingsData?.content || ratingsData?.ratings || []
       setSellerRatings(Array.isArray(ratings) ? ratings : [])
 
-      const infoResponse = await sellerRatingService.getSellerInfo(bike.userId)
-      setSellerInfo(infoResponse.data || infoResponse)
+      const infoResponse = await sellerRatingService.getSellerInfo(sellerId)
+      setSellerInfo(infoResponse?.data || infoResponse || null)
 
       alert('Đánh giá thành công!')
     } catch (err) {
       console.error('Lỗi khi gửi đánh giá:', err)
-
-      // ✅ Lấy message từ backend
-      const message =
-        err.response?.data?.message ||
-        'Gửi đánh giá thất bại!'
-
+      const message = err?.response?.data?.errors?.sellerId || err?.response?.data?.message || 'Gửi đánh giá thất bại!'
+      setRatingError(message)
       alert(message)
     } finally {
       setSubmittingRating(false)
@@ -423,6 +411,11 @@ export default function BikeDetailPage() {
             >
               {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
             </Button>
+
+            {/* Error message */}
+            {ratingError && (
+              <p className="text-error text-xs mt-2">{ratingError}</p>
+            )}
           </div>
           {/* Reviews */}
           <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
