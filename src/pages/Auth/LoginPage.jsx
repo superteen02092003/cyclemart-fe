@@ -17,6 +17,7 @@ export default function LoginPage() {
   })
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -133,18 +134,28 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Mật khẩu</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
-                errors.password 
-                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
-                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
-              }`}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="••••••••"
+                className={`w-full rounded-sm px-4 py-3 pr-10 text-sm border bg-white text-content-primary outline-none transition-all ${
+                  errors.password 
+                    ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                    : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             {errors.password && <p className="text-xs text-error mt-1">{errors.password}</p>}
           </div>
 

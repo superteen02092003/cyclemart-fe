@@ -35,6 +35,9 @@ export default function ProfilePage() {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
   const [forgotPasswordError, setForgotPasswordError] = useState('')
   const [sendingOtp, setSendingOtp] = useState(false)
+  const [showOldPassword, setShowOldPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
 
   const [profile, setProfile] = useState({
     fullName: '',
@@ -348,38 +351,68 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu cũ</label>
-                <input
-                  type="password"
-                  placeholder="Nhập mật khẩu cũ"
-                  required
-                  value={passwords.oldPassword}
-                  onChange={(e) => handlePasswordChange('oldPassword', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.oldPassword ? 'border-error' : 'border-border-light'}`}
-                />
+                <div className="relative">
+                  <input
+                    type={showOldPassword ? 'text' : 'password'}
+                    placeholder="Nhập mật khẩu cũ"
+                    required
+                    value={passwords.oldPassword}
+                    onChange={(e) => handlePasswordChange('oldPassword', e.target.value)}
+                    className={`w-full px-3 py-2 pr-10 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.oldPassword ? 'border-error' : 'border-border-light'}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOldPassword(prev => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                    aria-label={showOldPassword ? 'Ẩn mật khẩu cũ' : 'Hiện mật khẩu cũ'}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">{showOldPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
+                </div>
                 {passwordErrors.oldPassword && <p className="text-xs text-error mt-1">{passwordErrors.oldPassword}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu mới</label>
-                <input
-                  type="password"
-                  placeholder="Ít nhất 8 ký tự"
-                  required
-                  value={passwords.newPassword}
-                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.newPassword ? 'border-error' : 'border-border-light'}`}
-                />
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="Ít nhất 8 ký tự"
+                    required
+                    value={passwords.newPassword}
+                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                    className={`w-full px-3 py-2 pr-10 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.newPassword ? 'border-error' : 'border-border-light'}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(prev => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                    aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
+                </div>
                 {passwordErrors.newPassword && <p className="text-xs text-error mt-1">{passwordErrors.newPassword}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-content-secondary mb-1">Xác nhận mật khẩu mới</label>
-                <input
-                  type="password"
-                  placeholder="Nhập lại mật khẩu mới"
-                  required
-                  value={passwords.confirmNewPassword}
-                  onChange={(e) => handlePasswordChange('confirmNewPassword', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.confirmNewPassword ? 'border-error' : 'border-border-light'}`}
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmNewPassword ? 'text' : 'password'}
+                    placeholder="Nhập lại mật khẩu mới"
+                    required
+                    value={passwords.confirmNewPassword}
+                    onChange={(e) => handlePasswordChange('confirmNewPassword', e.target.value)}
+                    className={`w-full px-3 py-2 pr-10 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.confirmNewPassword ? 'border-error' : 'border-border-light'}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPassword(prev => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                    aria-label={showConfirmNewPassword ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">{showConfirmNewPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
+                </div>
                 {passwordErrors.confirmNewPassword && <p className="text-xs text-error mt-1">{passwordErrors.confirmNewPassword}</p>}
               </div>
             </div>

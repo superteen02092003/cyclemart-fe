@@ -14,6 +14,8 @@ export default function ResetPasswordPage() {
   const [otpCode, setOtpCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isResending, setIsResending] = useState(false)
@@ -166,25 +168,45 @@ export default function ResetPasswordPage() {
 
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Mật khẩu mới</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Ít nhất 8 ký tự"
-              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${errors.newPassword ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'}`}
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Ít nhất 8 ký tự"
+                className={`w-full rounded-sm px-4 py-3 pr-10 text-sm border bg-white text-content-primary outline-none transition-all ${errors.newPassword ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(prev => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+              >
+                <span className="material-symbols-outlined text-[18px]">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             {errors.newPassword && <p className="text-xs text-error mt-1">{errors.newPassword}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Xác nhận mật khẩu mới</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Nhập lại mật khẩu mới"
-              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${errors.confirmPassword ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'}`}
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Nhập lại mật khẩu mới"
+                className={`w-full rounded-sm px-4 py-3 pr-10 text-sm border bg-white text-content-primary outline-none transition-all ${errors.confirmPassword ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(prev => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                aria-label={showConfirmPassword ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+              >
+                <span className="material-symbols-outlined text-[18px]">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             {errors.confirmPassword && <p className="text-xs text-error mt-1">{errors.confirmPassword}</p>}
           </div>
 
