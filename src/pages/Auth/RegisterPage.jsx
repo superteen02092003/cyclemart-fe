@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useAuth } from '@/hooks/useAuth'
+import { validateRegistrationForm } from '@/utils/registrationValidation'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -35,38 +36,7 @@ export default function RegisterPage() {
   }
 
   const validateForm = () => {
-    const newErrors = {}
-    
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Vui lòng nhập họ tên'
-    }
-    
-    if (!formData.email.trim()) {
-      newErrors.email = 'Vui lòng nhập email'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email không hợp lệ'
-    }
-    
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Vui lòng nhập số điện thoại'
-    } else {
-      const phoneDigits = formData.phone.replace(/\s/g, '')
-      if (!/^0/.test(phoneDigits)) {
-        newErrors.phone = 'SĐT phải bắt đầu bằng số 0'
-      } else if (phoneDigits.length !== 10) {
-        newErrors.phone = 'SĐT phải có đúng 10 chữ số'
-      } else if (!/^0[0-9]{9}$/.test(phoneDigits)) {
-        newErrors.phone = 'SĐT không hợp lệ'
-      }
-    }
-    
-    if (!formData.password) {
-      newErrors.password = 'Vui lòng nhập mật khẩu'
-    } else if (!/(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/.test(formData.password)) {
-      newErrors.password = 'Mật khẩu phải chứa ít nhất 1 chữ IN HOA và 1 ký tự đặc biệt (@,#,$...)'
-    }
-    
-    return newErrors
+    return validateRegistrationForm(formData)
   }
 
   const handleSubmit = async (e) => {
@@ -83,16 +53,14 @@ export default function RegisterPage() {
       await register(formData)
       
       // Hiển thị toast thành công
-      showToast('Đăng ký thành công! Chuyển hướng đến trang đăng nhập...', 'success')
+      showToast('Đăng ký thành công! Chuyển hướng đến trang xác nhận OTP...', 'success')
       
-      // Chuyển hướng đến trang đăng nhập sau 2 giây
+      // Chuyển hướng đến trang xác nhận OTP sau 2 giây
       setTimeout(() => {
-        navigate(ROUTES.LOGIN)
+        navigate(ROUTES.VERIFY_OTP, { state: { email: formData.email, password: formData.password } })
       }, 2000)
     } catch (error) {
       console.error('❌ Register error:', error)
-      console.log('Error type:', typeof error)
-      console.log('Error structure:', error)
 
       // Nếu error là object với các key (email, phone, fullName, password) - lỗi từ backend
       if (typeof error === 'object' && error !== null && !error.message) {
@@ -154,7 +122,7 @@ export default function RegisterPage() {
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Email</label>
             <input
-              type="email"
+              type="text"
               name="email"
               value={formData.email}
               onChange={handleChange}

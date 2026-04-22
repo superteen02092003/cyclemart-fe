@@ -7,6 +7,7 @@ export const ROUTES = {
   COMMUNITY: '/community',
   LOGIN: '/login',
   REGISTER: '/register',
+  VERIFY_OTP: '/verify-otp',
   PROFILE: '/profile',
   MY_LISTINGS: '/my-listings',
   WISHLIST: '/favorites',
