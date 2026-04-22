@@ -33,6 +33,7 @@ const STATUS_CONFIG = {
 function ListingCard({ listing, onAction, onInspect, onDelete }) {
   const currentStatus = listing.postStatus || listing.status; 
   const cfg = STATUS_CONFIG[currentStatus] || { label: currentStatus, badge: 'subtle' }
+  const viewCount = listing.views ?? listing.viewCount ?? listing.view_count ?? 0
 
   return (
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
@@ -104,10 +105,10 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           <p className="text-base font-bold text-content-primary mb-1">{formatPrice(listing.price)}</p>
 
           <div className="flex items-center gap-3 text-xs text-content-secondary mb-2">
-            {listing.views != null && (
+            {viewCount != null && (
               <span className="flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
-                {listing.views} lượt xem
+                {viewCount} lượt xem
               </span>
             )}
             <span className="flex items-center gap-0.5">
@@ -409,7 +410,10 @@ export default function MyListingsPage() {
     [activeTab, listings]
   )
 
-  const totalViews = listings.reduce((sum, l) => sum + (l.views ?? 0), 0)
+  const totalViews = listings.reduce((sum, l) => {
+    const viewCount = Number(l.views ?? l.viewCount ?? l.view_count ?? 0)
+    return sum + (Number.isFinite(viewCount) ? viewCount : 0)
+  }, 0)
   const activeCount = listings.filter((l) => (l.postStatus || l.status) === 'ACTIVE' || l.postStatus === 'APPROVED').length
 
   if (loading) {

@@ -15,6 +15,7 @@ import ForgotPasswordPage from '@/pages/Auth/ForgotPasswordPage'
 import VerifyOtpPage from '@/pages/Auth/VerifyOtpPage'
 import ResetPasswordPage from '@/pages/Auth/ResetPasswordPage'
 import ProfilePage from '@/pages/Profile'
+import SettingsPage from '@/pages/Settings'
 import MyListingsPage from '@/pages/MyListings'
 import WishlistPage from '@/pages/Wishlist'
 import ChatPage from '@/pages/Chat'
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
       { path: 'inspection', element: <InspectionPage /> }, // Seller vào đây để đăng ký kiểm định
       { path: 'community', element: <CommunityPage /> },
       { path: 'profile', element: <ProfilePage /> },
+      { path: 'settings', element: <SettingsPage /> },
       { path: 'my-listings', element: <MyListingsPage /> },
       { path: 'favorites', element: <WishlistPage /> },
       { path: 'messages', element: <ChatPage /> },

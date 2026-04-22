@@ -49,6 +49,15 @@ export const postService = {
     }
   },
 
+  getPostsByUserId: async (userId) => {
+    try {
+      const response = await api.get(`/v1/posts/user/${userId}`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Lỗi khi tải bài đăng của người dùng' }
+    }
+  },
+
   getMyPosts: async () => {
     try {
       const response = await api.get('/v1/posts/my-posts')

@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { authService } from '@/services/auth'
 import { ROUTES } from '@/constants/routes'
 import { postService } from '@/services/post'
-import { Badge } from '@/components/ui/Badge'
-import SubscribeModal from '@/components/seller/SubscribeModal'
+import { sellerRatingService } from '@/services/sellerRating'
 
 const normalizeVietnameseText = (value) => {
   if (typeof value !== 'string' || !value) return value
@@ -19,533 +17,330 @@ const normalizeVietnameseText = (value) => {
   }
 }
 
-const isValidFullName = (value) => /^[A-Za-zÀ-ỹĐđ\s]+$/.test(value.trim())
+const renderStars = (score = 0) => {
+  const rounded = Math.round(Number(score) || 0)
+  return Array.from({ length: 5 }).map((_, index) => (
+    <span
+      key={index}
+      className={`material-symbols-outlined text-[18px] ${index < rounded ? 'text-amber-500' : 'text-border-light'}`}
+    >
+      star
+    </span>
+  ))
+}
+
+const formatDate = (value) => {
+  if (!value) return ''
+  try {
+    return new Date(value).toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  } catch {
+    return ''
+  }
+}
 
 export default function ProfilePage() {
-  const navigate = useNavigate()
-  const { user, updateUserContext, isAuthenticated } = useAuth()
+  const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const profileUserId = searchParams.get('sellerId') || searchParams.get('userId') || user?.id
+  const isOwnProfile = String(profileUserId) === String(user?.id)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState({ text: '', type: '' })
-  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
-  const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [priorityPosts, setPriorityPosts] = useState([])
-  const [profileErrors, setProfileErrors] = useState({})
-  const [passwordErrors, setPasswordErrors] = useState({})
-  const [showForgotPassword, setShowForgotPassword] = useState(false)
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
-  const [forgotPasswordError, setForgotPasswordError] = useState('')
-  const [sendingOtp, setSendingOtp] = useState(false)
-  const [showOldPassword, setShowOldPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
-
-  const [profile, setProfile] = useState({
-    fullName: '',
-    phone: ''
-  })
-
-  const [passwords, setPasswords] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmNewPassword: ''
-  })
+  const [sellerInfo, setSellerInfo] = useState({ sellerName: '', sellerEmail: '', sellerPhone: '', averageScore: 0, totalRatings: 0 })
+  const [posts, setPosts] = useState([])
+  const [ratings, setRatings] = useState([])
+  const [showAllRecentPosts, setShowAllRecentPosts] = useState(false)
 
   useEffect(() => {
-    if (user) {
-      setProfile({
-        fullName: normalizeVietnameseText(user.fullName) || '',
-        phone: user.phone || ''
-      })
-      if (user?.email) {
-        setForgotPasswordEmail(user.email)
+    const loadProfile = async () => {
+      if (!profileUserId) return
+
+      setLoading(true)
+      try {
+        let postsData = []
+        try {
+          postsData = profileUserId === user?.id
+            ? await postService.getMyPosts()
+            : await postService.getPostsByUserId(profileUserId)
+        } catch {
+          postsData = await postService.getMyPosts()
+        }
+
+        const [infoRes, ratingsRes] = await Promise.allSettled([
+          sellerRatingService.getSellerInfo(profileUserId),
+          sellerRatingService.getSellerRatings(profileUserId, 0, 5),
+        ])
+
+        if (infoRes.status === 'fulfilled') {
+          const payload = infoRes.value || {}
+          const seller = payload.seller || payload || {}
+          setSellerInfo({
+            sellerName: normalizeVietnameseText(seller.sellerName || user?.fullName || user?.email || 'User'),
+            sellerEmail: seller.sellerEmail || seller.email || user?.email || '',
+            sellerPhone: seller.phone || seller.phoneNumber || user?.phone || '',
+            averageScore: Number(seller.averageScore ?? seller.averageRating ?? 0),
+            totalRatings: Number(seller.totalRatings ?? seller.totalReviews ?? 0),
+          })
+        } else {
+          setSellerInfo({
+            sellerName: normalizeVietnameseText(user?.fullName || user?.email || 'User'),
+            sellerEmail: user?.email || '',
+            sellerPhone: user?.phone || '',
+            averageScore: 0,
+            totalRatings: 0,
+          })
+        }
+
+        const list = postsData?.content || postsData?.result || postsData || []
+        setPosts(Array.isArray(list) ? list : [])
+
+        if (ratingsRes.status === 'fulfilled') {
+          const payload = ratingsRes.value || {}
+          const ratingPage = payload.ratings || payload
+          const list = ratingPage?.content || ratingPage?.ratings || ratingPage || []
+          setRatings(Array.isArray(list) ? list : [])
+        } else {
+          setRatings([])
+        }
+      } finally {
+        setLoading(false)
       }
-      fetchPriorityPosts()
-    }
-  }, [user])
-
-  const fetchPriorityPosts = async () => {
-    try {
-      const data = await postService.getMyPosts()
-      const activeOnes = (data?.content || data || []).filter(p => p.activePriority)
-      setPriorityPosts(activeOnes)
-    } catch (error) {
-      console.error("Lỗi lấy danh sách gói ưu tiên:", error)
-    }
-  }
-
-  const showMessage = (text, type) => {
-    setMessage({ text, type })
-    setTimeout(() => setMessage({ text: '', type: '' }), 3000)
-  }
-
-  const handleProfileChange = (field, value) => {
-    let nextValue = value
-
-    if (field === 'phone') {
-      nextValue = value.replace(/\D/g, '').slice(0, 10)
     }
 
-    setProfile(prev => ({
-      ...prev,
-      [field]: nextValue
-    }))
+    loadProfile()
+  }, [profileUserId, user])
 
-    if (profileErrors[field]) {
-      setProfileErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }))
-    }
-  }
+  const displayName = useMemo(
+    () => normalizeVietnameseText(sellerInfo.sellerName || user?.fullName || user?.email || 'User'),
+    [sellerInfo.sellerName, user]
+  )
 
-  const validateProfileForm = () => {
-    const errors = {}
-    const name = profile.fullName.trim()
-    const phone = profile.phone.trim()
+  const displayEmail = isOwnProfile ? (user?.email || sellerInfo.sellerEmail || 'Chưa cập nhật') : (sellerInfo.sellerEmail || 'Chưa cập nhật')
+  const displayPhone = isOwnProfile ? (user?.phone || sellerInfo.sellerPhone || 'Chưa cập nhật') : (sellerInfo.sellerPhone || 'Chưa cập nhật')
 
-    if (!name) {
-      errors.fullName = 'Vui lòng nhập họ và tên'
-    } else if (!isValidFullName(name)) {
-      errors.fullName = 'Tên chỉ được chứa chữ cái và khoảng trắng'
-    }
-
-    if (!phone) {
-      errors.phone = 'Vui lòng nhập số điện thoại'
-    } else if (!/^?\d{10}$/.test(phone)) {
-      errors.phone = 'Số điện thoại phải đúng 10 chữ số'
-    }
-
-    return errors
-  }
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault()
-
-    const errors = validateProfileForm()
-    if (Object.keys(errors).length > 0) {
-      setProfileErrors(errors)
-      return
-    }
-
-    setLoading(true)
-    try {
-      await authService.updateProfile({
-        fullName: profile.fullName.trim(),
-        phone: profile.phone.trim()
-      })
-      updateUserContext({
-        fullName: profile.fullName.trim(),
-        phone: profile.phone.trim()
-      })
-      setProfileErrors({})
-      showMessage('Cập nhật thông tin thành công!', 'success')
-      setIsEditingProfile(false)
-    } catch (error) {
-      showMessage(error.message || 'Có lỗi xảy ra', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCancelEdit = () => {
-    setProfile({
-      fullName: normalizeVietnameseText(user?.fullName) || '',
-      phone: user?.phone || ''
-    })
-    setProfileErrors({})
-    setIsEditingProfile(false)
-  }
-
-  const handlePasswordChange = (field, value) => {
-    setPasswords(prev => ({
-      ...prev,
-      [field]: value
-    }))
-
-    if (passwordErrors[field]) {
-      setPasswordErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }))
-    }
-  }
-
-  const validatePasswordForm = () => {
-    const errors = {}
-
-    if (!passwords.oldPassword.trim()) {
-      errors.oldPassword = 'Mật khẩu cũ không được để trống'
-    }
-
-    if (!passwords.newPassword.trim()) {
-      errors.newPassword = 'Mật khẩu mới không được để trống'
-    } else if (passwords.newPassword.length < 8) {
-      errors.newPassword = 'Password phải có ít nhất 8 ký tự'
-    } else if (!/(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/.test(passwords.newPassword)) {
-      errors.newPassword = 'Password phải có ít nhất 1 chữ hoa và 1 ký tự đặc biệt'
-    }
-
-    if (!passwords.confirmNewPassword.trim()) {
-      errors.confirmNewPassword = 'Xác nhận mật khẩu mới không được để trống'
-    } else if (passwords.newPassword !== passwords.confirmNewPassword) {
-      errors.confirmNewPassword = 'Mật khẩu mới không khớp'
-    }
-
-    return errors
-  }
-
-  const handleChangePassword = async (e) => {
-    e.preventDefault()
-
-    const errors = validatePasswordForm()
-    if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors)
-      return
-    }
-
-    setLoading(true)
-    try {
-      await authService.changePassword({
-        oldPassword: passwords.oldPassword,
-        newPassword: passwords.newPassword,
-        confirmNewPassword: passwords.confirmNewPassword,
-      })
-      showMessage('Đổi mật khẩu thành công!', 'success')
-      setPasswords({ oldPassword: '', newPassword: '', confirmNewPassword: '' })
-      setPasswordErrors({})
-    } catch (error) {
-      const backendMessage =
-        error?.errors?.oldPassword ||
-        error?.message ||
-        error?.errors?.newPassword ||
-        error?.errors?.confirmNewPassword ||
-        'Đổi mật khẩu thất bại'
-
-      setPasswordErrors(prev => ({
-        ...prev,
-        oldPassword: error?.errors?.oldPassword || prev.oldPassword || '',
-        submit: error?.errors?.oldPassword ? '' : backendMessage,
-      }))
-      showMessage(backendMessage, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleForgotPasswordEmailChange = (value) => {
-    setForgotPasswordEmail(value)
-    if (forgotPasswordError) setForgotPasswordError('')
-  }
-
-  const handleForgotPassword = async () => {
-    const emailToUse = isAuthenticated ? user?.email : forgotPasswordEmail.trim()
-    if (!emailToUse) {
-      setForgotPasswordError('Vui lòng nhập email')
-      return
-    }
-    if (!/^\S+@\S+\.\S+$/.test(emailToUse)) {
-      setForgotPasswordError('Email không hợp lệ')
-      return
-    }
-
-    try {
-      setSendingOtp(true)
-      setForgotPasswordError('')
-      await authService.forgotPassword(emailToUse)
-      showMessage('Đã gửi mã OTP đặt lại mật khẩu đến email của bạn', 'success')
-      setShowForgotPassword(false)
-      navigate(ROUTES.RESET_PASSWORD, { state: { email: emailToUse } })
-    } catch (error) {
-      const serverMessage = error?.message || error?.errors?.email || 'Gửi yêu cầu quên mật khẩu thất bại'
-      setForgotPasswordError(serverMessage)
-      showMessage(serverMessage, 'error')
-    } finally {
-      setSendingOtp(false)
-    }
-  }
-
-  const getDaysRemaining = (post) => {
-    if (post.activePriority.endDate) {
-      const end = new Date(post.activePriority.endDate)
-      const now = new Date()
-      const diffTime = end - now
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      return diffDays > 0 ? `${diffDays} ngày` : 'Sắp hết hạn'
-    }
-    return `${post.activePriority.durationDays} ngày`
-  }
+  const totalPosts = posts.length
+  const sellingPosts = posts.filter((post) => {
+    const status = String(post?.status || post?.postStatus || '').toUpperCase()
+    const displayStatus = String(post?.postStatusDisplay || '').toUpperCase()
+    return (
+      status === 'APPROVED' ||
+      status === 'ACTIVE' ||
+      status === 'SELLING' ||
+      displayStatus === 'ĐÃ DUYỆT' ||
+      post?.isActive === true
+    )
+  })
+  const recentSellingPosts = sellingPosts.slice(0, 3)
+  const visibleRecentPosts = showAllRecentPosts ? sellingPosts : recentSellingPosts
+  const latestRatings = ratings.slice(0, 5)
+  const ratingScore = Number(sellerInfo.averageScore || 0)
+  const ratingCount = Number(sellerInfo.totalRatings || 0)
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-content-primary mb-6">Cài đặt tài khoản</h1>
-
-      {message.text && (
-        <div className={`p-4 mb-6 rounded-sm ${message.type === 'success' ? 'bg-green/10 text-green' : 'bg-error/10 text-error'}`}>
-          {message.text}
-        </div>
-      )}
-
-      <div className="space-y-6">
-        {/* SECTION 1: THÔNG TIN CÁ NHÂN (Đã đưa lên đầu) */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-content-primary">Thông tin cá nhân</h2>
-            {!isEditingProfile && (
-              <button onClick={() => setIsEditingProfile(true)} className="px-4 py-2 bg-[#ff6b35] text-white text-sm font-semibold rounded-sm transition-colors">
-                Cập nhật
-              </button>
-            )}
-          </div>
-          
-          {!isEditingProfile ? (
-            <div className="space-y-4">
-              <div><label className="block text-sm font-medium text-content-secondary mb-1">Email</label><p className="text-content-primary">{user?.email}</p></div>
-              <div><label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label><p className="text-content-primary">{normalizeVietnameseText(user?.fullName) || 'Chưa cập nhật'}</p></div>
-              <div><label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label><p className="text-content-primary">{user?.phone}</p></div>
-            </div>
-          ) : (
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Họ và tên</label>
-                <input
-                  type="text"
-                  value={profile.fullName}
-                  onChange={(e) => handleProfileChange('fullName', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${profileErrors.fullName ? 'border-error' : ''}`}
-                />
-                {profileErrors.fullName && <p className="text-xs text-error mt-1">{profileErrors.fullName}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Số điện thoại</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={profile.phone}
-                  onChange={(e) => handleProfileChange('phone', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${profileErrors.phone ? 'border-error' : ''}`}
-                />
-                {profileErrors.phone && <p className="text-xs text-error mt-1">{profileErrors.phone}</p>}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={loading} className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50">Lưu</button>
-                <button type="button" onClick={handleCancelEdit} className="px-4 py-2 border rounded-sm">Hủy</button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        {/* SECTION 2: ĐỔI MẬT KHẨU */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-content-primary">Đổi mật khẩu</h2>
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(true)}
-              className="text-sm font-semibold text-orange hover:underline"
-            >
-              Quên mật khẩu
-            </button>
-          </div>
-
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu cũ</label>
-                <div className="relative">
-                  <input
-                    type={showOldPassword ? 'text' : 'password'}
-                    placeholder="Nhập mật khẩu cũ"
-                    required
-                    value={passwords.oldPassword}
-                    onChange={(e) => handlePasswordChange('oldPassword', e.target.value)}
-                    className={`w-full px-3 py-2 pr-10 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.oldPassword ? 'border-error' : 'border-border-light'}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOldPassword(prev => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
-                    aria-label={showOldPassword ? 'Ẩn mật khẩu cũ' : 'Hiện mật khẩu cũ'}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">{showOldPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="grid grid-cols-1 gap-6">
+        <section className="overflow-hidden rounded-2xl border border-border-light bg-white shadow-card">
+          <div className="bg-gradient-to-r from-navy via-navy-medium to-slate-800 px-6 py-6 text-white sm:px-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
+                  <span className="material-symbols-outlined text-[14px]">storefront</span>
+                  Marketplace Profile
                 </div>
-                {passwordErrors.oldPassword && <p className="text-xs text-error mt-1">{passwordErrors.oldPassword}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Mật khẩu mới</label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    placeholder="Ít nhất 8 ký tự"
-                    required
-                    value={passwords.newPassword}
-                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                    className={`w-full px-3 py-2 pr-10 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.newPassword ? 'border-error' : 'border-border-light'}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(prev => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
-                    aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">{showNewPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-                {passwordErrors.newPassword && <p className="text-xs text-error mt-1">{passwordErrors.newPassword}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Xác nhận mật khẩu mới</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmNewPassword ? 'text' : 'password'}
-                    placeholder="Nhập lại mật khẩu mới"
-                    required
-                    value={passwords.confirmNewPassword}
-                    onChange={(e) => handlePasswordChange('confirmNewPassword', e.target.value)}
-                    className={`w-full px-3 py-2 pr-10 border rounded-sm focus:outline-none focus:border-[#ff6b35] ${passwordErrors.confirmNewPassword ? 'border-error' : 'border-border-light'}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmNewPassword(prev => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
-                    aria-label={showConfirmNewPassword ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">{showConfirmNewPassword ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-                {passwordErrors.confirmNewPassword && <p className="text-xs text-error mt-1">{passwordErrors.confirmNewPassword}</p>}
-              </div>
-            </div>
-            {passwordErrors.submit && !passwordErrors.oldPassword && <p className="text-xs text-error">{passwordErrors.submit}</p>}
-            <div className="flex items-center gap-3">
-              <button type="submit" disabled={loading} className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50">Cập nhật mật khẩu</button>
-              <button
-                type="button"
-                onClick={() => setShowForgotPassword(true)}
-                className="px-4 py-2 border border-[#ff6b35] text-[#ff6b35] rounded-sm hover:bg-[#ff6b35] hover:text-white transition-colors"
-              >
-                Quên mật khẩu
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Forgot password panel */}
-        {showForgotPassword && (
-          <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
-            <h3 className="text-lg font-semibold text-content-primary mb-3">Quên mật khẩu</h3>
-            {isAuthenticated ? (
-              <>
-                <p className="text-sm text-content-secondary mb-3">
-                  Chúng tôi sẽ gửi mã OTP đặt lại mật khẩu đến email hiện tại của bạn:
-                </p>
-                <p className="text-sm font-semibold text-content-primary mb-4">{user?.email}</p>
-                {forgotPasswordError && <p className="text-xs text-error mb-3">{forgotPasswordError}</p>}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={sendingOtp}
-                    className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50"
-                  >
-                    {sendingOtp ? 'Đang gửi...' : 'Xác nhận gửi OTP'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotPassword(false)
-                      setForgotPasswordError('')
-                    }}
-                    className="px-4 py-2 border rounded-sm"
-                  >
-                    Hủy
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-content-secondary mb-3">
-                  Nhập email để nhận mã OTP đặt lại mật khẩu:
-                </p>
-                <input
-                  type="email"
-                  value={forgotPasswordEmail}
-                  onChange={(e) => handleForgotPasswordEmailChange(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] mb-2"
-                />
-                {forgotPasswordError && <p className="text-xs text-error mb-3">{forgotPasswordError}</p>}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={sendingOtp}
-                    className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50"
-                  >
-                    {sendingOtp ? 'Đang gửi...' : 'Gửi OTP'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotPassword(false)
-                      setForgotPasswordError('')
-                    }}
-                    className="px-4 py-2 border rounded-sm"
-                  >
-                    Hủy
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* SECTION 3: GÓI ƯU TIÊN ĐANG HOẠT ĐỘNG (Đã đưa xuống cuối) */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
-          <h2 className="text-lg font-semibold text-content-primary mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-amber-500">workspace_premium</span>
-            Gói ưu tiên đang hoạt động
-          </h2>
-          
-          {priorityPosts.length > 0 ? (
-            <div className="space-y-4">
-              {priorityPosts.map(post => (
-                <div key={post.id} className="flex items-center justify-between p-4 bg-surface-secondary rounded-sm border border-border-light">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-bold text-content-primary line-clamp-1">{post.title}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={post.activePriority.priorityLevel.toLowerCase()}>
-                        {post.activePriority.priorityLevel}
-                      </Badge>
-                      <span className="text-xs text-content-secondary">
-                        Còn lại: <span className="font-semibold text-navy">{getDaysRemaining(post)}</span>
-                      </span>
-                    </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="truncate text-3xl font-bold leading-tight sm:text-4xl">{displayName}</h1>
+                  <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 backdrop-blur-sm">
+                    {renderStars(ratingScore)}
+                    <span className="ml-1 text-sm font-semibold text-white">{ratingScore.toFixed(1)}</span>
+                    <span className="text-xs text-white/80">({ratingCount} đánh giá)</span>
                   </div>
-                  <p className="text-xs font-medium text-content-secondary uppercase tracking-wider">
-                    {post.activePriority.name}
-                  </p>
                 </div>
-              ))}
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/80">
+                  Trang hồ sơ người dùng trên CycleMart.
+                </p>
+              </div>
+
+              {isOwnProfile && (
+                <Link
+                  to={ROUTES.SETTINGS}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
+                >
+                  <span className="material-symbols-outlined text-[18px]">settings</span>
+                  Cài đặt
+                </Link>
+              )}
             </div>
-          ) : (
-            <div className="text-center py-8 bg-surface-secondary rounded-sm border border-dashed border-border-light">
-              <p className="text-sm text-content-secondary mb-3">Bạn chưa sử dụng gói ưu tiên nào cho bài đăng.</p>
-              <button 
-                onClick={() => setShowSubscribeModal(true)}
-                className="px-4 py-2 bg-green-500 text-white rounded text-sm font-bold hover:bg-green-600 transition-colors"
-              >
-                Nâng cấp ngay (Test)
-              </button>
+          </div>
+
+          <div className="p-6 sm:p-8">
+            {loading ? (
+              <div className="text-sm text-content-secondary">Đang tải hồ sơ...</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
+                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
+                    <span className="material-symbols-outlined text-[18px]">mail</span>
+                  </div>
+                  <p className="text-xs uppercase tracking-wider text-content-tertiary">Email</p>
+                  <p className="mt-1 text-sm font-semibold text-content-primary break-words">{displayEmail}</p>
+                </div>
+                <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
+                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
+                    <span className="material-symbols-outlined text-[18px]">call</span>
+                  </div>
+                  <p className="text-xs uppercase tracking-wider text-content-tertiary">Số điện thoại</p>
+                  <p className="mt-1 text-sm font-semibold text-content-primary">{displayPhone}</p>
+                </div>
+                <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
+                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
+                    <span className="material-symbols-outlined text-[18px]">article</span>
+                  </div>
+                  <p className="text-xs uppercase tracking-wider text-content-tertiary">Tổng tin</p>
+                  <p className="mt-1 text-sm font-semibold text-content-primary">{totalPosts}</p>
+                </div>
+                <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
+                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
+                    <span className="material-symbols-outlined text-[18px]">local_fire_department</span>
+                  </div>
+                  <p className="text-xs uppercase tracking-wider text-content-tertiary">Đang bán</p>
+                  <p className="mt-1 text-sm font-semibold text-content-primary">{sellingPosts.length}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-border-light bg-white shadow-card">
+          <div className="flex items-center justify-between border-b border-border-light px-6 py-5 sm:px-8">
+            <div>
+              <h2 className="text-lg font-semibold text-content-primary">Tin gần đây</h2>
+              <p className="text-sm text-content-secondary">Các bài đăng mới nhất đang hoạt động trên cửa hàng của bạn</p>
             </div>
-          )}
-        </div>
+            {isOwnProfile && (
+              <Link to={ROUTES.MY_LISTINGS} className="text-sm font-semibold text-orange hover:underline">
+                Xem tất cả
+              </Link>
+            )}
+          </div>
+
+          <div className="p-6 sm:p-8">
+            {recentSellingPosts.length > 0 ? (
+              <div className="space-y-4">
+                {visibleRecentPosts.map((post) => {
+                  const postViewCount = Number(post.views ?? post.viewCount ?? post.view_count ?? 0)
+                  return (
+                    <Link
+                      key={post.id}
+                      to={`/bike/${post.id}`}
+                      className="group block rounded-none border border-cyan-400/15 bg-gradient-to-br from-white/8 to-cyan-400/10 p-4 transition-all hover:-translate-y-0.5 hover:border-cyan-300/30 hover:shadow-card"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-content-primary line-clamp-1 group-hover:text-orange">{post.title}</p>
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-content-secondary">
+                            {post.description || 'Không có mô tả'}
+                          </p>
+                        </div>
+                        <span className="ml-4 whitespace-nowrap text-sm font-semibold text-navy">
+                          {typeof post.price === 'number' ? post.price.toLocaleString('vi-VN') : post.price || 'Liên hệ'}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-content-tertiary">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-surface-secondary px-2.5 py-1">
+                          <span className="material-symbols-outlined text-[16px]">visibility</span>
+                          {postViewCount} lượt xem
+                        </span>
+                        {post.createdAt && (
+                          <span className="rounded-full bg-surface-secondary px-2.5 py-1">
+                            {formatDate(post.createdAt)}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="rounded-none border border-dashed border-orange-300/30 bg-gradient-to-br from-orange-50 to-cyan-50 px-6 py-12 text-center shadow-sm">
+                <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 text-orange-600">
+                  <span className="material-symbols-outlined text-[1.8rem]">inventory_2</span>
+                </div>
+                <p className="text-base font-bold text-content-primary">Chưa có tin nào</p>
+                {isOwnProfile ? (
+                  <>
+                    <p className="mt-2 text-sm text-content-secondary leading-relaxed max-w-md mx-auto">
+                      Khi bài đăng được duyệt, nó sẽ xuất hiện ở đây. Bạn có thể đăng tin mới bất cứ lúc nào.
+                    </p>
+                    <Link
+                      to={ROUTES.SELL}
+                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-r from-orange to-orange/90 px-5 py-3 text-sm font-bold text-orange shadow-lg shadow-orange/25 ring-1 ring-orange/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-orange/30 hover:from-orange/95 hover:to-orange"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                      Đăng bài ngay
+                    </Link>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {sellingPosts.length > 3 && (
+              <div className="mt-5 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowAllRecentPosts((prev) => !prev)}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-orange/20 bg-orange/5 px-4 py-2.5 text-sm font-semibold text-orange transition-colors hover:bg-orange/10"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {showAllRecentPosts ? 'expand_less' : 'expand_more'}
+                  </span>
+                  {showAllRecentPosts ? 'Thu gọn' : 'Xem thêm'}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
-      {showSubscribeModal && (
-        <SubscribeModal postId={1} onClose={() => setShowSubscribeModal(false)} />
-      )}
+      <section className="mt-6 overflow-hidden rounded-[28px] border border-border-light bg-white shadow-card">
+        <div className="flex items-center justify-between border-b border-border-light px-6 py-5 sm:px-8">
+          <div>
+            <h2 className="text-lg font-semibold text-content-primary">Đánh giá từ người mua</h2>
+            <p className="text-sm text-content-secondary">{ratingCount} lượt đánh giá gần đây</p>
+          </div>
+        </div>
+        <div className="p-6 sm:p-8 space-y-4">
+          {latestRatings.length > 0 ? (
+            latestRatings.map((item, index) => {
+              const reviewerProfileId = item.buyerId || item.userId || item.reviewerId
+              const reviewerName = item.buyerName || item.buyer?.buyerName || item.buyer?.fullName || item.userName || 'Người dùng'
+              const reviewerHref = reviewerProfileId ? `${ROUTES.PROFILE}?userId=${reviewerProfileId}` : ROUTES.PROFILE
+              return (
+                <div key={item.id || index} className="rounded-none border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/20 backdrop-blur-sm">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <Link
+                      to={reviewerHref}
+                      className="text-sm font-semibold text-content-primary transition-all duration-200 hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4"
+                    >
+                      {reviewerName}
+                    </Link>
+                    <div className="flex items-center gap-1">{renderStars(item.score ?? item.averageScore ?? 0)}</div>
+                  </div>
+                  {item.comment ? (
+                    <p className="text-sm leading-6 text-content-secondary">{item.comment}</p>
+                  ) : (
+                    <p className="text-sm italic text-content-tertiary">Không có nhận xét</p>
+                  )}
+                  {item.createdAt && <p className="mt-2 text-xs text-content-tertiary">{formatDate(item.createdAt)}</p>}
+                </div>
+              )
+            })
+          ) : (
+            <p className="text-sm text-content-secondary">Chưa có đánh giá nào.</p>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
-

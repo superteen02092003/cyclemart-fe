@@ -11,6 +11,7 @@ export const ROUTES = {
   VERIFY_OTP: '/verify-otp',
   RESET_PASSWORD: '/reset-password',
   PROFILE: '/profile',
+  SETTINGS: '/settings',
   MY_LISTINGS: '/my-listings',
   WISHLIST: '/favorites',
   MESSAGES: '/messages',

@@ -156,6 +156,7 @@ export default function BikeDetailPage() {
   const isOwnPost = Boolean(
     currentUserId && sellerId && String(currentUserId) === String(sellerId)
   )
+  const sellerProfilePath = sellerId ? `${ROUTES.PROFILE}?sellerId=${sellerId}` : ROUTES.PROFILE
 
   useEffect(() => {
     const fetchBikeData = async () => {
@@ -431,26 +432,39 @@ export default function BikeDetailPage() {
               <p className="text-sm text-content-secondary">Chưa có đánh giá nào.</p>
             ) : (
               <div className="space-y-4">
-                {sellerRatings.map((rev) => (
-                  <div key={rev.id} className="pb-4 border-b border-border-light last:border-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                        style={{ backgroundColor: '#ff6b35' }}
-                      >
-                        {rev.buyerName ? rev.buyerName.charAt(0) : '?'}
+                {sellerRatings.map((rev) => {
+                  const reviewerProfilePath = rev.buyerId ? `${ROUTES.PROFILE}?userId=${rev.buyerId}` : ROUTES.PROFILE
+                  const reviewerName = rev.buyerName || rev.buyer?.buyerName || rev.buyer?.fullName || rev.userName || 'Khách hàng'
+                  const reviewScore = Number(rev.score || 0)
+                  return (
+                    <div key={rev.id} className="pb-4 border-b border-border-light last:border-0 group">
+                      <div className="flex items-start gap-2 mb-1.5">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+                          style={{ backgroundColor: '#ff6b35' }}
+                        >
+                          {reviewerName ? reviewerName.charAt(0) : '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            to={reviewerProfilePath}
+                            className="text-sm font-semibold text-content-primary transition-all duration-200 hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4"
+                          >
+                            {reviewerName}
+                          </Link>
+                          <div className="mt-0.5 flex items-center gap-2">
+                            <StarRating rating={reviewScore} />
+                            <span className="text-xs text-content-secondary">{reviewScore.toFixed(1)} / 5</span>
+                          </div>
+                        </div>
+                        <span className="ml-auto text-xs text-content-secondary whitespace-nowrap">
+                          {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong'}
+                        </span>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-content-primary">{rev.buyerName || 'Khách hàng'}</p>
-                        <StarRating rating={rev.score} />
-                      </div>
-                      <span className="ml-auto text-xs text-content-secondary">
-                        {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong'}
-                      </span>
+                      <p className="text-sm text-content-secondary pl-10">{rev.comment || 'Không có nhận xét'}</p>
                     </div>
-                    <p className="text-sm text-content-secondary pl-10">{rev.comment || 'Không có nhận xét'}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -564,13 +578,18 @@ export default function BikeDetailPage() {
                 <>
                   <div className="flex items-start gap-3">
                     <div
-                      className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0"
+                      className="w-11 h-11 rounded-full flex items-center justify-center text-white text-base font-bold flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
                       style={{ backgroundColor: '#ff6b35' }}
                     >
                       {sellerInfo.sellerName ? sellerInfo.sellerName.charAt(0) : '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-content-primary">{sellerInfo.sellerName || 'Người bán'}</p>
+                      <Link
+                        to={sellerProfilePath}
+                        className="text-sm font-semibold text-content-primary transition-all duration-200 hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4"
+                      >
+                        {sellerInfo.sellerName || 'Người bán'}
+                      </Link>
                       <div className="flex items-center gap-1 mt-0.5">
                         <StarRating rating={sellerInfo.averageScore || 0} />
                         <span className="text-xs text-content-secondary ml-1">
@@ -578,7 +597,7 @@ export default function BikeDetailPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1 mt-1 text-xs text-content-secondary">
-                        <span className="material-symbols-outlined text-[0.85rem]">location_on</span>
+                        <span className="material-symbols-outlined text-[0.85rem] transition-colors duration-200 group-hover:text-orange">location_on</span>
                         {bike.district && bike.city ? `${bike.district}, ${bike.city}` : bike.city || 'Không xác định'}
                       </div>
                     </div>
