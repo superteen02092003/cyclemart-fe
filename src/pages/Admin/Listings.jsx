@@ -9,14 +9,11 @@ export default function AdminListings() {
   const [selectedListing, setSelectedListing] = useState(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   
-  // Lưu ý: Status khớp với Enum của Backend (PENDING, APPROVED, REJECTED)
   const [filterStatus, setFilterStatus] = useState('PENDING')
 
-  // Fetch dữ liệu từ BE
   const fetchListings = async () => {
     try {
       setLoading(true)
-      // Lấy danh sách tin (mặc định lấy nhiều để test bộ lọc ở FE)
       const data = await adminService.getAllPosts({ page: 0, size: 100, sortBy: 'createdAt', sortDir: 'desc' })
       setListings(data.content || [])
     } catch (error) {
@@ -31,7 +28,6 @@ export default function AdminListings() {
     fetchListings()
   }, [])
 
-  // Bộ lọc ở Frontend
   const filteredListings = listings.filter((l) => l.postStatus === filterStatus)
 
   const handleViewDetails = (listing) => {
@@ -43,8 +39,9 @@ export default function AdminListings() {
     if(window.confirm('Bạn có chắc chắn muốn duyệt bài đăng này?')) {
       try {
         await adminService.approvePost(id)
-        alert('Duyệt bài thành công!')
+        alert('Duyệt bài thành công! Hệ thống đã tạo yêu cầu kiểm định (nếu có).')
         fetchListings() // Reload danh sách
+        setIsDetailModalOpen(false)
       } catch (error) {
         alert('Lỗi duyệt bài: ' + (error.response?.data?.message || error.message))
       }
@@ -54,7 +51,7 @@ export default function AdminListings() {
   const handleRejectListing = async (id) => {
     const reason = window.prompt('Vui lòng nhập lý do từ chối (bắt buộc):')
     
-    if (reason === null) return; // Nhấn Hủy
+    if (reason === null) return; 
     if (reason.trim() === '') {
       alert('Lý do không được để trống!')
       return;
@@ -63,7 +60,8 @@ export default function AdminListings() {
     try {
       await adminService.rejectPost(id, reason)
       alert('Đã từ chối bài đăng!')
-      fetchListings() // Reload danh sách
+      fetchListings() 
+      setIsDetailModalOpen(false)
     } catch (error) {
       alert('Lỗi từ chối bài: ' + (error.response?.data?.message || error.message))
     }
@@ -83,6 +81,23 @@ export default function AdminListings() {
       label: 'Giá',
       render: (value) => value ? `₫${value.toLocaleString('vi-VN')}` : 'Liên hệ',
     },
+    // 🔥 CỘT YÊU CẦU KIỂM ĐỊNH ĐÃ ĐƯỢC SỬA LẠI KEY BẮT DỮ LIỆU
+    {
+    key: 'isRequestedInspection', 
+    label: 'Kiểm định',
+    width: '100px',
+    render: (value, item) => {
+      // Bắt cả 2 trường hợp key (isRequestedInspection hoặc requestedInspection)
+      const hasInspection = value === true || item.requestedInspection === true;
+      
+      return hasInspection ? (
+        <span className="flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-sm border border-orange-200">
+          <span className="material-symbols-outlined text-[1rem]" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
+          CÓ 
+        </span>
+      ) : <span className="text-gray-400 font-medium">-</span>
+    }
+  },
     {
       key: 'postStatus',
       label: 'Trạng thái',
@@ -115,7 +130,6 @@ export default function AdminListings() {
         <p className="text-content-secondary mt-2">Xem xét và duyệt các tin đăng mới</p>
       </div>
 
-      {/* Filters */}
       <div className="mb-6 flex gap-4">
         <div>
           <label className="text-sm font-medium text-content-primary block mb-2">Trạng thái</label>
@@ -131,7 +145,6 @@ export default function AdminListings() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-surface rounded-sm border border-border-light p-4 shadow-sm">
           <p className="text-sm text-content-secondary font-medium">Chờ duyệt</p>
@@ -147,7 +160,6 @@ export default function AdminListings() {
         </div>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="py-10 text-center">Đang tải dữ liệu...</div>
       ) : (
@@ -193,7 +205,6 @@ export default function AdminListings() {
         />
       )}
 
-      {/* Listing Details Modal */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -202,6 +213,18 @@ export default function AdminListings() {
       >
         {selectedListing && (
           <div className="space-y-4">
+            
+            {/* 🔥 HIỂN THỊ CẢNH BÁO CHO ADMIN TRONG MODAL */}
+            {(selectedListing.requestedInspection || selectedListing.isRequestedInspection) && selectedListing.postStatus === 'PENDING' && (
+              <div className="bg-orange-50 text-orange-800 p-4 rounded-sm border border-orange-200 text-sm flex items-start gap-3">
+                <span className="material-symbols-outlined text-orange-600 mt-0.5" style={{fontVariationSettings: "'FILL' 1"}}>error</span>
+                <div>
+                  <p className="font-bold mb-1">Tin đăng có kèm Yêu cầu Kiểm định</p>
+                  <p>Khi bạn nhấn <strong>Duyệt</strong>, hệ thống sẽ tự động tạo một phiên kiểm định mới cho nhân viên. Hãy kiểm tra kỹ thông tin xe trước khi duyệt.</p>
+                </div>
+              </div>
+            )}
+
             {selectedListing.postStatus === 'REJECTED' && selectedListing.rejectionReason && (
               <div className="bg-red-50 text-red-700 p-3 rounded-sm border border-red-200 text-sm">
                 <strong>Lý do từ chối:</strong> {selectedListing.rejectionReason}
@@ -229,7 +252,6 @@ export default function AdminListings() {
               </div>
             </div>
             
-            {/* Chi tiết thêm nếu có */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase">Thương hiệu / Model</p>

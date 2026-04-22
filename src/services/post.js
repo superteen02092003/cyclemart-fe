@@ -1,13 +1,10 @@
 import api from './api'
 
 export const postService = {
-  // Tạo bài đăng mới
   create: async (postData) => {
     try {
-      // Tạo FormData để gửi file và data
       const formData = new FormData()
       
-      // Thêm các field text
       formData.append('title', postData.title)
       formData.append('description', postData.description)
       formData.append('price', postData.price)
@@ -25,9 +22,13 @@ export const postService = {
       formData.append('categoryId', postData.categoryId)
       formData.append('allowNegotiation', postData.allowNegotiation)
       
-      // Thêm images nếu có
+      formData.append('requestInspection', postData.requestInspection || false)
+      if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)
+      if (postData.inspectionScheduledDate) formData.append('inspectionScheduledDate', postData.inspectionScheduledDate)
+      if (postData.inspectionNote) formData.append('inspectionNote', postData.inspectionNote)
+      
       if (postData.images && postData.images.length > 0) {
-        postData.images.forEach((image, index) => {
+        postData.images.forEach((image) => {
           formData.append('images', image)
         })
       }
@@ -39,7 +40,6 @@ export const postService = {
     }
   },
 
-  // Lấy tất cả bài đăng
   getAll: async () => {
     try {
       const response = await api.get('/v1/posts')
@@ -49,7 +49,6 @@ export const postService = {
     }
   },
 
-  // Lấy bài đăng của user hiện tại
   getMyPosts: async () => {
     try {
       const response = await api.get('/v1/posts/my-posts')
@@ -59,7 +58,6 @@ export const postService = {
     }
   },
 
-  // Lấy bài đăng theo ID
   getById: async (id) => {
     try {
       const response = await api.get(`/v1/posts/${id}`)
@@ -69,7 +67,6 @@ export const postService = {
     }
   },
 
-  // Cập nhật bài đăng
   update: async (id, postData) => {
     try {
       const response = await api.put(`/v1/posts/${id}`, postData)
@@ -79,7 +76,6 @@ export const postService = {
     }
   },
 
-  // Xóa bài đăng
   delete: async (id) => {
     try {
       await api.delete(`/v1/posts/${id}`)
