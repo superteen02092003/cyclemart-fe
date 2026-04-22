@@ -149,9 +149,13 @@ export default function LoginPage() {
           </div>
 
           <div className="flex justify-end -mt-1">
-            <a href="#" className="text-xs text-orange font-semibold hover:underline">
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.FORGOT_PASSWORD)}
+              className="text-xs text-orange font-semibold hover:underline"
+            >
               Quên mật khẩu?
-            </a>
+            </button>
           </div>
 
           <Button 

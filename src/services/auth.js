@@ -94,6 +94,31 @@ export const authService = {
     }
   },
 
+  // Quên mật khẩu - gửi OTP
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Gửi yêu cầu quên mật khẩu thất bại' }
+    }
+  },
+
+  // Đặt lại mật khẩu sau OTP
+  resetPassword: async (data) => {
+    try {
+      const response = await api.post('/auth/reset-password', {
+        email: data.email,
+        otpCode: data.otpCode,
+        newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword,
+      })
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Đặt lại mật khẩu thất bại' }
+    }
+  },
+
   // Xác thực OTP
   verifyOtp: async (data) => {
     try {

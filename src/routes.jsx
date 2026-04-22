@@ -11,7 +11,9 @@ import SellPage from '@/pages/Sell'
 import CommunityPage from '@/pages/Community'
 import LoginPage from '@/pages/Auth/LoginPage'
 import RegisterPage from '@/pages/Auth/RegisterPage'
+import ForgotPasswordPage from '@/pages/Auth/ForgotPasswordPage'
 import VerifyOtpPage from '@/pages/Auth/VerifyOtpPage'
+import ResetPasswordPage from '@/pages/Auth/ResetPasswordPage'
 import ProfilePage from '@/pages/Profile'
 import MyListingsPage from '@/pages/MyListings'
 import WishlistPage from '@/pages/Wishlist'
@@ -69,7 +71,9 @@ export const router = createBrowserRouter([
     children: [
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
+      { path: 'forgot-password', element: <ForgotPasswordPage /> },
       { path: 'verify-otp', element: <VerifyOtpPage /> },
+      { path: 'reset-password', element: <ResetPasswordPage /> },
     ],
   },
 

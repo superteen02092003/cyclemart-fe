@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { authService } from '@/services/auth'
-import { postService } from '@/services/post' 
+import { ROUTES } from '@/constants/routes'
+import { postService } from '@/services/post'
 import { Badge } from '@/components/ui/Badge'
 import SubscribeModal from '@/components/seller/SubscribeModal'
 
@@ -20,7 +22,8 @@ const normalizeVietnameseText = (value) => {
 const isValidFullName = (value) => /^[A-Za-zÀ-ỹĐđ\s]+$/.test(value.trim())
 
 export default function ProfilePage() {
-  const { user, updateUserContext } = useAuth()
+  const navigate = useNavigate()
+  const { user, updateUserContext, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ text: '', type: '' })
   const [showSubscribeModal, setShowSubscribeModal] = useState(false)
@@ -28,6 +31,10 @@ export default function ProfilePage() {
   const [priorityPosts, setPriorityPosts] = useState([])
   const [profileErrors, setProfileErrors] = useState({})
   const [passwordErrors, setPasswordErrors] = useState({})
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+  const [forgotPasswordError, setForgotPasswordError] = useState('')
+  const [sendingOtp, setSendingOtp] = useState(false)
 
   const [profile, setProfile] = useState({
     fullName: '',
@@ -46,6 +53,9 @@ export default function ProfilePage() {
         fullName: normalizeVietnameseText(user.fullName) || '',
         phone: user.phone || ''
       })
+      if (user?.email) {
+        setForgotPasswordEmail(user.email)
+      }
       fetchPriorityPosts()
     }
   }, [user])
@@ -98,7 +108,7 @@ export default function ProfilePage() {
 
     if (!phone) {
       errors.phone = 'Vui lòng nhập số điện thoại'
-    } else if (!/^\d{10}$/.test(phone)) {
+    } else if (!/^?\d{10}$/.test(phone)) {
       errors.phone = 'Số điện thoại phải đúng 10 chữ số'
     }
 
@@ -219,6 +229,38 @@ export default function ProfilePage() {
     }
   }
 
+  const handleForgotPasswordEmailChange = (value) => {
+    setForgotPasswordEmail(value)
+    if (forgotPasswordError) setForgotPasswordError('')
+  }
+
+  const handleForgotPassword = async () => {
+    const emailToUse = isAuthenticated ? user?.email : forgotPasswordEmail.trim()
+    if (!emailToUse) {
+      setForgotPasswordError('Vui lòng nhập email')
+      return
+    }
+    if (!/^\S+@\S+\.\S+$/.test(emailToUse)) {
+      setForgotPasswordError('Email không hợp lệ')
+      return
+    }
+
+    try {
+      setSendingOtp(true)
+      setForgotPasswordError('')
+      await authService.forgotPassword(emailToUse)
+      showMessage('Đã gửi mã OTP đặt lại mật khẩu đến email của bạn', 'success')
+      setShowForgotPassword(false)
+      navigate(ROUTES.RESET_PASSWORD, { state: { email: emailToUse } })
+    } catch (error) {
+      const serverMessage = error?.message || error?.errors?.email || 'Gửi yêu cầu quên mật khẩu thất bại'
+      setForgotPasswordError(serverMessage)
+      showMessage(serverMessage, 'error')
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
   const getDaysRemaining = (post) => {
     if (post.activePriority.endDate) {
       const end = new Date(post.activePriority.endDate)
@@ -291,7 +333,17 @@ export default function ProfilePage() {
 
         {/* SECTION 2: ĐỔI MẬT KHẨU */}
         <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
-          <h2 className="text-lg font-semibold text-content-primary mb-4">Đổi mật khẩu</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-content-primary">Đổi mật khẩu</h2>
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-sm font-semibold text-orange hover:underline"
+            >
+              Quên mật khẩu
+            </button>
+          </div>
+
           <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               <div>
@@ -332,11 +384,88 @@ export default function ProfilePage() {
               </div>
             </div>
             {passwordErrors.submit && !passwordErrors.oldPassword && <p className="text-xs text-error">{passwordErrors.submit}</p>}
-            <button type="submit" disabled={loading} className="px-4 py-2 border border-[#ff6b35] text-[#ff6b35] hover:bg-[#ff6b35] hover:text-white font-semibold rounded-sm transition-all">
-              Cập nhật mật khẩu
-            </button>
+            <div className="flex items-center gap-3">
+              <button type="submit" disabled={loading} className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50">Cập nhật mật khẩu</button>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="px-4 py-2 border border-[#ff6b35] text-[#ff6b35] rounded-sm hover:bg-[#ff6b35] hover:text-white transition-colors"
+              >
+                Quên mật khẩu
+              </button>
+            </div>
           </form>
         </div>
+
+        {/* Forgot password panel */}
+        {showForgotPassword && (
+          <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
+            <h3 className="text-lg font-semibold text-content-primary mb-3">Quên mật khẩu</h3>
+            {isAuthenticated ? (
+              <>
+                <p className="text-sm text-content-secondary mb-3">
+                  Chúng tôi sẽ gửi mã OTP đặt lại mật khẩu đến email hiện tại của bạn:
+                </p>
+                <p className="text-sm font-semibold text-content-primary mb-4">{user?.email}</p>
+                {forgotPasswordError && <p className="text-xs text-error mb-3">{forgotPasswordError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={sendingOtp}
+                    className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50"
+                  >
+                    {sendingOtp ? 'Đang gửi...' : 'Xác nhận gửi OTP'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false)
+                      setForgotPasswordError('')
+                    }}
+                    className="px-4 py-2 border rounded-sm"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-content-secondary mb-3">
+                  Nhập email để nhận mã OTP đặt lại mật khẩu:
+                </p>
+                <input
+                  type="email"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => handleForgotPasswordEmailChange(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full px-3 py-2 border rounded-sm focus:outline-none focus:border-[#ff6b35] mb-2"
+                />
+                {forgotPasswordError && <p className="text-xs text-error mb-3">{forgotPasswordError}</p>}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={sendingOtp}
+                    className="px-4 py-2 bg-[#ff6b35] text-white rounded-sm disabled:opacity-50"
+                  >
+                    {sendingOtp ? 'Đang gửi...' : 'Gửi OTP'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false)
+                      setForgotPasswordError('')
+                    }}
+                    className="px-4 py-2 border rounded-sm"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* SECTION 3: GÓI ƯU TIÊN ĐANG HOẠT ĐỘNG (Đã đưa xuống cuối) */}
         <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
@@ -386,3 +515,4 @@ export default function ProfilePage() {
     </div>
   )
 }
+
