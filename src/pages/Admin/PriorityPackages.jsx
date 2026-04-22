@@ -45,9 +45,11 @@ export default function PriorityPackages() {
       })
       alert('Tạo gói thành công!')
       setShowForm(false)
-      fetchPackages() // Load lại bảng
+      fetchPackages() 
     } catch (error) {
-      alert(error.message || 'Có lỗi xảy ra')
+      // Sửa lại đoạn này để lấy message lỗi thực sự từ Backend
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra';
+      alert('Lỗi: ' + errorMessage);
     }
   }
 
@@ -81,7 +83,7 @@ export default function PriorityPackages() {
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-sm shadow-sm mb-6 grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Tên gói</label>
-            <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2" />
+            <input required minLength={3} type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Mức ưu tiên</label>
