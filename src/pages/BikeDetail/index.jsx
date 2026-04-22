@@ -495,7 +495,7 @@ export default function BikeDetailPage() {
                 {bike.district && bike.city ? `${bike.district}, ${bike.city}` : bike.city || 'Không xác định'}
                 <span className="ml-auto flex items-center gap-1">
                   <span className="material-symbols-outlined text-[0.9rem]">visibility</span>
-                  0 lượt xem
+                  {bike.viewCount || 0} lượt xem
                 </span>
               </div>
 

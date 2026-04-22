@@ -19,6 +19,40 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const normalizeBackendErrors = (error) => {
+    if (!error) return {}
+
+    if (typeof error === 'string') {
+      if (error.toLowerCase().includes('số điện thoại') || error.toLowerCase().includes('phone')) {
+        return { phone: error }
+      }
+      return { submit: error }
+    }
+
+    if (typeof error === 'object') {
+      if (error.errors && typeof error.errors === 'object') {
+        return error.errors
+      }
+
+      if (error.phone || error.email || error.fullName || error.password) {
+        return error
+      }
+
+      if (error.message) {
+        const message = error.message
+        const lowerMessage = message.toLowerCase()
+
+        if (lowerMessage.includes('số điện thoại') || lowerMessage.includes('phone')) {
+          return { phone: message }
+        }
+
+        return { submit: message }
+      }
+    }
+
+    return { submit: 'Đăng ký thất bại. Vui lòng thử lại.' }
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -94,28 +128,15 @@ export default function RegisterPage() {
       console.log('Error type:', typeof error)
       console.log('Error structure:', error)
 
-      // Nếu error là object với các key (email, phone, fullName, password) - lỗi từ backend
-      if (typeof error === 'object' && error !== null && !error.message) {
-        console.log('✅ Backend validation errors:', error)
-        setErrors(error)
+      const backendErrors = normalizeBackendErrors(error)
+      setErrors(prev => ({
+        ...prev,
+        ...backendErrors,
+      }))
 
-        // Hiển thị toast với lỗi đầu tiên
-        const firstError = Object.values(error)[0]
-        if (firstError) {
-          showToast(firstError, 'error')
-        }
-      }
-      // Nếu error có message
-      else if (error.message) {
-        console.log('⚠️ General error message:', error.message)
-        setErrors({ submit: error.message })
-        showToast(error.message, 'error')
-      }
-      // Fallback
-      else {
-        console.log('⚠️ Unknown error format')
-        setErrors({ submit: 'Đăng ký thất bại. Vui lòng thử lại.' })
-        showToast('Đăng ký thất bại. Vui lòng thử lại.', 'error')
+      const firstError = backendErrors.phone || backendErrors.email || backendErrors.fullName || backendErrors.password || backendErrors.submit
+      if (firstError) {
+        showToast(firstError, 'error')
       }
     } finally {
       setIsSubmitting(false)

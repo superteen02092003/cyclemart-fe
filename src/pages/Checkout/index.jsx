@@ -1,17 +1,18 @@
+import { useEffect } from 'react';
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MOCK_BIKES } from '@/constants/mockData';
 import { formatPrice } from '@/utils/formatPrice';
-import { ROUTES } from '@/constants/routes';
+import { bikePostService } from '@/services/bikePost';
 
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const bike = MOCK_BIKES.find((b) => b.id === id) || MOCK_BIKES[0];
+  const [bike, setBike] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const platformFee = 0; // Phí nền tảng là 0 theo SRS (100% Escrow về Seller)
   const shippingFee = 200000;
-  const total = bike.price + platformFee + shippingFee;
 
   const [form, setForm] = useState({
     name: '',
@@ -45,6 +46,40 @@ export default function CheckoutPage() {
     navigate('/orders');
   };
 
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchBike = async () => {
+      try {
+        setLoading(true);
+        const data = await bikePostService.getById(id);
+        setBike(data?.result || data?.data || data);
+        setError(null);
+      } catch (err) {
+        console.error('Fetch bike error:', err);
+        setBike(null);
+        setError(err?.response?.data?.message || err.message || 'Không tải được thông tin xe');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBike();
+  }, [id]);
+
+  if (loading) {
+    return <div>Đang tải dữ liệu...</div>;
+  }
+
+  if (error || !bike) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-surface-primary min-h-screen">
+        <p className="text-sm text-error">{error || 'Không tìm thấy dữ liệu xe'}</p>
+      </div>
+    );
+  }
+
+  const total = bike.price + platformFee + shippingFee;
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-surface-primary min-h-screen">
       <Link to={`/bike/${bike.id}`} className="inline-flex items-center gap-1 text-sm text-content-secondary hover:text-content-primary transition-colors mb-6">
