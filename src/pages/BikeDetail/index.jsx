@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -148,6 +148,7 @@ export default function BikeDetailPage() {
   const [sellerInfo, setSellerInfo] = useState(null)
   const [sellerRatings, setSellerRatings] = useState([])
   const [loadingSellerInfo, setLoadingSellerInfo] = useState(false)
+  const hasFetchedBikeRef = useRef(false)
 
   const [myRating, setMyRating] = useState(0)
   const [myComment, setMyComment] = useState('')
@@ -155,10 +156,13 @@ export default function BikeDetailPage() {
 
   useEffect(() => {
     const fetchBikeData = async () => {
+      if (!id || hasFetchedBikeRef.current === id) return
+
+      hasFetchedBikeRef.current = id
       try {
         setLoading(true)
         const data = await bikePostService.getById(id)
-        setBike(data)
+        setBike(data?.result || data?.data || data)
         setError(null)
       } catch (err) {
         setError(err.message || 'Lỗi khi tải dữ liệu xe')
@@ -168,9 +172,7 @@ export default function BikeDetailPage() {
       }
     }
 
-    if (id) {
-      fetchBikeData()
-    }
+    fetchBikeData()
   }, [id])
 
   // Fetch seller info khi có user ID

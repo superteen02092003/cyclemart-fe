@@ -24,6 +24,8 @@ export function BikeCard({
     if (onWishlistToggle) onWishlistToggle(bike.id)
   }
 
+  const viewCount = bike.views ?? bike.viewCount ?? bike.view_count ?? 0
+
   return (
     <Link to={`/bike/${bike.id}`} className="block">
       <article
@@ -106,6 +108,10 @@ export function BikeCard({
               <span className="material-symbols-outlined text-[0.9rem] flex-shrink-0">storefront</span>
               <span className="text-xs truncate">{bike.sellerName || 'Người bán'}</span>
             </div>
+            <span className="flex items-center gap-1 text-xs text-content-secondary flex-shrink-0">
+              <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
+              {viewCount} lượt xem
+            </span>
           </div>
 
           <p className="text-xs text-content-secondary mb-1">
