@@ -18,6 +18,9 @@ import WishlistPage from '@/pages/Wishlist'
 import ChatPage from '@/pages/Chat'
 import CheckoutPage from '@/pages/Checkout'
 import OrdersPage from '@/pages/Orders'
+import PaymentSuccessPage from '@/pages/Payment/PaymentSuccessPage'
+import PaymentFailurePage from '@/pages/Payment/PaymentFailurePage'
+import PaymentCallbackPage from '@/pages/Payment/PaymentCallbackPage'
 
 // Admin Pages
 import AdminDashboard from '@/pages/Admin'
@@ -53,6 +56,9 @@ export const router = createBrowserRouter([
       { path: 'messages', element: <ChatPage /> },
       { path: 'checkout/:id', element: <CheckoutPage /> },
       { path: 'orders', element: <OrdersPage /> },
+      { path: 'payment-success', element: <PaymentSuccessPage /> },
+      { path: 'payment-failure', element: <PaymentFailurePage /> },
+      { path: 'payment-callback', element: <PaymentCallbackPage /> },
     ],
   },
 

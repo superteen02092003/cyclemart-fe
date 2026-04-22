@@ -3,15 +3,18 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { bikePostService } from '@/services/bikePost';
+import { useAuth } from '@/hooks/useAuth';
+import api from '@/services/api';
 
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const platformFee = 0; // Phí nền tảng là 0 theo SRS (100% Escrow về Seller)
+  const platformFee = 0;
   const shippingFee = 200000;
 
   const [form, setForm] = useState({
@@ -21,29 +24,64 @@ export default function CheckoutPage() {
     note: ''
   });
   
-  const [showPayOSContent, setShowPayOSContent] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentResponse, setPaymentResponse] = useState(null);
+  const [showQRModal, setShowQRModal] = useState(false);
 
-  const handleSubmitCheckout = (e) => {
+  // Auto-fill form từ user info
+  useEffect(() => {
+    if (user) {
+      setForm(prev => ({
+        ...prev,
+        name: user.fullName || '',
+        phone: user.phone || ''
+      }))
+    }
+  }, [user])
+
+  const handleSubmitCheckout = async (e) => {
     e.preventDefault();
+    
+    if (!form.name.trim()) {
+      alert('Vui lòng nhập tên người nhận');
+      return;
+    }
+    if (!form.phone.trim()) {
+      alert('Vui lòng nhập số điện thoại');
+      return;
+    }
+    if (!form.address.trim()) {
+      alert('Vui lòng nhập địa chỉ');
+      return;
+    }
+
     setIsProcessing(true);
     
-    // Fake thời gian tạo order và load cổng thanh toán (QR)
-    setTimeout(() => {
+    try {
+      const paymentData = {
+        bikePostId: parseInt(id),
+        name: form.name,
+        phone: form.phone,
+        address: form.address,
+        description: form.note || 'Không có ghi chú'
+      };
+
+      console.log('Payment data:', paymentData);
+      
+      const response = await api.post('/v1/payments/sepay/create', paymentData);
+      
+      if (response.data.success && response.data.qrUrl) {
+        setPaymentResponse(response.data);
+        setShowQRModal(true);
+      } else {
+        alert('Lỗi tạo thanh toán: ' + (response.data.message || 'Không xác định'));
+        setIsProcessing(false);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Lỗi tạo thanh toán: ' + (error.response?.data?.message || error.message));
       setIsProcessing(false);
-      setShowPayOSContent(true);
-    }, 1500);
-  };
-
-  const handleSimulatePaymentSuccess = () => {
-    // Fake xử lý thành công webhook
-    setShowPayOSContent(false);
-    setShowSuccessModal(true);
-  };
-
-  const closeSuccessAndRedirect = () => {
-    navigate('/orders');
+    }
   };
 
   useEffect(() => {
@@ -223,9 +261,104 @@ export default function CheckoutPage() {
                 </>
               )}
             </button>
+
+            {/* Mock Payment Test Buttons (Local Testing) */}
+            <div className="mt-4 pt-4 border-t border-border-light space-y-2">
+              <p className="text-xs text-content-tertiary text-center mb-2">🧪 Test Mode (Local)</p>
+              <button
+                onClick={() => navigate(`/payment-success?orderId=ORDER_${Date.now()}`)}
+                className="w-full py-2 bg-green/10 hover:bg-green/20 text-green font-semibold rounded-sm transition-all text-sm border border-green/30"
+              >
+                ✓ Test Thanh Toán Thành Công
+              </button>
+              <button
+                onClick={() => navigate(`/payment-failure?reason=Lỗi kết nối&bikeId=${id}`)}
+                className="w-full py-2 bg-error/10 hover:bg-error/20 text-error font-semibold rounded-sm transition-all text-sm border border-error/30"
+              >
+                ✗ Test Thanh Toán Thất Bại
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Sepay Form - Auto-submit to Sepay */}
+      {paymentResponse && <SepayForm paymentData={paymentResponse} />}
+
+      {/* QR Code Modal */}
+      {showQRModal && paymentResponse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center">
+            {/* Header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-content-primary mb-2">Quét mã QR để thanh toán</h2>
+              <p className="text-sm text-content-secondary">Sử dụng ứng dụng ngân hàng để quét mã QR bên dưới</p>
+            </div>
+
+            {/* QR Code */}
+            <div className="bg-surface-secondary rounded-lg p-4 mb-6 border-2 border-border-light">
+              <img 
+                src={paymentResponse.qrUrl} 
+                alt="QR Code" 
+                className="w-full h-auto rounded"
+                onError={(e) => {
+                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f0f0f0" width="200" height="200"/%3E%3Ctext x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3EQR Code Error%3C/text%3E%3C/svg%3E'
+                }}
+              />
+            </div>
+
+            {/* Order Info */}
+            <div className="bg-blue/5 border border-blue/20 rounded-lg p-4 mb-6 text-left">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">Mã đơn hàng:</span>
+                  <span className="font-mono font-bold text-content-primary">{paymentResponse.orderId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">Số tiền:</span>
+                  <span className="font-bold text-orange">{formatPrice(paymentResponse.amount)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-orange/5 border border-orange/20 rounded-lg p-4 mb-6 text-left">
+              <p className="text-xs font-semibold text-content-primary mb-2">📱 Hướng dẫn:</p>
+              <ol className="text-xs text-content-secondary space-y-1 list-decimal list-inside">
+                <li>Mở ứng dụng ngân hàng của bạn</li>
+                <li>Chọn "Chuyển khoản" hoặc "Quét QR"</li>
+                <li>Quét mã QR trên màn hình</li>
+                <li>Xác nhận và hoàn tất thanh toán</li>
+              </ol>
+            </div>
+
+            {/* Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate(`/payment-success?orderId=${paymentResponse.orderId}`)}
+                className="w-full py-3 bg-green hover:bg-green/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
+                ✓ Giả lập thanh toán thành công
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowQRModal(false);
+                  setPaymentResponse(null);
+                  setIsProcessing(false);
+                }}
+                className="w-full py-3 bg-surface-secondary hover:bg-surface-tertiary text-content-primary font-bold rounded-lg transition-colors border border-border-light"
+              >
+                Đóng
+              </button>
+              <p className="text-xs text-content-tertiary text-center">
+                Hệ thống sẽ tự động cập nhật khi thanh toán thành công
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mock PayOS Dialog */}
       {showPayOSContent && (

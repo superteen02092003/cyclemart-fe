@@ -13,4 +13,6 @@ export const ROUTES = {
   WISHLIST: '/favorites',
   MESSAGES: '/messages',
   ORDERS: '/orders',
+  PAYMENT_SUCCESS: '/payment-success',
+  PAYMENT_FAILURE: '/payment-failure',
 }
