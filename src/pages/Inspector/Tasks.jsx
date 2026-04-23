@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { cn } from '@/utils/cn';
 import api from '@/services/api';
+import { inspectionService } from '@/services/inspection';
 
-// Hàm format tiền tệ (VND)
 const formatPrice = (price) => {
   if (!price) return '0 đ';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -15,18 +15,18 @@ export default function InspectorTasks() {
   
   // Modal states
   const [selectedTask, setSelectedTask] = useState(null);
-  const [postDetails, setPostDetails] = useState(null); // Lưu thông tin chi tiết xe
+  const [postDetails, setPostDetails] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  // Form state
+  // Form & Criteria states
   const [resultNote, setResultNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [checklist, setChecklist] = useState({
-    frame: false, brakes: false, drivetrain: false, wheels: false,
-  });
+  const [criteria, setCriteria] = useState([]); // 🔥 Danh sách tiêu chí động
+  const [checklist, setChecklist] = useState({}); // 🔥 Object lưu state các ô tick { id: true/false }
 
   useEffect(() => {
     fetchTasks();
+    fetchCriteria(); // Load tiêu chí khi vào trang
   }, []);
 
   const fetchTasks = async () => {
@@ -43,16 +43,42 @@ export default function InspectorTasks() {
     }
   };
 
-  // 🔥 Khi mở Modal, gọi thêm API lấy chi tiết bài đăng (bao gồm hình ảnh)
+  const fetchCriteria = async () => {
+    try {
+      const data = await inspectionService.getActiveCriteria();
+      setCriteria(data);
+    } catch (error) {
+      // Nếu Backend chưa có API này, dùng danh sách tạm để không lỗi UI
+      setCriteria([
+        { id: 1, name: 'Khung xe (Nứt, gãy, sơn lại)' },
+        { id: 2, name: 'Hệ thống phanh (Má phanh, cáp)' },
+        { id: 3, name: 'Truyền động (Xích, líp, đề)' },
+        { id: 4, name: 'Lốp & Vành xe (Mòn, cong)' },
+      ]);
+    }
+  };
+
   const openModal = async (task) => {
     setSelectedTask(task);
     setResultNote(task.resultNote || '');
-    setChecklist({ frame: false, brakes: false, drivetrain: false, wheels: false });
+    
+    // 🔥 ĐỌC DỮ LIỆU ĐÃ TICK TỪ DB
+    let parsedChecklist = {};
+    if (task.checklistData) {
+      try {
+        const checkedIds = JSON.parse(task.checklistData); // VD: [1, 3]
+        if (Array.isArray(checkedIds)) {
+          checkedIds.forEach(id => parsedChecklist[id] = true);
+        }
+      } catch (e) {
+        console.error("Lỗi parse checklist:", e);
+      }
+    }
+    setChecklist(parsedChecklist);
     
     setIsLoadingDetails(true);
     setPostDetails(null);
     try {
-      // Giả định API lấy chi tiết bài đăng của bạn là /v1/posts/{id}
       const res = await api.get(`/v1/posts/${task.postId}`);
       setPostDetails(res.data);
     } catch (error) {
@@ -76,9 +102,12 @@ export default function InspectorTasks() {
 
     setIsSubmitting(true);
     try {
-      await api.put(`/v1/inspections/${selectedTask.id}/result`, null, {
-        params: { status, resultNote }
-      });
+      // 🔥 CHUYỂN CÁC Ô ĐÃ TICK THÀNH MẢNG JSON TRƯỚC KHI GỬI
+      const checkedIds = Object.keys(checklist).filter(id => checklist[id]).map(Number);
+      const checklistDataStr = JSON.stringify(checkedIds);
+
+      await inspectionService.updateResult(selectedTask.id, status, resultNote, checklistDataStr);
+      
       alert(`Đã cập nhật kết quả: ${status === 'PASSED' ? 'ĐẠT' : 'KHÔNG ĐẠT'}`);
       closeModal();
       fetchTasks();
@@ -245,7 +274,7 @@ export default function InspectorTasks() {
                     </div>
                   )}
 
-                  {/* Thông tin lịch hẹn (Gọn lại) */}
+                  {/* Thông tin lịch hẹn */}
                   <div className="bg-white p-4 rounded-sm shadow-sm border border-border-light text-sm">
                     <h3 className="font-bold text-navy flex items-center gap-2 mb-3"><span className="material-symbols-outlined text-[#175d5d] text-[1.1rem]">today</span>Thông tin cuộc hẹn</h3>
                     <div className="grid grid-cols-2 gap-3">
@@ -265,23 +294,18 @@ export default function InspectorTasks() {
                       Các hạng mục kiểm tra
                     </h3>
                     
-                    {/* Checklist UI */}
+                    {/* 🔥 RENDER TIÊU CHÍ ĐỘNG TỪ STATE */}
                     <div className="space-y-3 mb-6">
-                      {[
-                        { id: 'frame', label: 'Khung xe (Nứt, gãy, sơn lại)' },
-                        { id: 'brakes', label: 'Hệ thống phanh (Má phanh, cáp)' },
-                        { id: 'drivetrain', label: 'Truyền động (Xích, líp, đề)' },
-                        { id: 'wheels', label: 'Lốp & Vành xe (Mòn, cong)' },
-                      ].map((item) => (
+                      {criteria.map((item) => (
                         <label key={item.id} className={cn("flex items-center gap-3 p-3 border rounded-sm cursor-pointer transition-colors", checklist[item.id] ? "bg-green-50 border-green-200" : "bg-surface-secondary border-border-light hover:bg-white")}>
                           <input 
                             type="checkbox" 
                             className="w-5 h-5 rounded border-gray-300 text-[#175d5d] focus:ring-[#175d5d]"
-                            checked={checklist[item.id]}
+                            checked={!!checklist[item.id]} // Ép kiểu bool để không lỗi warning
                             onChange={(e) => setChecklist({...checklist, [item.id]: e.target.checked})}
                             disabled={selectedTask.status !== 'ASSIGNED' && selectedTask.status !== 'INSPECTING'}
                           />
-                          <span className={cn("text-sm font-medium", checklist[item.id] ? "text-green-800" : "text-content-primary")}>{item.label}</span>
+                          <span className={cn("text-sm font-medium", checklist[item.id] ? "text-green-800" : "text-content-primary")}>{item.name}</span>
                         </label>
                       ))}
                     </div>

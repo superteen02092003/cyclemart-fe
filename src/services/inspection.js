@@ -30,8 +30,17 @@ export const inspectionService = {
     const response = await api.get('/v1/inspections/inspector/me', { params })
     return response.data
   },
-  updateResult: async (id, status, note) => {
-    const response = await api.put(`/v1/inspections/inspector/${id}/result`, null, { params: { status, note } })
+  // 🔥 SỬA: Đổi tên tham số thành resultNote và thêm checklistData
+  updateResult: async (id, status, resultNote, checklistData) => {
+    const response = await api.put(`/v1/inspections/inspector/${id}/result`, null, { 
+      params: { status, resultNote, checklistData } 
+    })
+    return response.data
+  },
+
+  // 🔥 MỚI: API lấy danh sách tiêu chí động từ Backend
+  getActiveCriteria: async () => {
+    const response = await api.get('/v1/inspection-criteria/active')
     return response.data
   }
 }
