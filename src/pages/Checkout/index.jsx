@@ -70,9 +70,9 @@ export default function CheckoutPage() {
       
       const response = await api.post('/v1/payments/sepay/create', paymentData);
       
-      if (response.data.success && response.data.qrUrl) {
-        setPaymentResponse(response.data);
-        setShowQRModal(true);
+      if (response.data.success && response.data.paymentUrl) {
+        // Redirect to VNPay payment page
+        window.location.href = response.data.paymentUrl;
       } else {
         alert('Lỗi tạo thanh toán: ' + (response.data.message || 'Không xác định'));
         setIsProcessing(false);
@@ -282,33 +282,14 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* QR Code Modal */}
+      {/* Mock Payment Test Modal - for sandbox testing */}
       {showQRModal && paymentResponse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center">
             {/* Header */}
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-content-primary mb-2">Quét mã QR để thanh toán</h2>
-              <p className="text-sm text-content-secondary">Sử dụng ứng dụng ngân hàng để quét mã QR bên dưới</p>
-            </div>
-
-            {/* QR Code */}
-            <div className="bg-surface-secondary rounded-lg p-4 mb-6 border-2 border-border-light">
-              {paymentResponse.qrUrl ? (
-                <img 
-                  src={paymentResponse.qrUrl} 
-                  alt="QR Code" 
-                  className="w-full h-auto rounded"
-                  onError={(e) => {
-                    console.error('QR image load error. URL:', paymentResponse.qrUrl);
-                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f0f0f0" width="200" height="200"/%3E%3Ctext x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3EQR Load Error%3C/text%3E%3C/svg%3E'
-                  }}
-                />
-              ) : (
-                <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
-                  <p className="text-sm text-gray-500">QR URL không có</p>
-                </div>
-              )}
+              <h2 className="text-2xl font-bold text-content-primary mb-2">Thanh toán VNPay</h2>
+              <p className="text-sm text-content-secondary">Đơn hàng của bạn đã được tạo thành công</p>
             </div>
 
             {/* Order Info */}
@@ -329,10 +310,10 @@ export default function CheckoutPage() {
             <div className="bg-orange/5 border border-orange/20 rounded-lg p-4 mb-6 text-left">
               <p className="text-xs font-semibold text-content-primary mb-2">📱 Hướng dẫn:</p>
               <ol className="text-xs text-content-secondary space-y-1 list-decimal list-inside">
-                <li>Mở ứng dụng ngân hàng của bạn</li>
-                <li>Chọn "Chuyển khoản" hoặc "Quét QR"</li>
-                <li>Quét mã QR trên màn hình</li>
-                <li>Xác nhận và hoàn tất thanh toán</li>
+                <li>Bạn sẽ được chuyển hướng tới trang thanh toán VNPay</li>
+                <li>Nhập thông tin thẻ hoặc chọn phương thức thanh toán</li>
+                <li>Xác nhận giao dịch</li>
+                <li>Hệ thống sẽ tự động cập nhật khi thanh toán thành công</li>
               </ol>
             </div>
 
@@ -341,16 +322,15 @@ export default function CheckoutPage() {
               <button
                 onClick={async () => {
                   try {
-                    // Simulate IPN webhook call to backend
+                    // Simulate IPN webhook call to backend for testing
                     const mockIpnData = {
-                      order: {
-                        order_id: paymentResponse.orderId
-                      },
-                      notification_type: 'PAYMENT_SUCCESS'
+                      vnp_TxnRef: paymentResponse.orderId,
+                      vnp_ResponseCode: '00',
+                      vnp_TransactionNo: 'TEST_' + Date.now()
                     };
                     
-                    console.log('Simulating IPN webhook:', mockIpnData);
-                    await api.post('/v1/payments/sepay/ipn', mockIpnData);
+                    console.log('Simulating VNPay IPN:', mockIpnData);
+                    await api.post('/v1/payments/vnpay/ipn', mockIpnData);
                     
                     // Redirect to success page
                     navigate(`/payment-success?orderId=${paymentResponse.orderId}`);
@@ -362,7 +342,7 @@ export default function CheckoutPage() {
                 className="w-full py-3 bg-green hover:bg-green/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
-                ✓ Giả lập thanh toán thành công
+                ✓ Giả lập thanh toán thành công (Test)
               </button>
 
               <button
