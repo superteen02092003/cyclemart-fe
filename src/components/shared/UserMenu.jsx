@@ -4,6 +4,18 @@ import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
+const normalizeVietnameseText = (value) => {
+  if (typeof value !== 'string' || !value) return value
+
+  try {
+    const hasMojibake = /[ÃÂáàảãạăắằẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]/.test(value)
+    if (!hasMojibake) return value
+    return decodeURIComponent(escape(value))
+  } catch {
+    return value
+  }
+}
+
 export function UserMenu() {
   const { user, logout, isAuthenticated } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
@@ -102,7 +114,7 @@ export function UserMenu() {
                 style={{ backgroundColor: '#10b981' }}
               ></span>
               <span className="text-xs text-green">
-                {user?.statusDisplay || 'Đang hoạt động'}
+                {normalizeVietnameseText(user?.statusDisplay) || 'Hoạt động'}
               </span>
             </div>
             {user?.point !== undefined && (
