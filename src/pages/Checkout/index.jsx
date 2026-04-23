@@ -282,9 +282,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Sepay Form - Auto-submit to Sepay */}
-      {paymentResponse && <SepayForm paymentData={paymentResponse} />}
-
       {/* QR Code Modal */}
       {showQRModal && paymentResponse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -297,14 +294,21 @@ export default function CheckoutPage() {
 
             {/* QR Code */}
             <div className="bg-surface-secondary rounded-lg p-4 mb-6 border-2 border-border-light">
-              <img 
-                src={paymentResponse.qrUrl} 
-                alt="QR Code" 
-                className="w-full h-auto rounded"
-                onError={(e) => {
-                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f0f0f0" width="200" height="200"/%3E%3Ctext x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3EQR Code Error%3C/text%3E%3C/svg%3E'
-                }}
-              />
+              {paymentResponse.qrUrl ? (
+                <img 
+                  src={paymentResponse.qrUrl} 
+                  alt="QR Code" 
+                  className="w-full h-auto rounded"
+                  onError={(e) => {
+                    console.error('QR image load error. URL:', paymentResponse.qrUrl);
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f0f0f0" width="200" height="200"/%3E%3Ctext x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3EQR Load Error%3C/text%3E%3C/svg%3E'
+                  }}
+                />
+              ) : (
+                <div className="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
+                  <p className="text-sm text-gray-500">QR URL không có</p>
+                </div>
+              )}
             </div>
 
             {/* Order Info */}
@@ -335,7 +339,26 @@ export default function CheckoutPage() {
             {/* Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => navigate(`/payment-success?orderId=${paymentResponse.orderId}`)}
+                onClick={async () => {
+                  try {
+                    // Simulate IPN webhook call to backend
+                    const mockIpnData = {
+                      order: {
+                        order_id: paymentResponse.orderId
+                      },
+                      notification_type: 'PAYMENT_SUCCESS'
+                    };
+                    
+                    console.log('Simulating IPN webhook:', mockIpnData);
+                    await api.post('/v1/payments/sepay/ipn', mockIpnData);
+                    
+                    // Redirect to success page
+                    navigate(`/payment-success?orderId=${paymentResponse.orderId}`);
+                  } catch (error) {
+                    console.error('Error simulating payment:', error);
+                    alert('Lỗi giả lập thanh toán: ' + error.message);
+                  }
+                }}
                 className="w-full py-3 bg-green hover:bg-green/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
@@ -357,70 +380,6 @@ export default function CheckoutPage() {
               </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Mock PayOS Dialog */}
-      {showPayOSContent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/80 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-md overflow-hidden relative animate-in fade-in zoom-in duration-300">
-             <div className="bg-[#1a237e] p-4 text-white text-center rounded-t-xl sm:rounded-none">
-                <h3 className="font-bold text-lg">Cổng thanh toán PayOS (Mô phỏng)</h3>
-                <p className="text-sm opacity-80 mt-1">Quét mã QR bằng App Ngân Hàng</p>
-             </div>
-             
-             <div className="p-6 text-center space-y-4">
-               <div className="w-48 h-48 bg-surface-secondary border-2 border-dashed border-border mx-auto flex items-center justify-center rounded-md relative group">
-                  <span className="material-symbols-outlined text-border text-[4rem]">qr_code_2</span>
-                  <div className="absolute inset-0 bg-white/60 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex">
-                     <span className="text-xs font-bold text-content-primary">MOCK QR</span>
-                  </div>
-               </div>
-
-               <div className="bg-surface-secondary rounded p-4 text-sm space-y-2 text-left mt-4 border border-border-light">
-                 <div className="flex justify-between">
-                   <span className="text-content-secondary">Số tiền:</span>
-                   <span className="font-bold text-navy">{formatPrice(total)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span className="text-content-secondary">Nội dung CK:</span>
-                   <span className="font-bold">CMART ORD001</span>
-                 </div>
-               </div>
-               
-               <p className="text-xs text-content-tertiary">Hoặc click nút bên dưới để mô phỏng webhook thành công từ PayOS trả về hệ thống.</p>
-               
-               <button
-                 onClick={handleSimulatePaymentSuccess}
-                 className="w-full py-3 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-sm shadow-sm transition-all flex justify-center items-center gap-2"
-               >
-                 <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
-                 Giả lập thanh toán hoàn tất
-               </button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Success */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-           <div className="bg-white rounded-md shadow-2xl p-8 max-w-sm w-full text-center">
-              <div className="w-16 h-16 bg-green/10 rounded-full flex items-center justify-center text-green text-[2.5rem] mx-auto mb-4 border border-green/20">
-                <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>check_circle</span>
-              </div>
-              <h3 className="text-xl font-bold text-content-primary mb-2">Đặt hàng thành công!</h3>
-              <p className="text-sm text-content-secondary mb-6 leading-relaxed">
-                Đơn hàng của bạn đã được ghi nhận và tiền đang được giữ an toàn tại hệ thống Escrow. Người bán sẽ tiến hành giao hàng cho bạn sớm nhất.
-              </p>
-              <button
-                onClick={closeSuccessAndRedirect}
-                className="w-full py-3 bg-[#ff6b35] hover:bg-[#ff7849] text-white font-bold rounded-sm transition-colors"
-                style={{letterSpacing: '0.3px'}}
-              >
-                Xem đơn hàng của tôi
-              </button>
-           </div>
         </div>
       )}
     </div>
