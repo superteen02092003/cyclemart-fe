@@ -35,11 +35,14 @@ import AdminCategories from '@/pages/Admin/Categories'
 import AdminTransactions from '@/pages/Admin/Transactions'
 import AdminStatistics from '@/pages/Admin/Statistics'
 import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
-import AdminInspections from "@/pages/Admin/Inspections.jsx"; // Trang dành cho Admin
+import AdminInspections from "@/pages/Admin/Inspections.jsx"; 
+
+// 🔥 DÒNG QUAN TRỌNG: Import trang quản lý hạng mục kiểm định
+import InspectionCriteria from '@/pages/Admin/InspectionCriteria' 
 
 // Inspection / Inspector Pages
-import InspectionPage from "@/pages/Inspection/index.jsx"; // Trang dành cho Người bán (Seller) đăng ký
-import InspectorTasks from "@/pages/Inspector/Tasks.jsx"; // Trang dành cho Kiểm duyệt viên (Inspector) đi làm
+import InspectionPage from "@/pages/Inspection/index.jsx"; 
+import InspectorTasks from "@/pages/Inspector/Tasks.jsx"; 
 
 export const router = createBrowserRouter([
   // 1. LUỒNG NGƯỜI DÙNG CHUNG (Kể cả người bán)
@@ -51,7 +54,7 @@ export const router = createBrowserRouter([
       { path: 'browse', element: <BrowsePage /> },
       { path: 'bike/:id', element: <BikeDetailPage /> },
       { path: 'sell', element: <SellPage /> },
-      { path: 'inspection', element: <InspectionPage /> }, // Seller vào đây để đăng ký kiểm định
+      { path: 'inspection', element: <InspectionPage /> }, 
       { path: 'community', element: <CommunityPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'settings', element: <SettingsPage /> },
@@ -93,7 +96,9 @@ export const router = createBrowserRouter([
       { path: 'transactions', element: <AdminTransactions /> },
       { path: 'statistics', element: <AdminStatistics /> },
       { path: 'priority-packages', element: <AdminPriorityPackages /> },
-      { path: 'inspections', element: <AdminInspections /> }, // Admin vào đây để phân công
+      { path: 'inspections', element: <AdminInspections /> }, 
+    
+      { path: 'inspection-criteria', element: <InspectionCriteria /> }
     ],
   },
 
@@ -102,7 +107,7 @@ export const router = createBrowserRouter([
     path: '/inspector',
     element: <InspectorLayout />,
     children: [
-      { path: 'tasks', element: <InspectorTasks /> }, // Inspector vào đây để xem lịch hẹn & cập nhật kết quả
+      { path: 'tasks', element: <InspectorTasks /> }, 
     ],
   },
 ])

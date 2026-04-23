@@ -34,7 +34,6 @@ export default function PriorityPackages() {
     fetchPackages()
   }, [])
 
-  // Xử lý Lưu (Tạo mới)
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
@@ -47,9 +46,26 @@ export default function PriorityPackages() {
       setShowForm(false)
       fetchPackages() 
     } catch (error) {
-      // Sửa lại đoạn này để lấy message lỗi thực sự từ Backend
-      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra';
-      alert('Lỗi: ' + errorMessage);
+  
+      let errorMessage = 'Có lỗi xảy ra khi tạo gói';
+      
+      const errorData = error.response?.data;
+      
+      if (errorData) {
+        if (typeof errorData === 'string') {
+           errorMessage = errorData;
+        } else if (errorData.message) {
+           errorMessage = errorData.message;
+        } else if (errorData.errors && Array.isArray(errorData.errors)) {
+           errorMessage = errorData.errors.map(err => err.defaultMessage || err).join('\n');
+        } else if (typeof errorData === 'object') {
+           errorMessage = Object.values(errorData).join('\n');
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert('Lỗi: \n' + errorMessage);
     }
   }
 
