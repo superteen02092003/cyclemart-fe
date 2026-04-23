@@ -121,8 +121,9 @@ export default function ProfilePage() {
     [sellerInfo.sellerName, user]
   )
 
-  const displayEmail = isOwnProfile ? (user?.email || sellerInfo.sellerEmail || 'Chưa cập nhật') : (sellerInfo.sellerEmail || 'Chưa cập nhật')
-  const displayPhone = isOwnProfile ? (user?.phone || sellerInfo.sellerPhone || 'Chưa cập nhật') : (sellerInfo.sellerPhone || 'Chưa cập nhật')
+  const displayEmail = user?.email || sellerInfo.sellerEmail || 'Chưa cập nhật'
+  const displayPhone = user?.phone || sellerInfo.sellerPhone || 'Chưa cập nhật'
+  const showContactCards = isOwnProfile
 
   const totalPosts = posts.length
   const sellingPosts = posts.filter((post) => {
@@ -182,21 +183,25 @@ export default function ProfilePage() {
             {loading ? (
               <div className="text-sm text-content-secondary">Đang tải hồ sơ...</div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
-                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
-                    <span className="material-symbols-outlined text-[18px]">mail</span>
-                  </div>
-                  <p className="text-xs uppercase tracking-wider text-content-tertiary">Email</p>
-                  <p className="mt-1 text-sm font-semibold text-content-primary break-words">{displayEmail}</p>
-                </div>
-                <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
-                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
-                    <span className="material-symbols-outlined text-[18px]">call</span>
-                  </div>
-                  <p className="text-xs uppercase tracking-wider text-content-tertiary">Số điện thoại</p>
-                  <p className="mt-1 text-sm font-semibold text-content-primary">{displayPhone}</p>
-                </div>
+              <div className={`grid gap-4 ${showContactCards ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'}`}>
+                {showContactCards && (
+                  <>
+                    <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
+                      <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
+                        <span className="material-symbols-outlined text-[18px]">mail</span>
+                      </div>
+                      <p className="text-xs uppercase tracking-wider text-content-tertiary">Email</p>
+                      <p className="mt-1 text-sm font-semibold text-content-primary break-words">{displayEmail}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
+                      <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
+                        <span className="material-symbols-outlined text-[18px]">call</span>
+                      </div>
+                      <p className="text-xs uppercase tracking-wider text-content-tertiary">Số điện thoại</p>
+                      <p className="mt-1 text-sm font-semibold text-content-primary">{displayPhone}</p>
+                    </div>
+                  </>
+                )}
                 <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-4 shadow-sm text-center">
                   <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-content-primary shadow-sm mx-auto">
                     <span className="material-symbols-outlined text-[18px]">article</span>
@@ -217,7 +222,7 @@ export default function ProfilePage() {
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-border-light bg-white shadow-card">
-          <div className="flex items-center justify-between border-b border-border-light px-6 py-5 sm:px-8">
+          <div className="flex items-center justify-between border-b border-border-light bg-cyan-50 px-6 py-5 sm:px-8">
             <div>
               <h2 className="text-lg font-semibold text-content-primary">Tin gần đây</h2>
               <p className="text-sm text-content-secondary">Các bài đăng mới nhất đang hoạt động trên cửa hàng của bạn</p>
@@ -257,7 +262,8 @@ export default function ProfilePage() {
                           {postViewCount} lượt xem
                         </span>
                         {post.createdAt && (
-                          <span className="rounded-full bg-surface-secondary px-2.5 py-1">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-surface-secondary px-2.5 py-1">
+                            <span className="material-symbols-outlined text-[14px]">calendar_month</span>
                             {formatDate(post.createdAt)}
                           </span>
                         )}
@@ -308,7 +314,7 @@ export default function ProfilePage() {
       </div>
 
       <section className="mt-6 overflow-hidden rounded-[28px] border border-border-light bg-white shadow-card">
-        <div className="flex items-center justify-between border-b border-border-light px-6 py-5 sm:px-8">
+        <div className="flex items-center justify-between border-b border-border-light bg-orange-50 px-6 py-5 sm:px-8">
           <div>
             <h2 className="text-lg font-semibold text-content-primary">Đánh giá từ người mua</h2>
             <p className="text-sm text-content-secondary">{ratingCount} lượt đánh giá gần đây</p>
@@ -321,8 +327,8 @@ export default function ProfilePage() {
               const reviewerName = item.buyerName || item.buyer?.buyerName || item.buyer?.fullName || item.userName || 'Người dùng'
               const reviewerHref = reviewerProfileId ? `${ROUTES.PROFILE}?userId=${reviewerProfileId}` : ROUTES.PROFILE
               return (
-                <div key={item.id || index} className="rounded-none border border-white/10 bg-white/5 p-4 shadow-sm shadow-black/20 backdrop-blur-sm">
-                  <div className="mb-2 flex items-center justify-between gap-3">
+                <div key={item.id || index} className="rounded-none border border-border-light bg-surface-secondary/40 p-4 shadow-sm transition-all hover:border-orange/20 hover:shadow-card">
+                  <div className="mb-3 flex items-start justify-between gap-3">
                     <Link
                       to={reviewerHref}
                       className="text-sm font-semibold text-content-primary transition-all duration-200 hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4"
@@ -331,12 +337,19 @@ export default function ProfilePage() {
                     </Link>
                     <div className="flex items-center gap-1">{renderStars(item.score ?? item.averageScore ?? 0)}</div>
                   </div>
-                  {item.comment ? (
-                    <p className="text-sm leading-6 text-content-secondary">{item.comment}</p>
-                  ) : (
-                    <p className="text-sm italic text-content-tertiary">Không có nhận xét</p>
+                  <div className="rounded-none border border-border-light bg-white px-4 py-3 shadow-sm">
+                    {item.comment ? (
+                      <p className="text-sm leading-6 text-content-secondary">{item.comment}</p>
+                    ) : (
+                      <p className="text-sm italic text-content-tertiary">Không có nhận xét</p>
+                    )}
+                  </div>
+                  {item.createdAt && (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-content-tertiary">
+                      <span className="material-symbols-outlined text-[14px]">calendar_month</span>
+                      {formatDate(item.createdAt)}
+                    </p>
                   )}
-                  {item.createdAt && <p className="mt-2 text-xs text-content-tertiary">{formatDate(item.createdAt)}</p>}
                 </div>
               )
             })
