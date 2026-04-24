@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import { bikePostService } from '@/services/bikePost'
 
-export function FeaturedListings() {
+export function FeaturedListings({ selectedCategory = 'all' }) {
   const [bikes, setBikes] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -14,7 +14,14 @@ export function FeaturedListings() {
       try {
         setLoading(true)
         // Lấy 8 bài mới nhất (BE sẽ tự xếp Priority lên đầu)
-        const data = await bikePostService.getAll({ page: 0, size: 8 })
+        const params = { page: 0, size: 8 }
+        
+        // Nếu chọn category cụ thể (không phải 'all'), thêm vào params
+        if (selectedCategory !== 'all') {
+          params.categoryId = selectedCategory
+        }
+        
+        const data = await bikePostService.getAll(params)
         setBikes(data.content || [])
       } catch (error) {
         console.error("Lỗi tải bài đăng nổi bật:", error)
@@ -23,7 +30,7 @@ export function FeaturedListings() {
       }
     }
     fetchFeatured()
-  }, [])
+  }, [selectedCategory])
 
   if (loading) return <div className="py-20 text-center text-content-secondary">Đang tải bài đăng...</div>
 

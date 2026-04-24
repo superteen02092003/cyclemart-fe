@@ -8,6 +8,11 @@ export default function AdminListings() {
   const [loading, setLoading] = useState(false)
   const [selectedListing, setSelectedListing] = useState(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [fieldComments, setFieldComments] = useState({})
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   
   const [filterStatus, setFilterStatus] = useState('PENDING')
 
@@ -49,19 +54,35 @@ export default function AdminListings() {
   }
 
   const handleRejectListing = async (id) => {
-    const reason = window.prompt('Vui lòng nhập lý do từ chối (bắt buộc):')
-    
-    if (reason === null) return; 
-    if (reason.trim() === '') {
-      alert('Lý do không được để trống!')
-      return;
+    const listing = listings.find(l => l.id === id)
+    setSelectedListing(listing)
+    setRejectReason('')
+    setFieldComments({})
+    setIsRejectModalOpen(true)
+  }
+
+  const handleFieldCommentChange = (fieldName, value) => {
+    setFieldComments(prev => ({
+      ...prev,
+      [fieldName]: value
+    }))
+  }
+
+  const handleConfirmReject = async () => {
+    if (rejectReason.trim() === '') {
+      alert('Lý do từ chối không được để trống!')
+      return
     }
 
     try {
-      await adminService.rejectPost(id, reason)
-      alert('Đã từ chối bài đăng!')
-      fetchListings() 
+      await adminService.rejectPost(selectedListing.id, rejectReason)
+      setSuccessMessage(`Bài đăng "${selectedListing.title}" đã được từ chối thành công`)
+      setIsSuccessModalOpen(true)
+      fetchListings()
+      setIsRejectModalOpen(false)
       setIsDetailModalOpen(false)
+      setRejectReason('')
+      setFieldComments({})
     } catch (error) {
       alert('Lỗi từ chối bài: ' + (error.response?.data?.message || error.message))
     }
@@ -212,7 +233,7 @@ export default function AdminListings() {
         size="lg"
       >
         {selectedListing && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             
             {/* 🔥 HIỂN THỊ CẢNH BÁO CHO ADMIN TRONG MODAL */}
             {(selectedListing.requestedInspection || selectedListing.isRequestedInspection) && selectedListing.postStatus === 'PENDING' && (
@@ -231,40 +252,92 @@ export default function AdminListings() {
               </div>
             )}
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Tiêu đề</p>
-                <p className="text-content-primary font-medium mt-1">{selectedListing.title}</p>
-              </div>
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Người bán (User ID)</p>
-                <p className="text-content-primary font-medium mt-1">{selectedListing.sellerName || selectedListing.userId}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Danh mục</p>
-                <p className="text-content-primary font-medium mt-1">{selectedListing.category?.name}</p>
-              </div>
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Giá</p>
-                <p className="text-content-primary font-medium mt-1">₫{selectedListing.price?.toLocaleString('vi-VN')}</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Thương hiệu / Model</p>
-                <p className="text-content-primary font-medium mt-1">{selectedListing.brand} {selectedListing.model ? `- ${selectedListing.model}` : ''}</p>
-              </div>
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Khu vực</p>
-                <p className="text-content-primary font-medium mt-1">{selectedListing.city} - {selectedListing.district}</p>
+            {/* THÔNG TIN CƠ BẢN */}
+            <div>
+              <h3 className="text-sm font-bold text-content-primary uppercase mb-3">Thông tin cơ bản</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Tiêu đề</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.title}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Người bán</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.sellerName} (ID: {selectedListing.userId})</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Danh mục</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.categoryName || selectedListing.category?.name || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Giá</p>
+                  <p className="text-content-primary font-medium mt-1">₫{selectedListing.price?.toLocaleString('vi-VN')}</p>
+                </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-border-light">
-              <p className="text-sm font-medium text-content-primary mb-3">Hình ảnh ({selectedListing.images?.length || 0} ảnh)</p>
+            {/* THÔNG TIN XE */}
+            <div className="border-t border-border-light pt-4">
+              <h3 className="text-sm font-bold text-content-primary uppercase mb-3">Thông tin xe</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Thương hiệu</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.brand || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Model</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.model || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Năm sản xuất</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.year || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Tình trạng</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.status || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Chất liệu khung</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.frameMaterial || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Size khung</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.frameSize || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Loại phanh</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.brakeType || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Groupset</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.groupset || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* THÔNG TIN ĐỊA ĐIỂM */}
+            <div className="border-t border-border-light pt-4">
+              <h3 className="text-sm font-bold text-content-primary uppercase mb-3">Địa điểm</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Thành phố</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.city || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-content-secondary font-medium uppercase">Quận/Huyện</p>
+                  <p className="text-content-primary font-medium mt-1">{selectedListing.district || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* MÔ TẢ */}
+            <div className="border-t border-border-light pt-4">
+              <h3 className="text-sm font-bold text-content-primary uppercase mb-3">Mô tả chi tiết</h3>
+              <p className="text-content-primary text-sm leading-relaxed whitespace-pre-wrap">{selectedListing.description || 'Không có mô tả'}</p>
+            </div>
+
+            {/* HÌNH ẢNH */}
+            <div className="border-t border-border-light pt-4">
+              <h3 className="text-sm font-bold text-content-primary uppercase mb-3">Hình ảnh</h3>
               {selectedListing.images && selectedListing.images.length > 0 ? (
                 <div className="grid grid-cols-3 gap-4">
                   {selectedListing.images.map((img, i) => (
@@ -277,11 +350,175 @@ export default function AdminListings() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">Không có hình ảnh</p>
+                <div className="bg-gray-50 border border-border-light rounded-sm p-6 text-center">
+                  <span className="material-symbols-outlined text-gray-400 text-4xl block mb-2">image_not_supported</span>
+                  <p className="text-gray-500 font-medium">User không gửi ảnh</p>
+                </div>
               )}
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* MODAL TỪ CHỐI */}
+      <Modal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        title="Từ chối bài đăng"
+        size="lg"
+      >
+        {selectedListing && (
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+            <div className="bg-red-50 border border-red-200 rounded-sm p-4">
+              <p className="text-sm text-red-800">
+                <strong>Bài đăng:</strong> {selectedListing.title}
+              </p>
+              <p className="text-sm text-red-800 mt-2">
+                <strong>Người bán:</strong> {selectedListing.sellerName}
+              </p>
+            </div>
+
+            {/* COMMENT FIELDS */}
+            <div className="border border-border-light rounded-sm p-4 bg-gray-50">
+              <p className="text-sm font-bold text-content-primary mb-3">Ghi chú chi tiết từng field</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Tiêu đề</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.title}</p>
+                  <textarea
+                    value={fieldComments.title || ''}
+                    onChange={(e) => handleFieldCommentChange('title', e.target.value)}
+                    placeholder="Nhận xét về tiêu đề..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Thương hiệu</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.brand || 'N/A'}</p>
+                  <textarea
+                    value={fieldComments.brand || ''}
+                    onChange={(e) => handleFieldCommentChange('brand', e.target.value)}
+                    placeholder="Nhận xét về thương hiệu..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Model</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.model || 'N/A'}</p>
+                  <textarea
+                    value={fieldComments.model || ''}
+                    onChange={(e) => handleFieldCommentChange('model', e.target.value)}
+                    placeholder="Nhận xét về model..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Năm sản xuất</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.year || 'N/A'}</p>
+                  <textarea
+                    value={fieldComments.year || ''}
+                    onChange={(e) => handleFieldCommentChange('year', e.target.value)}
+                    placeholder="Nhận xét về năm sản xuất..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Giá</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">₫{selectedListing.price?.toLocaleString('vi-VN')}</p>
+                  <textarea
+                    value={fieldComments.price || ''}
+                    onChange={(e) => handleFieldCommentChange('price', e.target.value)}
+                    placeholder="Nhận xét về giá..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Hình ảnh</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.images?.length || 0} ảnh</p>
+                  <textarea
+                    value={fieldComments.images || ''}
+                    onChange={(e) => handleFieldCommentChange('images', e.target.value)}
+                    placeholder="Nhận xét về hình ảnh..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Mô tả</label>
+                  <p className="text-sm text-content-primary font-medium mb-2 line-clamp-2">{selectedListing.description || 'Không có mô tả'}</p>
+                  <textarea
+                    value={fieldComments.description || ''}
+                    onChange={(e) => handleFieldCommentChange('description', e.target.value)}
+                    placeholder="Nhận xét về mô tả..."
+                    className="w-full px-2 py-1 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-xs"
+                    rows="1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-content-primary mb-2">
+                Lý do từ chối <span className="text-error">*</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Nhập lý do từ chối bài đăng này (ví dụ: Ảnh không rõ, thông tin không đầy đủ, giá không hợp lý...)"
+                className="w-full px-3 py-2 border border-border-light rounded-sm focus:outline-none focus:ring-2 focus:ring-navy/50 text-sm"
+                rows="4"
+              />
+              <p className="text-xs text-content-secondary mt-1">
+                Lý do này sẽ được gửi cho người bán để họ biết tại sao bài đăng bị từ chối
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4 border-t border-border-light">
+              <button
+                onClick={() => setIsRejectModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-content-primary border border-border-light rounded-sm hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                className="px-4 py-2 text-sm font-medium text-white bg-error rounded-sm hover:bg-error/90 transition-colors"
+              >
+                Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* SUCCESS MODAL */}
+      <Modal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="text-center py-6">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
+              <span className="material-symbols-outlined text-success text-4xl" style={{fontVariationSettings: "'FILL' 1"}}>check_circle</span>
+            </div>
+          </div>
+          <h3 className="text-lg font-bold text-content-primary mb-2">Từ chối thành công</h3>
+          <p className="text-sm text-content-secondary mb-6">{successMessage}</p>
+          <p className="text-xs text-content-secondary mb-6">Người bán sẽ nhận được thông báo về lý do từ chối</p>
+          <button
+            onClick={() => setIsSuccessModalOpen(false)}
+            className="px-6 py-2 text-sm font-medium text-white bg-success rounded-sm hover:bg-success/90 transition-colors"
+          >
+            Đóng
+          </button>
+        </div>
       </Modal>
     </div>
   )
