@@ -7,6 +7,7 @@ import { cn } from '@/utils/cn'
 import InspectionModal from '@/components/inspection/InspectionModal'
 import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
+import api from '@/services/api' // 🔥 Đã thêm import api
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -120,6 +121,7 @@ export default function SellPage() {
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [selectedImages, setSelectedImages] = useState([])
+  const [createdPostId, setCreatedPostId] = useState(null) // 🔥 Đã thêm state này
 
   // Load categories từ API
   useEffect(() => {
@@ -248,8 +250,6 @@ export default function SellPage() {
         }
       }
 
-      // Bỏ validation ảnh: if (selectedImages.length < 3) errors.push('Hình ảnh (tối thiểu 3 ảnh)')
-
       if (errors.length > 0) {
         const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
         alert(errorMessage)
@@ -266,9 +266,57 @@ export default function SellPage() {
         categoryId: parseInt(formData.categoryId)
       }
 
+      // 🔥 FIX LỖI 400 BAD REQUEST: Xử lý dữ liệu Ngày tháng & Chuỗi rỗng cho Backend Java
+      if (!formData.requestInspection) {
+        // Nếu không kiểm định, bắt buộc gán null để Java không bị lỗi parse chuỗi rỗng ""
+        postData.inspectionAddress = null;
+        postData.inspectionScheduledDate = null;
+        postData.inspectionNote = null;
+      } else if (postData.inspectionScheduledDate && postData.inspectionScheduledDate.length === 16) {
+        // Nếu có kiểm định, phải nối thêm số giây (":00") để khớp định dạng LocalDateTime của Java
+        postData.inspectionScheduledDate = postData.inspectionScheduledDate + ':00';
+      }
+
+      // Dọn dẹp các trường rỗng khác (vd: groupset, frameSize...) thành null để tránh lỗi Enum Backend
+      Object.keys(postData).forEach(key => {
+        if (postData[key] === '') {
+          postData[key] = null;
+        }
+      });
+
       console.log('📝 Creating post:', postData)
-      await postService.create(postData)
-      
+      const response = await postService.create(postData)
+      const newPostId = response.id || response.data?.id; // Lấy ID bài vừa tạo
+      setCreatedPostId(newPostId)
+
+      // 🔥 KỊCH BẢN 1: Nếu người dùng có tick chọn kiểm định, gọi thanh toán VNPay
+      if (formData.requestInspection && newPostId) {
+        try {
+          const paymentData = {
+            bikePostId: newPostId,
+            amount: 250000, // Giá phí kiểm định (Bạn có thể đổi số này)
+            description: `Thanh toán phí kiểm định xe`,
+            type: "INSPECTION_FEE",         // Báo cho BE biết đây là kiểm định
+            referenceId: newPostId,         // Truyền ID bài đăng lên làm Reference
+            name: "Khách hàng CycleMart",
+            phone: "0999999999",
+            address: "Thanh toán kiểm định"
+          }
+
+          const paymentRes = await api.post('/v1/payments/create', paymentData)
+
+          if (paymentRes.data?.paymentUrl) {
+            localStorage.setItem('payment_intent', 'INSPECTION_FEE')
+            window.location.href = paymentRes.data.paymentUrl 
+            return; // Dừng tại đây để web chuyển trang sang VNPay
+          }
+        } catch (payError) {
+          console.error("Lỗi tạo thanh toán", payError)
+          alert("Lỗi tạo thanh toán kiểm định. Tin của bạn đã được đăng, bạn có thể thanh toán sau trong mục Quản lý tin đăng.")
+        }
+      }
+
+      // 🔥 KỊCH BẢN 2: Nếu không kiểm định, hiện trang Success như bình thường
       setSubmitted(true)
     } catch (error) {
       console.error('Error creating post:', error)
@@ -368,7 +416,8 @@ export default function SellPage() {
           </div>
         )}
 
-        {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
+        {/* 🔥 Truyền postId vào Modal nếu người dùng click Upsell */}
+        {showInspection && <InspectionModal postId={createdPostId} onClose={() => setShowInspection(false)} />}
       </div>
     )
   }
@@ -669,7 +718,7 @@ export default function SellPage() {
               </div>
             )}
 
-            {/* ── SỬA Ở ĐÂY: Checkbox Đăng ký Kiểm định Ngay ── */}
+            {/* ── Checkbox Đăng ký Kiểm định Ngay ── */}
             <div className="mt-8 pt-6 border-t border-border-light">
               <label className="flex items-start gap-3 cursor-pointer p-4 bg-surface rounded-sm border border-border-light hover:border-navy transition-colors">
                 <input
@@ -761,8 +810,6 @@ export default function SellPage() {
           </Button>
         )}
 
-        {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
-
         {currentStep < totalSteps ? (
           <button
             onClick={handleNext}
@@ -784,7 +831,7 @@ export default function SellPage() {
             onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
           >
             <span className="material-symbols-outlined text-[1rem]">send</span>
-            {loading ? 'Đang gửi...' : 'Submit để kiểm duyệt'}
+            {loading ? 'Đang xử lý...' : (formData.requestInspection ? 'Thanh toán & Gửi duyệt' : 'Submit để kiểm duyệt')}
           </button>
         )}
       </div>
