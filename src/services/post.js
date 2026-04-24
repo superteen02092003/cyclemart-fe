@@ -92,5 +92,14 @@ export const postService = {
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi xóa bài đăng' }
     }
+  },
+
+  cancelPost: async (id) => {
+    try {
+      await api.post(`/v1/posts/${id}/cancel`)
+      return { message: 'Hủy yêu cầu thành công' }
+    } catch (error) {
+      throw error.response?.data || { message: 'Lỗi khi hủy yêu cầu' }
+    }
   }
 }

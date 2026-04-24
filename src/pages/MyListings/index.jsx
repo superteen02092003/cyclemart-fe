@@ -39,7 +39,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
       <div className="flex gap-4">
         {/* Thumbnail */}
-        <div className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light overflow-hidden">
+        <Link to={`/bike/${listing.id}`} className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light overflow-hidden hover:opacity-80 transition-opacity">
           {listing.images && listing.images.length > 0 ? (
             <img 
               src={typeof listing.images[0] === 'string' ? listing.images[0] : listing.images[0].url} 
@@ -54,17 +54,18 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               directions_bike
             </span>
           )}
-        </div>
+        </Link>
 
         {/* Details */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2">
-              {listing.title}
-            </h3>
+            <Link to={`/bike/${listing.id}`} className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2 hover:text-navy transition-colors">
+                {listing.title}
+              </h3>
+            </Link>
             
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              {/* Hiển thị Tem Ưu Tiên (Nếu có) */}
               {listing.activePriority && (
                 <Badge variant={listing.activePriority.priorityLevel.toLowerCase()}>
                   <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -153,10 +154,25 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
         )}
 
         {(currentStatus === 'PENDING_REVIEW' || currentStatus === 'PENDING') && (
-          <Button variant="secondary" size="sm" disabled>
-            <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
-            Đang xử lý...
-          </Button>
+          <>
+            <Link to={`/bike/${listing.id}`}>
+              <Button variant="secondary" size="sm">
+                <span className="material-symbols-outlined text-[0.9rem]">open_in_new</span>
+                Xem chi tiết
+              </Button>
+            </Link>
+            <Button variant="secondary" size="sm" disabled>
+              <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
+              Đang xử lý...
+            </Button>
+            <button
+              onClick={() => onAction('cancel', listing.id)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-error border border-error/30 rounded-sm hover:bg-error/5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[0.9rem]">close</span>
+              Hủy yêu cầu
+            </button>
+          </>
         )}
 
         {(currentStatus === 'ACTIVE' || currentStatus === 'APPROVED') && (
@@ -381,6 +397,23 @@ export default function MyListingsPage() {
       showToast('Đã ẩn tin đăng.')
     } else if (action === 'boost') {
       setBoostTarget(id)
+    } else if (action === 'cancel') {
+      handleCancelPost(id)
+    }
+  }
+
+  const handleCancelPost = async (id) => {
+    if (!window.confirm('Bạn chắc chắn muốn hủy yêu cầu đăng tin này? Bạn có thể chỉnh sửa và gửi lại sau.')) return
+    try {
+      setLoading(true)
+      await postService.cancelPost(id)
+      await loadMyListings()
+      showToast('Đã hủy yêu cầu đăng tin.')
+    } catch (error) {
+      console.error('Error canceling post:', error)
+      alert(error.message || 'Lỗi khi hủy yêu cầu')
+    } finally {
+      setLoading(false)
     }
   }
 
