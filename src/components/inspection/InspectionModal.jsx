@@ -3,7 +3,7 @@ import { cn } from '@/utils/cn'
 import { formatPrice } from '@/utils/formatPrice'
 import { inspectionService } from '@/services/inspection'
 import { postService } from '@/services/post'
-
+import api from '@/services/api'
 const INSPECTION_FEE = 250000
 
 const STATUS_CONFIG = {
@@ -80,26 +80,41 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
   // Load danh sách bài đăng của User để chọn xe
  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        const data = await postService.getMyPosts()
-        // Dữ liệu có thể nằm trong .content (nếu BE phân trang) hoặc mảng trực tiếp
-        const listings = data?.content || data || []
-        
-        // 🔥 LỌC: Chỉ lấy những xe có trạng thái là APPROVED (Đã duyệt)
-        const approvedOnly = listings.filter(l => l.postStatus === 'APPROVED')
-        
-        setActiveListings(approvedOnly)
-        
-        if (!form.listingId && approvedOnly.length > 0) {
-          setForm(prev => ({ ...prev, listingId: approvedOnly[0].id }))
-        }
-      } catch (error) {
-        console.error("Lỗi tải danh sách xe:", error)
+  const fetchData = async () => {
+    try {
+      // 1. Lấy tất cả bài đăng của user
+      const postRes = await postService.getMyPosts()
+      const posts = postRes?.content || postRes || []
+
+      // 2. Lấy tất cả request kiểm định
+      const reqRes = await inspectionService.getMyRequests({ page: 0, size: 100 })
+      const requests = reqRes?.content || []
+
+      // 3. Lấy danh sách ID bài đã đăng ký kiểm định
+      const inspectedPostIds = requests
+  .filter(r => r.status === 'PASSED') // chỉ xe đã đạt
+  .map(r => String(r.postId))
+
+      // 4. 🔥 FILTER
+      const filtered = posts.filter(post => 
+        post.postStatus === 'APPROVED' &&           // đã duyệt
+        !inspectedPostIds.includes(String(post.id)) // chưa kiểm định
+      )
+
+      setActiveListings(filtered)
+
+      // Auto chọn xe đầu tiên nếu chưa chọn
+      if (!form.listingId && filtered.length > 0) {
+        setForm(prev => ({ ...prev, listingId: filtered[0].id }))
       }
+
+    } catch (error) {
+      console.error("Lỗi load dữ liệu:", error)
     }
-    fetchListings()
-  }, [])
+  }
+
+  fetchData()
+}, [])
 
   // Load danh sách yêu cầu kiểm định khi mở tab requests
   useEffect(() => {
@@ -164,26 +179,43 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
   // Gửi API tạo Yêu cầu
   const handleSubmit = async () => {
-    try {
-      setLoading(true)
-      await inspectionService.createRequest({
-        postId: form.listingId,
-        address: form.address,
-        scheduledDateTime: form.scheduledDateTime,
-        note: form.note
-      })
+  try {
+    setLoading(true)
 
-      showToast('Đăng ký kiểm định thành công! Đang chờ Admin phân công.')
-      setForm({ listingId: activeListings[0]?.id || '', address: '', scheduledDateTime: '', note: '' })
-      setFormStep(1)
-      setTab('requests') // Chuyển tab để tải lại danh sách
-    } catch (error) {
-      // Bắt lỗi từ Backend (nếu có validate lỗi)
-      alert(error.response?.data?.message || 'Lỗi khi đăng ký kiểm định')
-    } finally {
+    // ❌ selectedPost -> sửa thành selected
+    if (!selected) {
+      alert('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
       setLoading(false)
+      return
     }
+
+    const paymentData = {
+      bikePostId: selected.id,   // ✅ sửa ở đây
+      amount: INSPECTION_FEE,
+      description: `Thanh toán phí kiểm định xe`,
+      type: "INSPECTION_FEE",
+      referenceId: selected.id, // ✅ sửa ở đây
+      name: "Khách hàng CycleMart",
+      phone: "0999999999",
+      address: "Thanh toán kiểm định"
+    }
+
+    const paymentRes = await api.post('/v1/payments/create', paymentData)
+
+    if (paymentRes.data?.paymentUrl) {
+      localStorage.setItem('payment_intent', 'INSPECTION_FEE')
+      window.location.href = paymentRes.data.paymentUrl 
+    } else {
+      alert('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.')
+    }
+
+  } catch (error) {
+    console.error("Lỗi khi đăng ký kiểm định:", error)
+    alert(error.response?.data?.message || error.message || 'Lỗi khi tạo yêu cầu thanh toán kiểm định')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -347,8 +379,9 @@ export default function InspectionModal({ onClose, preselectedId }) {
                   <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-sm px-4 py-3">
                     <span className="material-symbols-outlined text-blue-600 text-[1.2rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
                     <p className="text-sm text-blue-800 leading-relaxed">
-                      Phí dịch vụ kiểm định: <strong className="text-lg">Miễn phí (Giai đoạn Beta)</strong>. Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
-                    </p>
+  Phí dịch vụ kiểm định: <strong className="text-lg">{formatPrice(INSPECTION_FEE)}</strong>. 
+  Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
+</p>
                   </div>
                 </div>
               )}
@@ -362,7 +395,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
                       { label: 'Xe cần kiểm định', value: selected?.title },
                       { label: 'Địa chỉ xem xe', value: form.address },
                       { label: 'Thời gian', value: form.scheduledDateTime ? new Date(form.scheduledDateTime).toLocaleString('vi-VN') : '' },
-                      { label: 'Phí dịch vụ', value: 'Miễn phí' },
+                      { label: 'Phí dịch vụ', value: formatPrice(INSPECTION_FEE) }
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between px-4 py-3 text-sm">
                         <span className="text-content-secondary font-medium">{label}</span>
