@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import PropTypes from 'prop-types'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
@@ -7,6 +8,7 @@ import { ROUTES } from '@/constants/routes'
 import { bikePostService } from '@/services/bikePost'
 import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
+import { chatService } from '@/services/chat'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -25,6 +27,11 @@ function StarRating({ rating, max = 5 }) {
       ))}
     </div>
   )
+}
+
+StarRating.propTypes = {
+  rating: PropTypes.number,
+  max: PropTypes.number,
 }
 
 function OfferModal({ bike, onClose }) {
@@ -130,6 +137,13 @@ function OfferModal({ bike, onClose }) {
   )
 }
 
+OfferModal.propTypes = {
+  bike: PropTypes.shape({
+    price: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  }).isRequired,
+  onClose: PropTypes.func.isRequired,
+}
+
 export default function BikeDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -208,6 +222,18 @@ export default function BikeDetailPage() {
 
   const handleBuyNow = () => {
     navigate(`/checkout/${bike.id}`)
+  }
+
+  const handleMessageSeller = async () => {
+    if (!bike?.id) return
+    try {
+      const room = await chatService.createOrGetRoom(bike.id)
+      const roomId = room?.id || room?.roomId || room?.data?.id
+      navigate(`/chat?bikePostId=${bike.id}${roomId ? `&roomId=${roomId}` : ''}`)
+    } catch (err) {
+      console.error('Không tạo được room chat:', err)
+      navigate(`/chat?bikePostId=${bike.id}`)
+    }
   }
 
   const handleSubmitRating = async () => {
@@ -524,7 +550,6 @@ export default function BikeDetailPage() {
                 </div>
               ) : (
                 <>
-                  {/* Buy now */}
                   <button
                     onClick={handleBuyNow}
                     className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors"
@@ -535,9 +560,6 @@ export default function BikeDetailPage() {
                     Mua ngay
                   </button>
 
-                  {/* showBuyNotice block removed because we navigate to checkout immediately */}
-
-                  {/* Make offer */}
                   <Button
                     variant="outline"
                     fullWidth
@@ -550,23 +572,24 @@ export default function BikeDetailPage() {
                 </>
               )}
 
-              {/* Wishlist toggle */}
-              <button
-                onClick={() => setIsWishlisted(!isWishlisted)}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border text-sm font-semibold transition-colors ${
-                  isWishlisted
-                    ? 'border-red-300 text-red-500 bg-red-50'
-                    : 'border-border-light text-content-secondary hover:border-red-300 hover:text-red-500 hover:bg-red-50'
-                }`}
-              >
-                <span
-                  className="material-symbols-outlined text-[1rem]"
-                  style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
+              {isOwnPost ? null : (
+                <button
+                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border text-sm font-semibold transition-colors ${
+                    isWishlisted
+                      ? 'border-red-300 text-red-500 bg-red-50'
+                      : 'border-border-light text-content-secondary hover:border-red-300 hover:text-red-500 hover:bg-red-50'
+                  }`}
                 >
-                  favorite
-                </span>
-                {isWishlisted ? 'Đã thêm vào yêu thích' : 'Thêm vào yêu thích'}
-              </button>
+                  <span
+                    className="material-symbols-outlined text-[1rem]"
+                    style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
+                  >
+                    favorite
+                  </span>
+                  {isWishlisted ? 'Đã thêm vào yêu thích' : 'Thêm vào yêu thích'}
+                </button>
+              )}
             </div>
 
             {/* Seller card */}
@@ -603,12 +626,12 @@ export default function BikeDetailPage() {
                     </div>
                   </div>
 
-                  <Link to={ROUTES.MESSAGES}>
-                    <Button variant="secondary" fullWidth className="mt-4" size="sm">
+                  {!isOwnPost ? (
+                    <Button variant="secondary" fullWidth className="mt-4" size="sm" onClick={handleMessageSeller}>
                       <span className="material-symbols-outlined text-[1rem]">chat_bubble</span>
                       Nhắn tin
                     </Button>
-                  </Link>
+                  ) : null}
                 </>
               ) : (
                 <>
@@ -630,12 +653,12 @@ export default function BikeDetailPage() {
                     </div>
                   </div>
 
-                  <Link to={ROUTES.MESSAGES}>
-                    <Button variant="secondary" fullWidth className="mt-4" size="sm">
+                  {!isOwnPost ? (
+                    <Button variant="secondary" fullWidth className="mt-4" size="sm" onClick={handleMessageSeller}>
                       <span className="material-symbols-outlined text-[1rem]">chat_bubble</span>
                       Nhắn tin
                     </Button>
-                  </Link>
+                  ) : null}
                 </>
               )}
             </div>

@@ -1,3 +1,4 @@
+import React from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
       { path: 'my-listings', element: <MyListingsPage /> },
       { path: 'favorites', element: <WishlistPage /> },
       { path: 'messages', element: <ChatPage /> },
+      { path: 'chat', element: <ChatPage /> },
       { path: 'checkout/:id', element: <CheckoutPage /> },
       { path: 'orders', element: <OrdersPage /> },
       { path: 'payment-success', element: <PaymentSuccessPage /> },
