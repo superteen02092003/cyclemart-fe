@@ -15,7 +15,7 @@ const STEPS = [
   { id: 4, label: 'Hình ảnh' },
 ]
 
-const YEARS = Array.from({ length: 12 }, (_, i) => 2026 - i)
+const YEARS = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i)
 
 const BRANDS = [
   'GIANT', 'TREK', 'SPECIALIZED', 'CANNONDALE', 'SCOTT', 'MERIDA', 'BIANCHI', 'PINARELLO', 
@@ -148,7 +148,6 @@ export default function SellPage() {
     frameSize: '',
     brakeType: '',
     groupset: '',
-    mileage: '',
     description: '',
     // Step 3
     price: '',
@@ -262,7 +261,6 @@ export default function SellPage() {
         images: selectedImages,
         year: parseInt(formData.year),
         price: parseFloat(formData.price),
-        mileage: formData.mileage ? parseInt(formData.mileage) : 0,
         categoryId: parseInt(formData.categoryId)
       }
 
@@ -504,24 +502,12 @@ export default function SellPage() {
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Số km đã đi</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.mileage}
-                  onChange={set('mileage')}
-                  placeholder="VD: 1500"
-                  className={inputClass}
-                />
+                <label className={labelClass}>Groupset / Hệ truyền động</label>
+                <select value={formData.groupset} onChange={set('groupset')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {GROUPSETS.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
+                </select>
               </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>Groupset / Hệ truyền động</label>
-              <select value={formData.groupset} onChange={set('groupset')} className={inputClass}>
-                <option value="">-- Chọn --</option>
-                {GROUPSETS.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
-              </select>
             </div>
 
             <div>
