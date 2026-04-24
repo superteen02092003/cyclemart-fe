@@ -11,6 +11,8 @@ export default function AdminListings() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [fieldComments, setFieldComments] = useState({})
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   
   const [filterStatus, setFilterStatus] = useState('PENDING')
 
@@ -74,11 +76,13 @@ export default function AdminListings() {
 
     try {
       await adminService.rejectPost(selectedListing.id, rejectReason)
-      alert('Đã từ chối bài đăng!')
+      setSuccessMessage(`Bài đăng "${selectedListing.title}" đã được từ chối thành công`)
+      setIsSuccessModalOpen(true)
       fetchListings()
       setIsRejectModalOpen(false)
       setIsDetailModalOpen(false)
       setRejectReason('')
+      setFieldComments({})
     } catch (error) {
       alert('Lỗi từ chối bài: ' + (error.response?.data?.message || error.message))
     }
@@ -380,6 +384,7 @@ export default function AdminListings() {
               <div className="space-y-3">
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Tiêu đề</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.title}</p>
                   <textarea
                     value={fieldComments.title || ''}
                     onChange={(e) => handleFieldCommentChange('title', e.target.value)}
@@ -390,6 +395,7 @@ export default function AdminListings() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Thương hiệu</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.brand || 'N/A'}</p>
                   <textarea
                     value={fieldComments.brand || ''}
                     onChange={(e) => handleFieldCommentChange('brand', e.target.value)}
@@ -400,6 +406,7 @@ export default function AdminListings() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Model</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.model || 'N/A'}</p>
                   <textarea
                     value={fieldComments.model || ''}
                     onChange={(e) => handleFieldCommentChange('model', e.target.value)}
@@ -410,6 +417,7 @@ export default function AdminListings() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Năm sản xuất</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.year || 'N/A'}</p>
                   <textarea
                     value={fieldComments.year || ''}
                     onChange={(e) => handleFieldCommentChange('year', e.target.value)}
@@ -420,6 +428,7 @@ export default function AdminListings() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Giá</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">₫{selectedListing.price?.toLocaleString('vi-VN')}</p>
                   <textarea
                     value={fieldComments.price || ''}
                     onChange={(e) => handleFieldCommentChange('price', e.target.value)}
@@ -430,6 +439,7 @@ export default function AdminListings() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Hình ảnh</label>
+                  <p className="text-sm text-content-primary font-medium mb-2">{selectedListing.images?.length || 0} ảnh</p>
                   <textarea
                     value={fieldComments.images || ''}
                     onChange={(e) => handleFieldCommentChange('images', e.target.value)}
@@ -440,6 +450,7 @@ export default function AdminListings() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-content-secondary uppercase block mb-1">Mô tả</label>
+                  <p className="text-sm text-content-primary font-medium mb-2 line-clamp-2">{selectedListing.description || 'Không có mô tả'}</p>
                   <textarea
                     value={fieldComments.description || ''}
                     onChange={(e) => handleFieldCommentChange('description', e.target.value)}
@@ -483,6 +494,31 @@ export default function AdminListings() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* SUCCESS MODAL */}
+      <Modal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="text-center py-6">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
+              <span className="material-symbols-outlined text-success text-4xl" style={{fontVariationSettings: "'FILL' 1"}}>check_circle</span>
+            </div>
+          </div>
+          <h3 className="text-lg font-bold text-content-primary mb-2">Từ chối thành công</h3>
+          <p className="text-sm text-content-secondary mb-6">{successMessage}</p>
+          <p className="text-xs text-content-secondary mb-6">Người bán sẽ nhận được thông báo về lý do từ chối</p>
+          <button
+            onClick={() => setIsSuccessModalOpen(false)}
+            className="px-6 py-2 text-sm font-medium text-white bg-success rounded-sm hover:bg-success/90 transition-colors"
+          >
+            Đóng
+          </button>
+        </div>
       </Modal>
     </div>
   )
