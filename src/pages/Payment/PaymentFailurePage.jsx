@@ -4,61 +4,67 @@ import { ROUTES } from '@/constants/routes'
 export default function PaymentFailurePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const reason = searchParams.get('reason') || 'Lỗi không xác định'
+  const reason = searchParams.get('reason') || 'Giao dịch không thành công'
   const bikeId = searchParams.get('bikeId')
+  
+  // Kiểm tra cờ từ localStorage để biết người dùng đang cố gắng mua gì
+  const isPriorityAttempt = localStorage.getItem('payment_intent') === 'PRIORITY_PACKAGE'
+
+  const handleRetry = () => {
+    localStorage.removeItem('payment_intent')
+    if (isPriorityAttempt) {
+      navigate(ROUTES.MY_LISTINGS)
+    } else if (bikeId) {
+      navigate(`/checkout/${bikeId}`)
+    } else {
+      navigate(ROUTES.HOME)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-surface-primary flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full text-center">
+      <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full text-center border border-error/20">
+        
         {/* Error Icon */}
         <div className="w-20 h-20 bg-error/10 rounded-full flex items-center justify-center text-error text-5xl mx-auto mb-6 border-2 border-error/30">
-          <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+          <span 
+            className="material-symbols-outlined" 
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
             cancel
           </span>
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl font-bold text-content-primary mb-2">Thanh toán thất bại</h1>
+        <h1 className="text-2xl font-bold text-content-primary mb-2">
+          Thanh toán thất bại
+        </h1>
 
         {/* Message */}
-        <p className="text-content-secondary mb-6 leading-relaxed">
-          Rất tiếc, giao dịch của bạn không thể hoàn tất. Vui lòng thử lại hoặc liên hệ với chúng tôi để được hỗ trợ.
+        <p className="text-sm text-content-secondary mb-6 leading-relaxed">
+          Rất tiếc, yêu cầu thanh toán của bạn đã bị từ chối hoặc bị hủy bỏ.
         </p>
 
-        {/* Error Reason */}
-        <div className="bg-error/5 border border-error/20 rounded-lg p-4 mb-6 text-left">
-          <p className="text-xs text-content-tertiary mb-1">Lý do</p>
-          <p className="text-sm text-error font-medium">{reason}</p>
-        </div>
-
-        {/* Info Box */}
-        <div className="bg-orange/5 border border-orange/20 rounded-lg p-4 mb-6 text-left">
-          <div className="flex gap-3">
-            <span className="material-symbols-outlined text-orange flex-shrink-0">warning</span>
-            <div>
-              <p className="text-xs font-semibold text-content-primary mb-1">Lưu ý</p>
-              <p className="text-xs text-content-secondary">Tiền của bạn chưa bị trừ. Vui lòng thử lại hoặc chọn phương thức thanh toán khác.</p>
-            </div>
-          </div>
+        {/* Error Details */}
+        <div className="bg-error/5 rounded-lg p-4 mb-8 border border-error/10">
+          <p className="text-xs font-bold text-error uppercase mb-1">
+            Lý do lỗi:
+          </p>
+          <p className="text-sm text-content-primary italic">
+            "{reason}"
+          </p>
         </div>
 
         {/* Buttons */}
         <div className="space-y-3">
-          {bikeId && (
-            <button
-              onClick={() => navigate(`/checkout/${bikeId}`)}
-              className="w-full py-3 bg-orange hover:bg-orange/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[1.1rem]">refresh</span>
-              Thử lại thanh toán
-            </button>
-          )}
-
           <button
-            onClick={() => navigate(ROUTES.BROWSE)}
-            className="w-full py-3 bg-surface-secondary hover:bg-surface-tertiary text-content-primary font-bold rounded-lg transition-colors border border-border-light"
+            onClick={handleRetry}
+            className="w-full py-3 bg-error hover:bg-error/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"
           >
-            Tiếp tục mua sắm
+            <span className="material-symbols-outlined text-[1.1rem]">
+              refresh
+            </span>
+            Thử lại ngay
           </button>
 
           <button
@@ -70,15 +76,16 @@ export default function PaymentFailurePage() {
         </div>
 
         {/* Support */}
-        <div className="mt-6 pt-6 border-t border-border-light">
-          <p className="text-xs text-content-tertiary mb-2">Cần hỗ trợ?</p>
-          <a
-            href="mailto:support@cyclemart.com"
-            className="text-sm text-blue hover:text-blue/80 font-medium transition-colors"
-          >
-            Liên hệ với chúng tôi
-          </a>
+        <div className="mt-8 pt-6 border-t border-border-light">
+          <p className="text-xs text-content-tertiary">
+            Bạn gặp khó khăn khi thanh toán? Hãy liên hệ{" "}
+            <span className="text-blue font-bold">
+              CSKH CycleMart
+            </span>{" "}
+            để được hỗ trợ 24/7.
+          </p>
         </div>
+
       </div>
     </div>
   )
