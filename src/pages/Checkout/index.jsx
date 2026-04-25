@@ -58,37 +58,28 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     
     try {
-      // 1. Ép kiểu rõ ràng để tránh lỗi cộng chuỗi (VD: "1000" + 200 = "1000200")
-      const bikePrice = Number(bike.price) || 0;
-      const totalAmount = Math.round(bikePrice + platformFee + shippingFee); 
-
-      // 2. Chuẩn bị payload chuẩn xác
       const paymentData = {
-        bikePostId: Number(id),
-        amount: totalAmount,
-        name: form.name.trim(),
-        phone: form.phone.trim(),
-        address: form.address.trim(),
-        description: form.note ? form.note.trim() : `Thanh toan don hang ${id}`,
-        type: 'ORDER_PAYMENT',
-        referenceId: Number(id)
+        bikePostId: parseInt(id),
+        name: form.name,
+        phone: form.phone,
+        address: form.address,
+        description: form.note || 'Không có ghi chú'
       };
 
-      console.log('Đang gửi payload:', paymentData);
+      console.log('Payment data:', paymentData);
       
-      const response = await api.post('/v1/payments/create', paymentData);
+      const response = await api.post('/v1/payments/sepay/create', paymentData);
       
-      if (response.data && response.data.paymentUrl) {
+      if (response.data.success && response.data.paymentUrl) {
+        // Redirect to VNPay payment page
         window.location.href = response.data.paymentUrl;
       } else {
-        alert('Lỗi tạo thanh toán: ' + (response.data?.message || 'Không xác định'));
+        alert('Lỗi tạo thanh toán: ' + (response.data.message || 'Không xác định'));
         setIsProcessing(false);
       }
     } catch (error) {
       console.error('Payment error:', error);
-      // Hiển thị trực tiếp lỗi trả về từ Spring Boot để dễ fix
-      const backendErrorMsg = error.response?.data?.message || error.response?.data || error.message;
-      alert('Lỗi từ Server: ' + JSON.stringify(backendErrorMsg));
+      alert('Lỗi tạo thanh toán: ' + (error.response?.data?.message || error.message));
       setIsProcessing(false);
     }
   };
