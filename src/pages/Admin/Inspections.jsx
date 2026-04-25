@@ -13,37 +13,10 @@ export default function AdminInspections() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [selectedInspectorId, setSelectedInspectorId] = useState('')
 
-  // 🔥 MỚI: State cho phí kiểm định hệ thống
-  const [globalFee, setGlobalFee] = useState(0)
-  const [isUpdatingFee, setIsUpdatingFee] = useState(false)
-
   useEffect(() => {
     loadData()
     loadInspectors()
-    loadGlobalFee() // Lấy giá hiện tại khi vào trang
   }, [])
-
-  const loadGlobalFee = async () => {
-    try {
-      const fee = await inspectionService.getGlobalFee()
-      setGlobalFee(fee)
-    } catch (error) {
-      console.error("Lỗi lấy phí:", error)
-    }
-  }
-
-  const handleUpdateGlobalFee = async () => {
-    if (globalFee < 0) return alert('Giá không hợp lệ')
-    setIsUpdatingFee(true)
-    try {
-      await inspectionService.updateGlobalFee(globalFee)
-      alert('Đã cập nhật giá mới cho toàn hệ thống!')
-    } catch (error) {
-      alert('Lỗi cập nhật giá')
-    } finally {
-      setIsUpdatingFee(false)
-    }
-  }
 
   const loadData = async () => {
     setLoading(true)
@@ -60,6 +33,7 @@ export default function AdminInspections() {
   const loadInspectors = async () => {
     try {
       const data = await adminService.getAllUsers({ size: 100 })
+      // Lọc ra những người có role là INSPECTOR
       setInspectors((data.content || []).filter(u => u.role === 'INSPECTOR'))
     } catch (error) {
       console.error(error)
@@ -74,6 +48,7 @@ export default function AdminInspections() {
       setIsAssignModalOpen(false)
       loadData()
     } catch (error) {
+      // NẾU BỊ TRÙNG LỊCH 2 TIẾNG, LỖI SẼ HIỆN Ở ĐÂY
       alert(error.response?.data?.message || 'Lỗi phân công')
     }
   }
@@ -87,12 +62,6 @@ export default function AdminInspections() {
       key: 'scheduledDateTime', 
       label: 'Thời gian hẹn',
       render: (val) => new Date(val).toLocaleString('vi-VN')
-    },
-    // Hiển thị giá mà khách đã đăng ký (giá tại thời điểm đó)
-    {
-      key: 'inspectionFee',
-      label: 'Phí dịch vụ',
-      render: (val) => `${(val || 0).toLocaleString('vi-VN')} đ`
     },
     {
       key: 'status',
@@ -113,32 +82,6 @@ export default function AdminInspections() {
     <div className="p-8">
       <h1 className="text-3xl font-bold text-content-primary mb-6">Quản lý Kiểm định</h1>
       
-      {/* 🔥 MỚI: Thanh cấu hình giá linh hoạt */}
-      <div className="bg-white p-6 mb-8 rounded-sm shadow-sm border flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-bold text-[#1e3a5f]">Phí kiểm định hệ thống</h3>
-          <p className="text-sm text-gray-500">Mức phí này sẽ áp dụng chung cho mọi yêu cầu mới.</p>
-        </div>
-        <div className="flex gap-3 items-center">
-          <div className="relative">
-            <input 
-              type="number" 
-              className="border border-gray-300 p-2 pl-4 pr-10 rounded-sm w-48 font-bold text-lg focus:ring-1 focus:ring-orange-500 outline-none" 
-              value={globalFee} 
-              onChange={(e) => setGlobalFee(e.target.value)} 
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-medium text-gray-400">đ</span>
-          </div>
-          <button 
-            onClick={handleUpdateGlobalFee} 
-            disabled={isUpdatingFee}
-            className="bg-[#ff6b35] text-white px-6 py-2.5 rounded-sm font-bold hover:bg-[#ff7849] transition-all disabled:opacity-50"
-          >
-            {isUpdatingFee ? 'Đang lưu...' : 'Áp dụng giá mới'}
-          </button>
-        </div>
-      </div>
-
       {loading ? <p>Đang tải...</p> : (
         <Table
           columns={columns}
@@ -157,6 +100,7 @@ export default function AdminInspections() {
         />
       )}
 
+      {/* Modal Phân Công */}
       <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Phân công Kiểm duyệt viên">
         <div className="space-y-4">
           <p><strong>Xe cần kiểm định:</strong> {selectedTask?.postTitle}</p>

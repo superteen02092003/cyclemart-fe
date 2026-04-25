@@ -25,21 +25,12 @@ export const inspectionService = {
     return response.data
   },
 
-  // 🔥 MỚI: Quản lý phí kiểm định chung (Global Fee)
-  getGlobalFee: async () => {
-    const response = await api.get('/v1/inspections/global-fee')
-    return response.data
-  },
-  updateGlobalFee: async (fee) => {
-    const response = await api.put('/v1/inspections/admin/global-fee', null, { params: { fee } })
-    return response.data
-  },
-
   // --- CHO INSPECTOR ---
   getInspectorTasks: async (params) => {
     const response = await api.get('/v1/inspections/inspector/me', { params })
     return response.data
   },
+  // 🔥 SỬA: Đổi tên tham số thành resultNote và thêm checklistData
   updateResult: async (id, status, resultNote, checklistData) => {
     const response = await api.put(`/v1/inspections/inspector/${id}/result`, null, { 
       params: { status, resultNote, checklistData } 
@@ -47,6 +38,7 @@ export const inspectionService = {
     return response.data
   },
 
+  // 🔥 MỚI: API lấy danh sách tiêu chí động từ Backend
   getActiveCriteria: async () => {
     const response = await api.get('/v1/inspection-criteria/active')
     return response.data

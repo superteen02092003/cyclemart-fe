@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
@@ -7,22 +7,19 @@ import { cn } from '@/utils/cn'
 import InspectionModal from '@/components/inspection/InspectionModal'
 import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
-import { inspectionService } from '@/services/inspection'
-import api from '@/services/api'
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
   { id: 2, label: 'Thông số kỹ thuật' },
   { id: 3, label: 'Giá & Vị trí' },
   { id: 4, label: 'Hình ảnh' },
-  { id: 5, label: 'Kiểm định' },
 ]
 
 const YEARS = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i)
 
 const BRANDS = [
-  'GIANT', 'TREK', 'SPECIALIZED', 'CANNONDALE', 'SCOTT', 'MERIDA', 'BIANCHI', 'PINARELLO', 
-  'CERVELO', 'COLNAGO', 'BMC', 'ORBEA', 'CUBE', 'FOCUS', 'CANYON', 'SANTA_CRUZ', 
+  'GIANT', 'TREK', 'SPECIALIZED', 'CANNONDALE', 'SCOTT', 'MERIDA', 'BIANCHI', 'PINARELLO',
+  'CERVELO', 'COLNAGO', 'BMC', 'ORBEA', 'CUBE', 'FOCUS', 'CANYON', 'SANTA_CRUZ',
   'THONG_NHAT', 'ASAMA', 'FORNIX', 'OTHER'
 ]
 
@@ -38,799 +35,755 @@ const FRAME_MATERIALS = ['CARBON', 'ALUMINUM', 'STEEL', 'TITANIUM', 'ALLOY', 'CH
 const FRAME_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'SIZE_47', 'SIZE_49', 'SIZE_51', 'SIZE_53', 'SIZE_55', 'SIZE_57', 'SIZE_59', 'SIZE_61']
 const BRAKE_TYPES = ['DISC_HYDRAULIC', 'DISC_MECHANICAL', 'RIM_BRAKE', 'V_BRAKE', 'CANTILEVER']
 const GROUPSETS = [
-  'SHIMANO_DURA_ACE', 'SHIMANO_ULTEGRA', 'SHIMANO_105', 'SHIMANO_TIAGRA', 'SHIMANO_SORA', 
-  'SHIMANO_CLARIS', 'SHIMANO_XTR', 'SHIMANO_XT', 'SHIMANO_SLX', 'SHIMANO_DEORE', 
-  'SRAM_RED', 'SRAM_FORCE', 'SRAM_RIVAL', 'SRAM_APEX', 'CAMPAGNOLO_SUPER_RECORD', 
+  'SHIMANO_DURA_ACE', 'SHIMANO_ULTEGRA', 'SHIMANO_105', 'SHIMANO_TIAGRA', 'SHIMANO_SORA',
+  'SHIMANO_CLARIS', 'SHIMANO_XTR', 'SHIMANO_XT', 'SHIMANO_SLX', 'SHIMANO_DEORE',
+  'SRAM_RED', 'SRAM_FORCE', 'SRAM_RIVAL', 'SRAM_APEX', 'CAMPAGNOLO_SUPER_RECORD',
   'CAMPAGNOLO_RECORD', 'CAMPAGNOLO_CHORUS', 'OTHER'
 ]
 
+const CITIES = ['HO_CHI_MINH']
 const DISTRICTS = [
-  'QUAN_1', 'QUAN_2', 'QUAN_3', 'QUAN_4', 'QUAN_5', 'QUAN_6', 'QUAN_7', 'QUAN_8', 
-  'QUAN_9', 'QUAN_10', 'QUAN_11', 'QUAN_12', 'QUAN_BINH_THANH', 'QUAN_GO_VAP', 
-  'QUAN_PHU_NHUAN', 'QUAN_TAN_BINH', 'QUAN_TAN_PHU', 'QUAN_THU_DUC', 'HUYEN_BINH_CHANH', 
+  'QUAN_1', 'QUAN_2', 'QUAN_3', 'QUAN_4', 'QUAN_5', 'QUAN_6', 'QUAN_7', 'QUAN_8',
+  'QUAN_9', 'QUAN_10', 'QUAN_11', 'QUAN_12', 'QUAN_BINH_THANH', 'QUAN_GO_VAP',
+  'QUAN_PHU_NHUAN', 'QUAN_TAN_BINH', 'QUAN_TAN_PHU', 'QUAN_THU_DUC', 'HUYEN_BINH_CHANH',
   'HUYEN_CAN_GIO', 'HUYEN_CU_CHI', 'HUYEN_HOC_MON', 'HUYEN_NHA_BE'
 ]
 
-const inputClass = 'w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors'
-const inputErrorClass = 'w-full px-3 py-2.5 border border-error rounded-sm focus:outline-none focus:border-error text-sm transition-colors'
+const inputClass =
+  'w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors'
+const inputErrorClass =
+  'w-full px-3 py-2.5 border border-error rounded-sm focus:outline-none focus:border-error text-sm transition-colors'
 const labelClass = 'block text-sm font-medium text-content-primary mb-1.5'
 const hintClass = 'text-xs text-content-secondary mt-1'
 
+function ProgressBar({ currentStep, steps }) {
+  return (
+    <div className="mb-8">
+      <div className="flex items-start gap-0 relative">
+        {/* Connector line */}
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-border-light z-0" />
+        {steps.map((step, idx) => {
+          const done = step.id < currentStep
+          const active = step.id === currentStep
+          return (
+            <div key={step.id} className="flex-1 flex flex-col items-center z-10">
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors',
+                  done
+                    ? 'bg-navy border-navy text-white'
+                    : active
+                      ? 'border-orange-500 bg-white text-orange-500'
+                      : 'bg-white border-border-light text-content-secondary'
+                )}
+                style={active ? { borderColor: '#ff6b35', color: '#ff6b35' } : {}}
+              >
+                {done ? (
+                  <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    check
+                  </span>
+                ) : (
+                  step.id
+                )}
+              </div>
+              <span
+                className={cn(
+                  'text-xs mt-1.5 text-center hidden sm:block',
+                  active ? 'font-semibold text-content-primary' : 'text-content-secondary'
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <p className="sm:hidden text-center text-sm font-semibold text-content-primary mt-3">
+        Bước {currentStep}: {steps[currentStep - 1]?.label}
+      </p>
+    </div>
+  )
+}
+
 export default function SellPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const editId = searchParams.get('editId')
-
-  // State
   const [currentStep, setCurrentStep] = useState(1)
-  const [isLoadingPost, setIsLoadingPost] = useState(!!editId)
-  const [createdPostId, setCreatedPostId] = useState(null)
-  const [inspectionFee, setInspectionFee] = useState(0)
+  const [draftSaved, setDraftSaved] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [showInspection, setShowInspection] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showInspectionModal, setShowInspectionModal] = useState(false)
+  const [selectedImages, setSelectedImages] = useState([])
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    categoryId: '',
-    brand: '',
-    model: '',
-    year: new Date().getFullYear(),
-    condition: 'GOOD',
-    frameMaterial: 'ALUMINUM',
-    frameSize: 'M',
-    brakeType: 'DISC_HYDRAULIC',
-    groupset: 'SHIMANO_105',
-    mileage: 0,
-    price: '',
-    city: 'TP_HO_CHI_MINH',
-    district: 'QUAN_1',
-    allowNegotiation: false,
-    requestInspection: false,
-    inspectionAddress: '',
-    inspectionScheduledDate: '',
-    inspectionNote: '',
-    images: [],
-  })
-
-  const [errors, setErrors] = useState({})
-  const [imagePreview, setImagePreview] = useState([])
-
-  // Load categories
+  // Load categories từ API
   useEffect(() => {
     loadCategories()
-    loadGlobalFee()
   }, [])
-
-  // Load post data if editing
-  useEffect(() => {
-    if (editId) {
-      loadPostData()
-    }
-  }, [editId])
 
   const loadCategories = async () => {
     try {
       const data = await categoryService.getAllChildren()
       setCategories(data)
     } catch (error) {
-      console.error('Failed to load categories:', error)
+      console.error('Error loading categories:', error)
     }
   }
 
-  const loadGlobalFee = async () => {
-    try {
-      const data = await inspectionService.getGlobalFee()
-      setInspectionFee(data.fee || 0)
-    } catch (error) {
-      console.error('Failed to load inspection fee:', error)
-    }
+  const [formData, setFormData] = useState({
+    // Step 1
+    title: '',
+    categoryId: '',
+    brand: '',
+    model: '',
+    year: '',
+    status: '',
+    // Step 2
+    frameMaterial: '',
+    frameSize: '',
+    brakeType: '',
+    groupset: '',
+    description: '',
+    // Step 3
+    price: '',
+    allowNegotiation: false,
+    city: 'HO_CHI_MINH',
+    district: '',
+    // Step 4 & 5 (Kiểm định)
+    requestInspection: false,
+    inspectionAddress: '',
+    inspectionScheduledDate: '',
+    inspectionNote: ''
+  })
+
+  // Động lực hoá số bước: Nếu tick kiểm định thì có thêm bước 5
+  const dynamicSteps = formData.requestInspection
+    ? [...STEPS, { id: 5, label: 'ĐK Kiểm định' }]
+    : STEPS;
+  const totalSteps = dynamicSteps.length;
+
+  // Helper function to get input class based on validation
+  const getInputClass = (fieldName, isRequired = false) => {
+    if (!isRequired) return inputClass
+
+    const isEmpty = !formData[fieldName] || (fieldName === 'description' && formData[fieldName].length < 50)
+    return isEmpty ? inputErrorClass : inputClass
   }
 
-  const loadPostData = async () => {
-    try {
-      setIsLoadingPost(true)
-      const data = await postService.getById(editId)
-      setFormData({
-        title: data.title || '',
-        description: data.description || '',
-        categoryId: data.categoryId || '',
-        brand: data.brand || '',
-        model: data.model || '',
-        year: data.year || new Date().getFullYear(),
-        condition: data.condition || 'GOOD',
-        frameMaterial: data.frameMaterial || 'ALUMINUM',
-        frameSize: data.frameSize || 'M',
-        brakeType: data.brakeType || 'DISC_HYDRAULIC',
-        groupset: data.groupset || 'SHIMANO_105',
-        mileage: data.mileage || 0,
-        price: data.price || '',
-        city: data.city || 'TP_HO_CHI_MINH',
-        district: data.district || 'QUAN_1',
-        allowNegotiation: data.allowNegotiation || false,
-        requestInspection: data.requestInspection || false,
-        inspectionAddress: data.inspectionAddress || '',
-        inspectionScheduledDate: data.inspectionScheduledDate || '',
-        inspectionNote: data.inspectionNote || '',
-        images: data.images || [],
-      })
-      if (data.images && data.images.length > 0) {
-        setImagePreview(data.images.map(img => img.url || img))
-      }
-    } catch (error) {
-      console.error('Failed to load post:', error)
-      alert('Không thể tải bài đăng')
-      navigate(ROUTES.MY_LISTINGS)
-    } finally {
-      setIsLoadingPost(false)
-    }
-  }
-
-  const validateStep = (step) => {
-    const newErrors = {}
-
-    if (step === 1) {
-      if (!formData.title.trim()) newErrors.title = 'Tiêu đề không được để trống'
-      if (!formData.description.trim()) newErrors.description = 'Mô tả không được để trống'
-      if (!formData.categoryId) newErrors.categoryId = 'Vui lòng chọn danh mục'
-    }
-
-    if (step === 2) {
-      if (!formData.brand) newErrors.brand = 'Vui lòng chọn hãng'
-      if (!formData.model.trim()) newErrors.model = 'Tên model không được để trống'
-    }
-
-    if (step === 3) {
-      if (!formData.price || formData.price <= 0) newErrors.price = 'Giá phải lớn hơn 0'
-      if (!formData.district) newErrors.district = 'Vui lòng chọn quận/huyện'
-    }
-
-    if (step === 4) {
-      if (formData.images.length === 0) newErrors.images = 'Vui lòng thêm ít nhất 1 hình ảnh'
-    }
-
-    if (step === 5 && formData.requestInspection) {
-      if (!formData.inspectionAddress.trim()) newErrors.inspectionAddress = 'Địa chỉ kiểm định không được để trống'
-      if (!formData.inspectionScheduledDate) newErrors.inspectionScheduledDate = 'Vui lòng chọn ngày kiểm định'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  const set = (field) => (e) => {
+    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+    setFormData((prev) => ({ ...prev, [field]: val }))
   }
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(currentStep + 1)
+    // Validate current step before moving to next
+    const errors = []
+
+    if (currentStep === 1) {
+      if (!formData.title) errors.push('Tiêu đề tin đăng')
+      if (!formData.categoryId) errors.push('Loại xe')
+      if (!formData.brand) errors.push('Thương hiệu')
+      if (!formData.model) errors.push('Model/Tên xe')
+      if (!formData.year) errors.push('Năm sản xuất')
+      if (!formData.status) errors.push('Tình trạng xe')
+    } else if (currentStep === 2) {
+      if (!formData.description || formData.description.length < 50) {
+        errors.push('Mô tả chi tiết (tối thiểu 50 ký tự)')
+      }
+    } else if (currentStep === 3) {
+      if (!formData.price) errors.push('Giá niêm yết')
+      if (!formData.district) errors.push('Quận/Huyện')
     }
+
+    if (errors.length > 0) {
+      const errorMessage = `Vui lòng điền đầy đủ thông tin bước ${currentStep}:\n\n${errors.map(error => `• ${error}`).join('\n')}`
+      alert(errorMessage)
+      return
+    }
+
+    if (currentStep < totalSteps) setCurrentStep(currentStep + 1)
   }
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
+  const handleSaveDraft = () => {
+    setDraftSaved(true)
+    setTimeout(() => setDraftSaved(false), 3000)
+  }
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+
+      // Validate required fields với thông báo cụ thể
+      const errors = []
+
+      if (!formData.title) errors.push('Tiêu đề tin đăng')
+      if (!formData.categoryId) errors.push('Loại xe')
+      if (!formData.brand) errors.push('Thương hiệu')
+      if (!formData.model) errors.push('Model/Tên xe')
+      if (!formData.year) errors.push('Năm sản xuất')
+      if (!formData.status) errors.push('Tình trạng xe')
+      if (!formData.description || formData.description.length < 50) {
+        errors.push('Mô tả chi tiết (tối thiểu 50 ký tự)')
+      }
+      if (!formData.price) errors.push('Giá niêm yết')
+      if (!formData.district) errors.push('Quận/Huyện')
+
+      // Validate bước 5 (Kiểm định)
+      if (formData.requestInspection) {
+        if (!formData.inspectionAddress) errors.push('Địa chỉ xem xe (Kiểm định)')
+        if (!formData.inspectionScheduledDate) {
+          errors.push('Ngày & Giờ hẹn (Kiểm định)')
+        } else if (new Date(formData.inspectionScheduledDate) <= new Date()) {
+          errors.push('Ngày hẹn kiểm định không được ở trong quá khứ')
+        }
+      }
+
+      if (errors.length > 0) {
+        const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
+        alert(errorMessage)
+        return
+      }
+
+      // Prepare data for API - match backend expectations
+      const postData = new FormData()
+      
+      // Required fields
+      postData.append('title', formData.title)
+      postData.append('description', formData.description)
+      postData.append('price', formData.price)
+      postData.append('status', formData.status) // BikeStatus enum
+      postData.append('city', formData.city) // City enum
+      postData.append('district', formData.district) // HCMDistrict enum
+      postData.append('brand', formData.brand) // BikeBrand enum
+      postData.append('categoryId', formData.categoryId)
+      
+      // Optional fields
+      if (formData.model) postData.append('model', formData.model)
+      if (formData.year) postData.append('year', formData.year)
+      if (formData.frameMaterial) postData.append('frameMaterial', formData.frameMaterial)
+      if (formData.frameSize) postData.append('frameSize', formData.frameSize)
+      if (formData.brakeType) postData.append('brakeType', formData.brakeType)
+      if (formData.groupset) postData.append('groupset', formData.groupset)
+      
+      postData.append('allowNegotiation', formData.allowNegotiation)
+      
+      // Images
+      selectedImages.forEach(image => {
+        postData.append('images', image)
+      })
+
+      console.log('📝 Creating post with FormData')
+      await postService.create(postData)
+
+      setSubmitted(true)
+    } catch (error) {
+      console.error('Error creating post:', error)
+      alert(error.response?.data?.message || error.message || 'Lỗi khi tạo bài đăng')
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files)
-    const newImages = [...formData.images, ...files]
-    
-    if (newImages.length > 10) {
-      alert('Tối đa 10 hình ảnh')
-      return
-    }
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    const validFiles = []
+    const errors = []
 
-    setFormData(prev => ({
-      ...prev,
-      images: newImages
-    }))
-
-    // Create preview
     files.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setImagePreview(prev => [...prev, event.target.result])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
-
-  const removeImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }))
-    setImagePreview(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSaveDraft = async () => {
-    try {
-      setIsSubmitting(true)
-      // Save draft logic - could save to localStorage or backend
-      localStorage.setItem('sellFormDraft', JSON.stringify(formData))
-      alert('Bản nháp đã được lưu')
-    } catch (error) {
-      console.error('Failed to save draft:', error)
-      alert('Lỗi khi lưu bản nháp')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleSubmit = async () => {
-    if (!validateStep(5)) return
-
-    try {
-      setIsSubmitting(true)
-      const submitData = { ...formData }
-
-      let response
-      if (editId) {
-        response = await postService.update(editId, submitData)
+      if (file.size > maxSize) {
+        errors.push(`${file.name} quá lớn (${(file.size / 1024 / 1024).toFixed(1)}MB). Tối đa 5MB/ảnh.`)
+      } else if (!file.type.startsWith('image/')) {
+        errors.push(`${file.name} không phải là file ảnh.`)
       } else {
-        response = await postService.create(submitData)
-        setCreatedPostId(response.id)
+        validFiles.push(file)
       }
+    })
 
-      // If inspection is requested, create payment
-      if (formData.requestInspection && inspectionFee > 0) {
-        try {
-          await api.post('/v1/payments', {
-            postId: response.id || editId,
-            amount: inspectionFee,
-            type: 'INSPECTION',
-            description: 'Phí kiểm định xe đạp'
-          })
-        } catch (error) {
-          console.error('Failed to create inspection payment:', error)
-        }
-      }
-
-      setCurrentStep(6) // Success step
-    } catch (error) {
-      console.error('Failed to submit post:', error)
-      alert(error.message || 'Lỗi khi đăng bài')
-    } finally {
-      setIsSubmitting(false)
+    if (errors.length > 0) {
+      alert(`Một số file không hợp lệ:\n\n${errors.join('\n')}`)
     }
+
+    if (validFiles.length > 0) {
+      setSelectedImages(prev => {
+        const newImages = [...prev, ...validFiles]
+        if (newImages.length > 10) {
+          alert('Tối đa 10 ảnh. Chỉ thêm được ' + (10 - prev.length) + ' ảnh nữa.')
+          return [...prev, ...validFiles].slice(0, 10)
+        }
+        return newImages
+      })
+    }
+
+    // Reset input để có thể chọn lại cùng file
+    e.target.value = ''
   }
 
-  if (isLoadingPost) {
+  if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy mx-auto mb-4"></div>
-          <p className="text-content-secondary">Đang tải dữ liệu...</p>
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16">
+        {/* Success */}
+        <div className="text-center mb-8">
+          <span
+            className="material-symbols-outlined mb-4"
+            style={{ fontSize: '4rem', fontVariationSettings: "'FILL' 1", color: '#10b981' }}
+          >
+            check_circle
+          </span>
+          <h2 className="text-2xl font-bold text-content-primary mb-3">Tin đăng đã gửi duyệt!</h2>
+          <p className="text-sm text-content-secondary mb-2">
+            Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Thường mất từ 24–48 giờ.
+          </p>
+          <p className="text-sm text-content-secondary mb-8">
+            Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link to={ROUTES.MY_LISTINGS}>
+              <Button variant="primary">Xem tin đăng của tôi</Button>
+            </Link>
+            <Link to={ROUTES.BROWSE}>
+              <Button variant="outline">Về trang mua xe</Button>
+            </Link>
+          </div>
         </div>
+
+        {/* Nếu chưa chọn đăng ký kiểm định lúc tạo bài thì hiện upsell */}
+        {!formData.requestInspection && (
+          <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-navy text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-content-primary mb-0.5">Tăng uy tín với kiểm định xe</p>
+                <p className="text-xs text-content-secondary mb-3">
+                  Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(250000)}</strong>.
+                </p>
+                <button
+                  onClick={() => setShowInspection(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-sm"
+                  style={{ backgroundColor: '#ff6b35' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+                >
+                  <span className="material-symbols-outlined text-[1rem]">add_circle</span>
+                  Đăng ký kiểm định ngay
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
       </div>
     )
   }
 
-  if (currentStep === 6) {
-    return <SuccessPage isEdit={!!editId} postId={createdPostId || editId} />
-  }
-
   return (
-    <div className="min-h-screen bg-background py-8">
-      <div className="max-w-2xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-content-primary mb-2">
-            {editId ? 'Chỉnh sửa bài đăng' : 'Đăng bán xe đạp'}
-          </h1>
-          <p className="text-content-secondary">
-            {editId ? 'Cập nhật thông tin bài đăng của bạn' : 'Chia sẻ chiếc xe đạp của bạn với cộng đồng'}
-          </p>
-        </div>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      {/* Page header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-content-primary">Đăng tin bán xe</h1>
+        <p className="text-sm text-content-secondary mt-1">Điền thông tin đầy đủ để thu hút người mua</p>
+      </div>
 
-        {/* Steps */}
-        <div className="mb-8">
-          <div className="flex justify-between mb-4">
-            {STEPS.map((step) => (
-              <div
-                key={step.id}
-                className={cn(
-                  'flex-1 text-center pb-2 border-b-2 transition-colors',
-                  currentStep >= step.id ? 'border-navy' : 'border-border-light'
-                )}
-              >
-                <div
-                  className={cn(
-                    'inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 font-medium text-sm',
-                    currentStep >= step.id
-                      ? 'bg-navy text-white'
-                      : 'bg-border-light text-content-secondary'
-                  )}
-                >
-                  {step.id}
-                </div>
-                <p
-                  className={cn(
-                    'text-xs font-medium',
-                    currentStep >= step.id ? 'text-navy' : 'text-content-secondary'
-                  )}
-                >
-                  {step.label}
+      {/* Progress bar */}
+      <ProgressBar currentStep={currentStep} steps={dynamicSteps} />
+
+      {/* Draft saved notice */}
+      {draftSaved && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-green/10 border border-green/20 rounded-sm mb-4 text-sm text-green font-medium">
+          <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1", color: '#10b981' }}>check_circle</span>
+          Đã lưu nháp thành công!
+        </div>
+      )}
+
+      {/* Form card */}
+      <div className="bg-white rounded-sm border border-border-light shadow-card p-6 mb-6">
+
+        {/* ── Step 1 ─────────────────────────────────────────────────── */}
+        {currentStep === 1 && (
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Thông tin cơ bản
+            </h2>
+
+            <div>
+              <label className={labelClass}>Tiêu đề tin đăng <span className="text-error">*</span></label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={set('title')}
+                placeholder="VD: Bán xe đạp Giant Defy Advanced 2 năm 2023"
+                className={getInputClass('title', true)}
+                required
+              />
+              {!formData.title && <p className="text-xs text-error mt-1">Vui lòng nhập tiêu đề tin đăng</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Loại xe <span className="text-error">*</span></label>
+              <select value={formData.categoryId} onChange={set('categoryId')} className={getInputClass('categoryId', true)} required>
+                <option value="">-- Chọn loại xe --</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {!formData.categoryId && <p className="text-xs text-error mt-1">Vui lòng chọn loại xe</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Thương hiệu <span className="text-error">*</span></label>
+              <select value={formData.brand} onChange={set('brand')} className={getInputClass('brand', true)} required>
+                <option value="">-- Chọn thương hiệu --</option>
+                {BRANDS.map((b) => (
+                  <option key={b} value={b}>{b.replace('_', ' ')}</option>
+                ))}
+              </select>
+              {!formData.brand && <p className="text-xs text-error mt-1">Vui lòng chọn thương hiệu</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Model / Tên xe <span className="text-error">*</span></label>
+              <input
+                type="text"
+                value={formData.model}
+                onChange={set('model')}
+                placeholder="Defy Advanced 2, Domane AL 4..."
+                className={getInputClass('model', true)}
+                required
+              />
+              {!formData.model && <p className="text-xs text-error mt-1">Vui lòng nhập tên model xe</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Năm sản xuất <span className="text-error">*</span></label>
+                <select value={formData.year} onChange={set('year')} className={getInputClass('year', true)} required>
+                  <option value="">-- Chọn năm --</option>
+                  {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+                {!formData.year && <p className="text-xs text-error mt-1">Vui lòng chọn năm</p>}
+              </div>
+              <div>
+                <label className={labelClass}>Tình trạng <span className="text-error">*</span></label>
+                <select value={formData.status} onChange={set('status')} className={getInputClass('status', true)} required>
+                  <option value="">-- Chọn --</option>
+                  {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+                {!formData.status && <p className="text-xs text-error mt-1">Vui lòng chọn tình trạng</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2 ─────────────────────────────────────────────────── */}
+        {currentStep === 2 && (
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Thông số kỹ thuật
+            </h2>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Chất liệu khung</label>
+                <select value={formData.frameMaterial} onChange={set('frameMaterial')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {FRAME_MATERIALS.map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Size khung</label>
+                <select value={formData.frameSize} onChange={set('frameSize')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {FRAME_SIZES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Loại phanh</label>
+                <select value={formData.brakeType} onChange={set('brakeType')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {BRAKE_TYPES.map((b) => <option key={b} value={b}>{b.replace('_', ' ')}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Groupset / Hệ truyền động</label>
+                <select value={formData.groupset} onChange={set('groupset')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {GROUPSETS.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                Mô tả chi tiết <span className="text-error">*</span>
+                <span className="ml-2 font-normal text-xs text-content-secondary">(tối thiểu 50 ký tự)</span>
+              </label>
+              <textarea
+                rows={6}
+                value={formData.description}
+                onChange={set('description')}
+                placeholder="Mô tả tình trạng xe, lịch sử sử dụng, lý do bán, phụ kiện kèm theo..."
+                className={cn(getInputClass('description', true), 'resize-none')}
+                minLength={50}
+                required
+              />
+              <p className={cn(hintClass, formData.description.length < 50 ? 'text-error' : 'text-content-secondary')}>
+                {formData.description.length}/50 ký tự tối thiểu
+              </p>
+              {formData.description.length < 50 && formData.description.length > 0 && (
+                <p className="text-xs text-error mt-1">Mô tả cần ít nhất 50 ký tự</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3 ─────────────────────────────────────────────────── */}
+        {currentStep === 3 && (
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Giá & Vị trí
+            </h2>
+
+            <div>
+              <label className={labelClass}>Giá niêm yết (₫) <span className="text-error">*</span></label>
+              <input
+                type="number"
+                min="100000"
+                value={formData.price}
+                onChange={set('price')}
+                placeholder="VD: 28500000"
+                className={getInputClass('price', true)}
+                required
+              />
+              {formData.price && (
+                <p className="text-sm font-semibold text-content-primary mt-1.5">
+                  ≈ {formatPrice(Number(formData.price))}
                 </p>
-              </div>
-            ))}
+              )}
+              {!formData.price && <p className="text-xs text-error mt-1">Vui lòng nhập giá bán</p>}
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.allowNegotiation}
+                onChange={set('allowNegotiation')}
+                className="w-4 h-4 rounded border-border-light accent-orange-500"
+              />
+              <span className="text-sm text-content-primary">Cho phép thương lượng giá</span>
+            </label>
+
+            <div>
+              <label className={labelClass}>Thành phố <span className="text-error">*</span></label>
+              <select value={formData.city} onChange={set('city')} className={inputClass} required>
+                <option value="HO_CHI_MINH">TP. Hồ Chí Minh</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Quận/Huyện <span className="text-error">*</span></label>
+              <select value={formData.district} onChange={set('district')} className={getInputClass('district', true)} required>
+                <option value="">-- Chọn quận/huyện --</option>
+                {DISTRICTS.map((d) => (
+                  <option key={d} value={d}>{d.replace('_', ' ').replace('QUAN', 'Quận').replace('HUYEN', 'Huyện')}</option>
+                ))}
+              </select>
+              {!formData.district && <p className="text-xs text-error mt-1">Vui lòng chọn quận/huyện</p>}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Form Content */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          {currentStep === 1 && <Step1 formData={formData} handleInputChange={handleInputChange} errors={errors} categories={categories} />}
-          {currentStep === 2 && <Step2 formData={formData} handleInputChange={handleInputChange} errors={errors} />}
-          {currentStep === 3 && <Step3 formData={formData} handleInputChange={handleInputChange} errors={errors} />}
-          {currentStep === 4 && <Step4 formData={formData} handleImageChange={handleImageChange} removeImage={removeImage} imagePreview={imagePreview} errors={errors} />}
-          {currentStep === 5 && <Step5 formData={formData} handleInputChange={handleInputChange} errors={errors} inspectionFee={inspectionFee} />}
-        </div>
+        {/* ── Step 4 ─────────────────────────────────────────────────── */}
+        {currentStep === 4 && (
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Hình ảnh
+            </h2>
 
-        {/* Buttons */}
-        <div className="flex gap-3 justify-between">
-          <div className="flex gap-3">
-            {currentStep > 1 && (
-              <Button variant="outline" onClick={handleBack}>
-                Quay lại
-              </Button>
-            )}
-            <Button variant="outline" onClick={handleSaveDraft} disabled={isSubmitting}>
-              Lưu bản nháp
-            </Button>
-          </div>
-          <div className="flex gap-3">
-            {currentStep < 5 && (
-              <Button onClick={handleNext}>
-                Tiếp tục
-              </Button>
-            )}
-            {currentStep === 5 && (
-              <Button onClick={handleSubmit} disabled={isSubmitting} loading={isSubmitting}>
-                {editId ? 'Cập nhật' : 'Đăng bài'}
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-// Step 1: Basic Information
-function Step1({ formData, handleInputChange, errors, categories }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className={labelClass}>Tiêu đề bài đăng *</label>
-        <input
-          type="text"
-          name="title"
-          value={formData.title}
-          onChange={handleInputChange}
-          placeholder="VD: Giant Escape 3 2023 - Tình trạng tốt"
-          className={errors.title ? inputErrorClass : inputClass}
-        />
-        {errors.title && <p className="text-error text-xs mt-1">{errors.title}</p>}
-        <p className={hintClass}>Tiêu đề rõ ràng giúp bán nhanh hơn</p>
-      </div>
-
-      <div>
-        <label className={labelClass}>Mô tả chi tiết *</label>
-        <textarea
-          name="description"
-          value={formData.description}
-          onChange={handleInputChange}
-          placeholder="Mô tả tình trạng, lịch sử sử dụng, bất kỳ vấn đề nào..."
-          rows="5"
-          className={cn(errors.description ? inputErrorClass : inputClass, 'resize-none')}
-        />
-        {errors.description && <p className="text-error text-xs mt-1">{errors.description}</p>}
-      </div>
-
-      <div>
-        <label className={labelClass}>Danh mục *</label>
-        <select
-          name="categoryId"
-          value={formData.categoryId}
-          onChange={handleInputChange}
-          className={errors.categoryId ? inputErrorClass : inputClass}
-        >
-          <option value="">-- Chọn danh mục --</option>
-          {categories.map(cat => (
-            <option key={cat.id} value={cat.id}>{cat.name}</option>
-          ))}
-        </select>
-        {errors.categoryId && <p className="text-error text-xs mt-1">{errors.categoryId}</p>}
-      </div>
-
-      <div>
-        <label className={labelClass}>Tình trạng</label>
-        <select
-          name="condition"
-          value={formData.condition}
-          onChange={handleInputChange}
-          className={inputClass}
-        >
-          {CONDITIONS.map(cond => (
-            <option key={cond.value} value={cond.value}>{cond.label}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  )
-}
-
-// Step 2: Technical Specifications
-function Step2({ formData, handleInputChange, errors }) {
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Hãng sản xuất *</label>
-          <select
-            name="brand"
-            value={formData.brand}
-            onChange={handleInputChange}
-            className={errors.brand ? inputErrorClass : inputClass}
-          >
-            <option value="">-- Chọn hãng --</option>
-            {BRANDS.map(brand => (
-              <option key={brand} value={brand}>{brand}</option>
-            ))}
-          </select>
-          {errors.brand && <p className="text-error text-xs mt-1">{errors.brand}</p>}
-        </div>
-
-        <div>
-          <label className={labelClass}>Model *</label>
-          <input
-            type="text"
-            name="model"
-            value={formData.model}
-            onChange={handleInputChange}
-            placeholder="VD: Escape 3"
-            className={errors.model ? inputErrorClass : inputClass}
-          />
-          {errors.model && <p className="text-error text-xs mt-1">{errors.model}</p>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Năm sản xuất</label>
-          <select
-            name="year"
-            value={formData.year}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            {YEARS.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={labelClass}>Số km đã đi</label>
-          <input
-            type="number"
-            name="mileage"
-            value={formData.mileage}
-            onChange={handleInputChange}
-            placeholder="0"
-            className={inputClass}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Chất liệu khung</label>
-          <select
-            name="frameMaterial"
-            value={formData.frameMaterial}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            {FRAME_MATERIALS.map(mat => (
-              <option key={mat} value={mat}>{mat}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={labelClass}>Kích thước khung</label>
-          <select
-            name="frameSize"
-            value={formData.frameSize}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            {FRAME_SIZES.map(size => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Loại phanh</label>
-          <select
-            name="brakeType"
-            value={formData.brakeType}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            {BRAKE_TYPES.map(brake => (
-              <option key={brake} value={brake}>{brake}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className={labelClass}>Groupset</label>
-          <select
-            name="groupset"
-            value={formData.groupset}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            {GROUPSETS.map(group => (
-              <option key={group} value={group}>{group}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Step 3: Price & Location
-function Step3({ formData, handleInputChange, errors }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className={labelClass}>Giá bán (VND) *</label>
-        <input
-          type="number"
-          name="price"
-          value={formData.price}
-          onChange={handleInputChange}
-          placeholder="0"
-          className={errors.price ? inputErrorClass : inputClass}
-        />
-        {errors.price && <p className="text-error text-xs mt-1">{errors.price}</p>}
-        {formData.price && <p className={hintClass}>Giá: {formatPrice(formData.price)}</p>}
-      </div>
-
-      <div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            name="allowNegotiation"
-            checked={formData.allowNegotiation}
-            onChange={handleInputChange}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium text-content-primary">Cho phép thương lượng giá</span>
-        </label>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={labelClass}>Thành phố</label>
-          <select
-            name="city"
-            value={formData.city}
-            onChange={handleInputChange}
-            className={inputClass}
-          >
-            <option value="TP_HO_CHI_MINH">TP. Hồ Chí Minh</option>
-          </select>
-        </div>
-
-        <div>
-          <label className={labelClass}>Quận/Huyện *</label>
-          <select
-            name="district"
-            value={formData.district}
-            onChange={handleInputChange}
-            className={errors.district ? inputErrorClass : inputClass}
-          >
-            <option value="">-- Chọn quận/huyện --</option>
-            {DISTRICTS.map(dist => (
-              <option key={dist} value={dist}>{dist}</option>
-            ))}
-          </select>
-          {errors.district && <p className="text-error text-xs mt-1">{errors.district}</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Step 4: Images
-function Step4({ formData, handleImageChange, removeImage, imagePreview, errors }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className={labelClass}>Hình ảnh *</label>
-        <p className={hintClass}>Tối đa 10 hình ảnh. Hình ảnh rõ ràng giúp bán nhanh hơn.</p>
-        
-        <div className="mt-3 border-2 border-dashed border-border-light rounded-lg p-6 text-center cursor-pointer hover:border-navy transition-colors">
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleImageChange}
-            className="hidden"
-            id="image-input"
-          />
-          <label htmlFor="image-input" className="cursor-pointer">
-            <div className="text-4xl mb-2">📷</div>
-            <p className="text-sm font-medium text-content-primary">Nhấp để chọn hình ảnh</p>
-            <p className="text-xs text-content-secondary">hoặc kéo thả hình ảnh vào đây</p>
-          </label>
-        </div>
-        {errors.images && <p className="text-error text-xs mt-1">{errors.images}</p>}
-      </div>
-
-      {imagePreview.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-content-primary mb-3">
-            Hình ảnh đã chọn ({imagePreview.length}/10)
-          </p>
-          <div className="grid grid-cols-4 gap-3">
-            {imagePreview.map((preview, index) => (
-              <div key={index} className="relative group">
-                <img
-                  src={preview}
-                  alt={`Preview ${index}`}
-                  className="w-full h-24 object-cover rounded-lg"
+            {/* Upload zone */}
+            <div>
+              <label className={labelClass}>Ảnh xe (tùy chọn)</label>
+              <div className="border-2 border-dashed border-border-light rounded-sm p-8 text-center hover:border-navy transition-colors cursor-pointer bg-surface-secondary">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                  id="image-upload"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeImage(index)}
-                  className="absolute top-1 right-1 bg-error text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  ✕
-                </button>
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <span
+                    className="material-symbols-outlined text-content-secondary mb-2"
+                    style={{ fontSize: '2.5rem', fontVariationSettings: "'FILL' 0" }}
+                  >
+                    add_photo_alternate
+                  </span>
+                  <p className="text-sm font-medium text-content-primary">Kéo thả ảnh vào đây</p>
+                  <p className="text-xs text-content-secondary mt-1">hoặc click để chọn từ thiết bị</p>
+                  <p className={cn(hintClass, 'mt-3')}>Tối đa 10 ảnh · JPG/PNG · Tối đa 5MB/ảnh</p>
+                </label>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+            </div>
 
-// Step 5: Inspection
-function Step5({ formData, handleInputChange, errors, inspectionFee }) {
-  return (
-    <div className="space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900">
-          <strong>💡 Mẹo:</strong> Yêu cầu kiểm định giúp tăng độ tin cậy và bán nhanh hơn.
-        </p>
+            {/* Selected images */}
+            {selectedImages.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-content-secondary uppercase tracking-wide mb-2">
+                  Ảnh đã chọn ({selectedImages.length}/10)
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {selectedImages.map((image, index) => (
+                    <div
+                      key={index}
+                      className="aspect-square bg-surface-secondary rounded-sm border border-border-light flex flex-col items-center justify-center relative group"
+                    >
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover rounded-sm"
+                      />
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-1 py-0.5 rounded">
+                        {(image.size / 1024 / 1024).toFixed(1)}MB
+                      </div>
+                      <button
+                        onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white border border-border-light flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-error text-[0.75rem]">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── SỬA Ở ĐÂY: Checkbox Đăng ký Kiểm định Ngay ── */}
+            <div className="mt-8 pt-6 border-t border-border-light">
+              <label className="flex items-start gap-3 cursor-pointer p-4 bg-surface rounded-sm border border-border-light hover:border-navy transition-colors">
+                <input
+                  type="checkbox"
+                  checked={formData.requestInspection}
+                  onChange={set('requestInspection')}
+                  className="mt-1 w-5 h-5 text-navy focus:ring-navy rounded-sm"
+                />
+                <div>
+                  <span className="block text-sm font-bold text-content-primary">Tôi muốn đăng ký kiểm định xe này ngay</span>
+                  <span className="block text-xs text-content-secondary mt-1 leading-relaxed">
+                    Chuyên viên của chúng tôi sẽ đến tận nơi kiểm tra. Xe vượt qua kiểm định sẽ nhận được huy hiệu <strong className="text-success">"Đã kiểm định"</strong>, giúp bán nhanh hơn gấp 5 lần!
+                  </span>
+                </div>
+              </label>
+            </div>
+            {/* ──────────────────────────────────────────────── */}
+          </div>
+        )}
+
+        {/* ── Step 5: KIỂM ĐỊNH (Chỉ hiện khi tick Checkbox) ── */}
+        {currentStep === 5 && formData.requestInspection && (
+          <div className="space-y-5 animate-fade-in">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Thông tin Kiểm định
+            </h2>
+
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-sm mb-4 flex items-start gap-3">
+              <span className="material-symbols-outlined text-blue-600 mt-0.5 text-[1.2rem]">security</span>
+              <p className="text-sm text-blue-800 leading-relaxed">
+                <strong>Bảo mật thông tin:</strong> Địa chỉ kiểm định và ghi chú này chỉ hiển thị nội bộ cho Quản trị viên và Nhân viên phân công. Sẽ <strong>không</strong> hiển thị công khai trên bài đăng của bạn.
+              </p>
+            </div>
+
+            <div>
+              <label className={labelClass}>Địa chỉ xem xe <span className="text-error">*</span></label>
+              <input
+                type="text"
+                value={formData.inspectionAddress}
+                onChange={set('inspectionAddress')}
+                className={getInputClass('inspectionAddress', true)}
+                placeholder="Nhập địa chỉ chính xác để nhân viên đến kiểm tra"
+                required
+              />
+              {!formData.inspectionAddress && <p className="text-xs text-error mt-1">Vui lòng nhập địa chỉ xem xe</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Ngày & Giờ hẹn <span className="text-error">*</span></label>
+              <input
+                type="datetime-local"
+                value={formData.inspectionScheduledDate}
+                onChange={set('inspectionScheduledDate')}
+                className={getInputClass('inspectionScheduledDate', true)}
+                required
+              />
+              {!formData.inspectionScheduledDate && <p className="text-xs text-error mt-1">Vui lòng chọn ngày giờ hẹn</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Ghi chú <span className="text-content-tertiary font-normal">(Tuỳ chọn)</span></label>
+              <textarea
+                value={formData.inspectionNote}
+                onChange={set('inspectionNote')}
+                className={inputClass}
+                rows={3}
+                placeholder="VD: Xe nằm ở tầng hầm chung cư, đến nơi vui lòng gọi điện thoại..."
+              />
+            </div>
+          </div>
+        )}
+
       </div>
 
-      <div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            name="requestInspection"
-            checked={formData.requestInspection}
-            onChange={handleInputChange}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium text-content-primary">
-            Yêu cầu kiểm định xe (Phí: {formatPrice(inspectionFee)})
-          </span>
-        </label>
-      </div>
+      {/* Navigation buttons */}
+      <div className="flex items-center gap-3">
+        {/* Always: Save draft */}
+        <Button variant="secondary" onClick={handleSaveDraft} size="sm">
+          <span className="material-symbols-outlined text-[1rem]">save</span>
+          Lưu nháp
+        </Button>
 
-      {formData.requestInspection && (
-        <>
-          <div>
-            <label className={labelClass}>Địa chỉ kiểm định *</label>
-            <input
-              type="text"
-              name="inspectionAddress"
-              value={formData.inspectionAddress}
-              onChange={handleInputChange}
-              placeholder="VD: 123 Nguyễn Huệ, Quận 1"
-              className={errors.inspectionAddress ? inputErrorClass : inputClass}
-            />
-            {errors.inspectionAddress && <p className="text-error text-xs mt-1">{errors.inspectionAddress}</p>}
-          </div>
+        <div className="flex-1" />
 
-          <div>
-            <label className={labelClass}>Ngày kiểm định dự kiến *</label>
-            <input
-              type="datetime-local"
-              name="inspectionScheduledDate"
-              value={formData.inspectionScheduledDate}
-              onChange={handleInputChange}
-              className={errors.inspectionScheduledDate ? inputErrorClass : inputClass}
-            />
-            {errors.inspectionScheduledDate && <p className="text-error text-xs mt-1">{errors.inspectionScheduledDate}</p>}
-          </div>
-
-          <div>
-            <label className={labelClass}>Ghi chú thêm</label>
-            <textarea
-              name="inspectionNote"
-              value={formData.inspectionNote}
-              onChange={handleInputChange}
-              placeholder="Ghi chú cho người kiểm định..."
-              rows="3"
-              className={cn(inputClass, 'resize-none')}
-            />
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-sm text-yellow-900">
-              <strong>⚠️ Lưu ý:</strong> Phí kiểm định {formatPrice(inspectionFee)} sẽ được tính khi bạn đăng bài.
-            </p>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// Success Page
-function SuccessPage({ isEdit, postId }) {
-  const navigate = useNavigate()
-
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center py-8">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-sm p-8 text-center">
-        <div className="text-6xl mb-4">✅</div>
-        <h1 className="text-2xl font-bold text-content-primary mb-2">
-          {isEdit ? 'Cập nhật thành công!' : 'Đăng bài thành công!'}
-        </h1>
-        <p className="text-content-secondary mb-6">
-          {isEdit
-            ? 'Bài đăng của bạn đã được cập nhật. Bạn có thể xem lại hoặc tiếp tục đăng bài khác.'
-            : 'Bài đăng của bạn đã được công khai. Bạn có thể xem lại hoặc tiếp tục đăng bài khác.'}
-        </p>
-
-        <div className="space-y-3">
-          <Button
-            onClick={() => navigate(`${ROUTES.BIKE_DETAIL.replace(':id', postId)}`)}
-            className="w-full"
-          >
-            Xem bài đăng
+        {currentStep > 1 && (
+          <Button variant="outline" onClick={handleBack} size="sm">
+            <span className="material-symbols-outlined text-[1rem]">arrow_back</span>
+            Quay lại
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate(ROUTES.MY_LISTINGS)}
-            className="w-full"
+        )}
+
+        {showInspection && <InspectionModal onClose={() => setShowInspection(false)} />}
+
+        {currentStep < totalSteps ? (
+          <button
+            onClick={handleNext}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors"
+            style={{ backgroundColor: '#ff6b35' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
           >
-            Quay lại danh sách bài đăng
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate(ROUTES.SELL)}
-            className="w-full"
+            Tiếp theo
+            <span className="material-symbols-outlined text-[1rem]">arrow_forward</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors disabled:opacity-50"
+            style={{ backgroundColor: '#ff6b35' }}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff7849')}
+            onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
           >
-            Đăng bài mới
-          </Button>
-        </div>
+            <span className="material-symbols-outlined text-[1rem]">send</span>
+            {loading ? 'Đang gửi...' : 'Submit để kiểm duyệt'}
+          </button>
+        )}
       </div>
     </div>
   )
