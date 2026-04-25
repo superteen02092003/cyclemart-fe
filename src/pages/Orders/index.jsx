@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
 import { ordersService } from '@/services/orders';
+import { postService } from '@/services/post'; // 🔥 Đã thêm import postService
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import ReviewModal from '@/components/orders/ReviewModal';
 import DisputeDepositModal from '@/components/orders/DisputeDepositModal';
@@ -12,8 +13,8 @@ const STATUS_LABELS = {
   PAID_WAITING_DELIVERY: { text: 'Chờ giao hàng', color: 'bg-orange/10 text-orange' },
   IN_DELIVERY: { text: 'Đang giao hàng', color: 'bg-blue-500/10 text-blue-600' },
   DELIVERED: { text: 'Đã nhận hàng', color: 'bg-green/10 text-green' },
-  RETURN_REQUESTED: { text: 'Yêu cầu hoàn hàng', color: 'bg-error/10 text-error' },
-  AWAITING_DISPUTE_DEPOSIT: { text: 'Chờ nộp cọc', color: 'bg-error/10 text-error' },
+  RETURN_REQUESTED: { text: 'Yêu cầu hoàn trả', color: 'bg-error/10 text-error' },
+  AWAITING_DISPUTE_DEPOSIT: { text: 'Chờ nộp cọc', color: 'bg-warning/20 text-warning' },
   DISPUTE_SYSTEM: { text: 'Đang tranh chấp', color: 'bg-error/10 text-error' },
   COMPLETED: { text: 'Hoàn tất', color: 'bg-green/10 text-green' },
   CANCELLED: { text: 'Đã hủy', color: 'bg-content-tertiary/20 text-content-secondary' },
@@ -65,20 +66,20 @@ function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, 
           )}
 
           {order.status === 'PAID_WAITING_DELIVERY' && !isBuyer && (
-             <button onClick={() => simulateStatusUpdate(order.id, 'IN_DELIVERY')} className="py-2.5 px-6 bg-navy text-white text-xs font-bold rounded-sm transition-colors">Cập nhật Đã Giao Hàng</button>
+             <button onClick={() => simulateStatusUpdate(order.id, 'IN_DELIVERY')} className="py-2.5 px-6 bg-navy hover:bg-navy/90 text-white text-xs font-bold rounded-sm transition-colors">Cập nhật Đã Giao Hàng</button>
           )}
 
           {order.status === 'IN_DELIVERY' && isBuyer && (
-             <button onClick={() => simulateStatusUpdate(order.id, 'DELIVERED')} className="py-2.5 px-6 bg-green text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1">
+             <button onClick={() => simulateStatusUpdate(order.id, 'DELIVERED')} className="py-2.5 px-6 bg-green hover:bg-green/90 text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1">
                 <span className="material-symbols-outlined text-[1rem]">check_circle</span>
                 Đã Nhận Được Hàng
              </button>
           )}
 
-          {order.status === 'DELIVERED' && isBuyer && ( // Thời hạn 7 ngày hoàn trả
+          {order.status === 'DELIVERED' && isBuyer && (
              <>
                <button onClick={() => openReturnModal(order)} className="py-2.5 px-4 text-xs font-bold border border-error text-error hover:bg-error/5 rounded-sm transition-colors">Yêu cầu hoàn trả</button>
-               <button onClick={() => simulateStatusUpdate(order.id, 'COMPLETED')} className="py-2.5 px-6 bg-navy text-white text-xs font-bold rounded-sm transition-colors">Hoàn thành & Chọn Đánh Giá</button>
+               <button onClick={() => simulateStatusUpdate(order.id, 'COMPLETED')} className="py-2.5 px-6 bg-navy hover:bg-navy/90 text-white text-xs font-bold rounded-sm transition-colors">Hoàn thành & Đánh Giá</button>
              </>
           )}
 
@@ -90,13 +91,13 @@ function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, 
           )}
 
           {order.status === 'RETURN_REQUESTED' && isBuyer && (
-             <span className="py-2.5 text-xs text-content-secondary">Đang chờ người bán phản hồi...</span>
+             <span className="py-2.5 text-xs text-content-secondary font-medium">Đang chờ người bán phản hồi...</span>
           )}
 
           {order.status === 'AWAITING_DISPUTE_DEPOSIT' && (
              <button onClick={() => openDisputeModal(order)} className="py-2.5 px-6 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-xs font-bold rounded-sm transition-colors cursor-pointer flex items-center gap-2">
                 <span className="material-symbols-outlined text-[1rem]">gavel</span>
-                Nộp 200K Giải Quyết Tranh Chấp
+                Nộp phí Giải Quyết Tranh Chấp
              </button>
           )}
 
@@ -123,31 +124,55 @@ export default function OrdersPage() {
   const [reviewOrder, setReviewOrder] = useState(null);
   const [disputeOrder, setDisputeOrder] = useState(null);
 
-  // Fetch orders from backend
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const response = await ordersService.getPaymentHistory(0, 50);
         
-        // Map payment data to order format
-        const mappedOrders = response.content?.map(payment => ({
-          id: payment.orderId,
-          bikeId: payment.bikePostId,
-          bikeTitle: payment.bikeTitle || 'Xe đạp',
-          price: payment.amount,
-          status: payment.status === 'SUCCESS' ? 'PAID_WAITING_DELIVERY' : 'PENDING_PAYMENT',
-          counterpartName: payment.sellerName || 'Người bán',
-          deliveryAddress: '',
-          createdAt: new Date(payment.createdAt).toLocaleDateString('vi-VN'),
-          role: 'BUYER' // Assuming current user is buyer
-        })) || [];
-        
-        setOrders(mappedOrders);
+        // 1. LẤY ĐƠN MUA (Từ lịch sử thanh toán VNPay)
+        const paymentRes = await ordersService.getPaymentHistory(0, 50);
+        const buyerOrders = (paymentRes.content || [])
+          .filter(payment => payment.type === 'ORDER_PAYMENT') // 🔥 Lọc để loại bỏ phí kiểm định và mua gói
+          .map(payment => {
+            // Tách tên xe từ chuỗi description (VD: "Thanh toan mua xe: Giant Defy")
+            const titleParts = payment.description?.split(': ');
+            const bikeTitle = titleParts?.length > 1 ? titleParts[1] : (payment.description || 'Xe đạp CycleMart');
+
+            return {
+              id: payment.orderId,
+              bikeId: payment.referenceId || payment.bikePostId,
+              bikeTitle: bikeTitle,
+              price: payment.amount,
+              status: payment.status === 'SUCCESS' ? 'PAID_WAITING_DELIVERY' : 'PENDING_PAYMENT',
+              counterpartName: 'Người bán', // Hoặc lấy từ backend nếu có payment.sellerName
+              deliveryAddress: 'Xem chi tiết trong đơn',
+              createdAt: new Date(payment.createdAt).toLocaleDateString('vi-VN'),
+              role: 'BUYER'
+            };
+          });
+
+        // 2. LẤY ĐƠN BÁN (Từ danh sách bài đăng của user hiện tại)
+        const postsRes = await postService.getMyPosts();
+        const sellerOrders = (postsRes.content || postsRes || [])
+          .filter(post => post.postStatus === 'SOLD') // 🔥 Chỉ lấy những xe đã bán thành công
+          .map(post => ({
+            id: 'ORD_S_' + post.id,
+            bikeId: post.id,
+            bikeTitle: post.title,
+            price: post.price,
+            status: 'PAID_WAITING_DELIVERY', // Mặc định xe đã bán là đã thanh toán chờ giao
+            counterpartName: 'Người mua',
+            deliveryAddress: 'Đang cập nhật...',
+            createdAt: new Date(post.updatedAt || post.createdAt).toLocaleDateString('vi-VN'),
+            role: 'SELLER'
+          }));
+
+        // Gộp chung 2 mảng lại với nhau
+        setOrders([...buyerOrders, ...sellerOrders]);
         setError(null);
       } catch (err) {
         console.error('Error fetching orders:', err);
-        setError('Không thể tải danh sách đơn hàng');
+        setError('Không thể tải danh sách đơn hàng. Vui lòng thử lại sau.');
         setOrders([]);
       } finally {
         setLoading(false);
@@ -158,7 +183,9 @@ export default function OrdersPage() {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => o.role === activeTab).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return orders
+      .filter(o => o.role === activeTab)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [orders, activeTab]);
 
   const simulateStatusUpdate = (orderId, newStatus) => {
@@ -203,7 +230,7 @@ export default function OrdersPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-content-primary mb-1">Đơn hàng của tôi</h1>
-        <p className="text-sm text-content-secondary">Quản lý giao dịch mua và bán an toàn qua Sepay</p>
+        <p className="text-sm text-content-secondary">Quản lý giao dịch mua và bán an toàn</p>
       </div>
 
       {/* Tabs */}
