@@ -165,13 +165,12 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
               Đang xử lý...
             </Button>
-            <button
-              onClick={() => onAction('cancel', listing.id)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-error border border-error/30 rounded-sm hover:bg-error/5 transition-colors"
-            >
-              <span className="material-symbols-outlined text-[0.9rem]">close</span>
-              Hủy yêu cầu
-            </button>
+            <Link to={`${ROUTES.SELL}?editId=${listing.id}`}>
+              <Button variant="secondary" size="sm">
+                <span className="material-symbols-outlined text-[0.9rem]">edit</span>
+                Sửa bài đăng
+              </Button>
+            </Link>
           </>
         )}
 

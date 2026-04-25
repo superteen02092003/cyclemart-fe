@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
@@ -113,6 +113,9 @@ function ProgressBar({ currentStep, steps }) {
 
 export default function SellPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const editId = searchParams.get('editId')
+  
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -120,11 +123,7 @@ export default function SellPage() {
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [selectedImages, setSelectedImages] = useState([])
-
-  // Load categories từ API
-  useEffect(() => {
-    loadCategories()
-  }, [])
+  const [isLoadingPost, setIsLoadingPost] = useState(false)
 
   const loadCategories = async () => {
     try {
@@ -134,6 +133,49 @@ export default function SellPage() {
       console.error('Error loading categories:', error)
     }
   }
+
+  const loadPostData = async (postId) => {
+    try {
+      const data = await postService.getById(postId)
+      setFormData({
+        title: data.title || '',
+        categoryId: data.categoryId || '',
+        brand: data.brand || '',
+        model: data.model || '',
+        year: data.year || '',
+        status: data.status || '',
+        frameMaterial: data.frameMaterial || '',
+        frameSize: data.frameSize || '',
+        brakeType: data.brakeType || '',
+        groupset: data.groupset || '',
+        description: data.description || '',
+        price: data.price || '',
+        allowNegotiation: data.allowNegotiation || false,
+        city: data.city || 'HO_CHI_MINH',
+        district: data.district || '',
+        requestInspection: data.isRequestedInspection || false,
+        inspectionAddress: data.inspectionAddress || '',
+        inspectionScheduledDate: data.inspectionScheduledDate || '',
+        inspectionNote: data.inspectionNote || ''
+      })
+      if (data.images && data.images.length > 0) {
+        setSelectedImages(data.images)
+      }
+    } catch (error) {
+      console.error('Error loading post data:', error)
+      alert('Không thể tải dữ liệu bài đăng')
+    }
+  }
+
+  // Load categories từ API
+  useEffect(() => {
+    loadCategories()
+    // Load post data khi có editId
+    if (editId) {
+      setIsLoadingPost(true)
+      loadPostData(editId).finally(() => setIsLoadingPost(false))
+    }
+  }, [editId])
 
   const [formData, setFormData] = useState({
     // Step 1
@@ -264,13 +306,18 @@ export default function SellPage() {
         categoryId: parseInt(formData.categoryId)
       }
 
-      console.log('📝 Creating post:', postData)
-      await postService.create(postData)
+      console.log(editId ? '📝 Updating post:' : '📝 Creating post:', postData)
+      
+      if (editId) {
+        await postService.update(editId, postData)
+      } else {
+        await postService.create(postData)
+      }
       
       setSubmitted(true)
     } catch (error) {
-      console.error('Error creating post:', error)
-      alert(error.response?.data?.message || error.message || 'Lỗi khi tạo bài đăng')
+      console.error('Error submitting post:', error)
+      alert(error.response?.data?.message || error.message || 'Lỗi khi lưu bài đăng')
     } finally {
       setLoading(false)
     }
@@ -322,12 +369,18 @@ export default function SellPage() {
           >
             check_circle
           </span>
-          <h2 className="text-2xl font-bold text-content-primary mb-3">Tin đăng đã gửi duyệt!</h2>
+          <h2 className="text-2xl font-bold text-content-primary mb-3">
+            {editId ? 'Bài đăng đã cập nhật!' : 'Tin đăng đã gửi duyệt!'}
+          </h2>
           <p className="text-sm text-content-secondary mb-2">
-            Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Thường mất từ 24–48 giờ.
+            {editId 
+              ? 'Bài đăng của bạn đã được cập nhật và gửi lại duyệt.'
+              : 'Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Thường mất từ 24–48 giờ.'}
           </p>
           <p className="text-sm text-content-secondary mb-8">
-            Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.
+            {editId
+              ? 'Vui lòng chờ kiểm duyệt lại.'
+              : 'Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link to={ROUTES.MY_LISTINGS}>
@@ -340,7 +393,7 @@ export default function SellPage() {
         </div>
 
         {/* Nếu chưa chọn đăng ký kiểm định lúc tạo bài thì hiện upsell */}
-        {!formData.requestInspection && (
+        {!formData.requestInspection && !editId && (
           <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center">
@@ -375,23 +428,39 @@ export default function SellPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-content-primary">Đăng tin bán xe</h1>
-        <p className="text-sm text-content-secondary mt-1">Điền thông tin đầy đủ để thu hút người mua</p>
+        <h1 className="text-2xl font-bold text-content-primary">
+          {editId ? 'Sửa bài đăng' : 'Đăng tin bán xe'}
+        </h1>
+        <p className="text-sm text-content-secondary mt-1">
+          {editId ? 'Chỉnh sửa thông tin bài đăng của bạn' : 'Điền thông tin đầy đủ để thu hút người mua'}
+        </p>
       </div>
 
-      {/* Progress bar */}
-      <ProgressBar currentStep={currentStep} steps={dynamicSteps} />
-
-      {/* Draft saved notice */}
-      {draftSaved && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-green/10 border border-green/20 rounded-sm mb-4 text-sm text-green font-medium">
-          <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1", color: '#10b981' }}>check_circle</span>
-          Đã lưu nháp thành công!
+      {/* Loading state */}
+      {isLoadingPost && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-navy/20 border-t-navy rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-content-secondary">Đang tải dữ liệu bài đăng...</p>
+          </div>
         </div>
       )}
 
-      {/* Form card */}
-      <div className="bg-white rounded-sm border border-border-light shadow-card p-6 mb-6">
+      {!isLoadingPost && (
+        <>
+          {/* Progress bar */}
+          <ProgressBar currentStep={currentStep} steps={dynamicSteps} />
+
+          {/* Draft saved notice */}
+          {draftSaved && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-green/10 border border-green/20 rounded-sm mb-4 text-sm text-green font-medium">
+              <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1", color: '#10b981' }}>check_circle</span>
+              Đã lưu nháp thành công!
+            </div>
+          )}
+
+          {/* Form card */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6 mb-6">
 
         {/* ── Step 1 ─────────────────────────────────────────────────── */}
         {currentStep === 1 && (
@@ -774,6 +843,8 @@ export default function SellPage() {
           </button>
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }
