@@ -44,7 +44,7 @@ export default function AdminListings() {
     if(window.confirm('Bạn có chắc chắn muốn duyệt bài đăng này?')) {
       try {
         await adminService.approvePost(id)
-        alert('Duyệt bài thành công!')
+        alert('Duyệt bài thành công! Hệ thống đã tạo yêu cầu kiểm định (nếu có).')
         fetchListings() // Reload danh sách
         setIsDetailModalOpen(false)
       } catch (error) {
@@ -102,6 +102,23 @@ export default function AdminListings() {
       label: 'Giá',
       render: (value) => value ? `₫${value.toLocaleString('vi-VN')}` : 'Liên hệ',
     },
+    // 🔥 CỘT YÊU CẦU KIỂM ĐỊNH ĐÃ ĐƯỢC SỬA LẠI KEY BẮT DỮ LIỆU
+    {
+    key: 'isRequestedInspection', 
+    label: 'Kiểm định',
+    width: '100px',
+    render: (value, item) => {
+      // Bắt cả 2 trường hợp key (isRequestedInspection hoặc requestedInspection)
+      const hasInspection = value === true || item.requestedInspection === true;
+      
+      return hasInspection ? (
+        <span className="flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-sm border border-orange-200">
+          <span className="material-symbols-outlined text-[1rem]" style={{fontVariationSettings: "'FILL' 1"}}>security</span>
+          CÓ 
+        </span>
+      ) : <span className="text-gray-400 font-medium">-</span>
+    }
+  },
     {
       key: 'postStatus',
       label: 'Trạng thái',
@@ -217,6 +234,17 @@ export default function AdminListings() {
       >
         {selectedListing && (
           <div className="space-y-6">
+            
+            {/* 🔥 HIỂN THỊ CẢNH BÁO CHO ADMIN TRONG MODAL */}
+            {(selectedListing.requestedInspection || selectedListing.isRequestedInspection) && selectedListing.postStatus === 'PENDING' && (
+              <div className="bg-orange-50 text-orange-800 p-4 rounded-sm border border-orange-200 text-sm flex items-start gap-3">
+                <span className="material-symbols-outlined text-orange-600 mt-0.5" style={{fontVariationSettings: "'FILL' 1"}}>error</span>
+                <div>
+                  <p className="font-bold mb-1">Tin đăng có kèm Yêu cầu Kiểm định</p>
+                  <p>Khi bạn nhấn <strong>Duyệt</strong>, hệ thống sẽ tự động tạo một phiên kiểm định mới cho nhân viên. Hãy kiểm tra kỹ thông tin xe trước khi duyệt.</p>
+                </div>
+              </div>
+            )}
 
             {selectedListing.postStatus === 'REJECTED' && selectedListing.rejectionReason && (
               <div className="bg-red-50 text-red-700 p-3 rounded-sm border border-red-200 text-sm">
