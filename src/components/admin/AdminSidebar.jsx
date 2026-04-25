@@ -14,6 +14,7 @@ const ADMIN_MENU = [
   { title: 'Quản lý tranh chấp', path: '/admin/disputes', icon: 'gavel' },
   { title: 'Danh mục & thương hiệu', path: '/admin/categories', icon: 'label' },
   { title: 'Giao dịch & phí dịch vụ', path: '/admin/transactions', icon: 'payments' },
+  { title: 'Quản lý dòng tiền', path: '/admin/finance', icon: 'account_balance' },
   { title: 'Thống kê & báo cáo', path: '/admin/statistics', icon: 'bar_chart' },
   { title: 'Gói Ưu Tiên', path: '/admin/priority-packages', icon: 'workspace_premium' },
 ]
