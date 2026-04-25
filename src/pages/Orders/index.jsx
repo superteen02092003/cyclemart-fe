@@ -20,7 +20,7 @@ const STATUS_LABELS = {
 };
 
 function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, simulateStatusUpdate }) {
-  const isBuyer = order.role === 'BUYER';
+  const isBuyer = order.orderType === 'PURCHASE';
   
   return (
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
@@ -113,7 +113,7 @@ function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, 
 }
 
 export default function OrdersPage() {
-  const [activeTab, setActiveTab] = useState('BUYER'); // BUYER | SELLER
+  const [activeTab, setActiveTab] = useState('USER'); // USER for both buying and selling
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -140,7 +140,7 @@ export default function OrdersPage() {
           counterpartName: payment.sellerName || 'Người bán',
           deliveryAddress: '',
           createdAt: new Date(payment.createdAt).toLocaleDateString('vi-VN'),
-          role: 'BUYER' // Assuming current user is buyer
+          orderType: 'PURCHASE' // This user is the buyer in this transaction
         })) || [];
         
         setOrders(mappedOrders);
@@ -158,7 +158,7 @@ export default function OrdersPage() {
   }, []);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => o.role === activeTab).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return orders.filter(o => o.orderType === 'PURCHASE').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [orders, activeTab]);
 
   const simulateStatusUpdate = (orderId, newStatus) => {
@@ -209,16 +209,10 @@ export default function OrdersPage() {
       {/* Tabs */}
       <div className="flex gap-4 border-b border-border-light mb-6">
          <button 
-           onClick={() => setActiveTab('BUYER')} 
-           className={cn("pb-3 text-sm font-bold uppercase tracking-wide border-b-2 transition-colors", activeTab === 'BUYER' ? "border-orange text-orange" : "border-transparent text-content-secondary hover:text-content-primary")}
+           onClick={() => setActiveTab('USER')} 
+           className={cn("pb-3 text-sm font-bold uppercase tracking-wide border-b-2 transition-colors", activeTab === 'USER' ? "border-orange text-orange" : "border-transparent text-content-secondary hover:text-content-primary")}
          >
-           Đơn mua của tôi
-         </button>
-         <button 
-           onClick={() => setActiveTab('SELLER')} 
-           className={cn("pb-3 text-sm font-bold uppercase tracking-wide border-b-2 transition-colors", activeTab === 'SELLER' ? "border-orange text-orange" : "border-transparent text-content-secondary hover:text-content-primary")}
-         >
-           Đơn bán của tôi
+           Đơn hàng của tôi
          </button>
       </div>
 
