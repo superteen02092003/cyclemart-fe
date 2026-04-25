@@ -3,7 +3,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
-import { InspectorLayout } from '@/layouts/InspectorLayout.jsx' 
+import { InspectorLayout } from '@/layouts/InspectorLayout.jsx'
 
 import HomePage from '@/pages/Home'
 import BrowsePage from '@/pages/Browse'
@@ -35,15 +35,16 @@ import AdminDisputes from '@/pages/Admin/Disputes'
 import AdminCategories from '@/pages/Admin/Categories'
 import AdminTransactions from '@/pages/Admin/Transactions'
 import AdminStatistics from '@/pages/Admin/Statistics'
+import AdminFinance from '@/pages/Admin/Finance'
 import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
-import AdminInspections from "@/pages/Admin/Inspections.jsx"; 
+import AdminInspections from "@/pages/Admin/Inspections.jsx";
 
 // 🔥 DÒNG QUAN TRỌNG: Import trang quản lý hạng mục kiểm định
-import InspectionCriteria from '@/pages/Admin/InspectionCriteria' 
+import InspectionCriteria from '@/pages/Admin/InspectionCriteria'
 
 // Inspection / Inspector Pages
-import InspectionPage from "@/pages/Inspection/index.jsx"; 
-import InspectorTasks from "@/pages/Inspector/Tasks.jsx"; 
+import InspectionPage from "@/pages/Inspection/index.jsx";
+import InspectorTasks from "@/pages/Inspector/Tasks.jsx";
 
 export const router = createBrowserRouter([
   // 1. LUỒNG NGƯỜI DÙNG CHUNG (Kể cả người bán)
@@ -55,7 +56,7 @@ export const router = createBrowserRouter([
       { path: 'browse', element: <BrowsePage /> },
       { path: 'bike/:id', element: <BikeDetailPage /> },
       { path: 'sell', element: <SellPage /> },
-      { path: 'inspection', element: <InspectionPage /> }, 
+      { path: 'inspection', element: <InspectionPage /> },
       { path: 'community', element: <CommunityPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'settings', element: <SettingsPage /> },
@@ -96,10 +97,11 @@ export const router = createBrowserRouter([
       { path: 'disputes', element: <AdminDisputes /> },
       { path: 'categories', element: <AdminCategories /> },
       { path: 'transactions', element: <AdminTransactions /> },
+      { path: 'finance', element: <AdminFinance /> },
       { path: 'statistics', element: <AdminStatistics /> },
       { path: 'priority-packages', element: <AdminPriorityPackages /> },
-      { path: 'inspections', element: <AdminInspections /> }, 
-    
+      { path: 'inspections', element: <AdminInspections /> },
+
       { path: 'inspection-criteria', element: <InspectionCriteria /> }
     ],
   },
@@ -109,7 +111,7 @@ export const router = createBrowserRouter([
     path: '/inspector',
     element: <InspectorLayout />,
     children: [
-      { path: 'tasks', element: <InspectorTasks /> }, 
+      { path: 'tasks', element: <InspectorTasks /> },
     ],
   },
 ])
