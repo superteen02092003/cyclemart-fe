@@ -4,11 +4,8 @@ import { Button } from '@/components/ui/Button'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
-import InspectionModal from '@/components/inspection/InspectionModal'
 import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
-import { inspectionService } from '@/services/inspection' // 🔥 Import service kiểm định
-import api from '@/services/api' 
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -51,12 +48,6 @@ const DISTRICTS = [
   'HUYEN_CAN_GIO', 'HUYEN_CU_CHI', 'HUYEN_HOC_MON', 'HUYEN_NHA_BE'
 ]
 
-const MOCK_UPLOADED = [
-  { id: 'img1', label: 'Ảnh tổng thể xe' },
-  { id: 'img2', label: 'Ảnh khung sườn' },
-  { id: 'img3', label: 'Ảnh groupset / hệ truyền động' },
-]
-
 const inputClass =
   'w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors'
 const inputErrorClass = 
@@ -68,9 +59,8 @@ function ProgressBar({ currentStep, steps }) {
   return (
     <div className="mb-8">
       <div className="flex items-start gap-0 relative">
-        {/* Connector line */}
         <div className="absolute top-4 left-0 right-0 h-0.5 bg-border-light z-0" />
-        {steps.map((step, idx) => {
+        {steps.map((step) => {
           const done = step.id < currentStep
           const active = step.id === currentStep
           return (
@@ -118,19 +108,12 @@ export default function SellPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [showInspection, setShowInspection] = useState(false)
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [selectedImages, setSelectedImages] = useState([])
-  const [createdPostId, setCreatedPostId] = useState(null)
-  
-  // 🔥 MỚI: State lưu giá kiểm định hệ thống
-  const [inspectionFee, setInspectionFee] = useState(0)
 
-  // Load categories và fee từ API
   useEffect(() => {
     loadCategories()
-    loadGlobalFee()
   }, [])
 
   const loadCategories = async () => {
@@ -142,17 +125,7 @@ export default function SellPage() {
     }
   }
 
-  // 🔥 MỚI: Hàm lấy giá tự động
-  const loadGlobalFee = async () => {
-    try {
-      const fee = await inspectionService.getGlobalFee()
-      setInspectionFee(fee)
-    } catch (error) {
-      console.error('Error loading global fee:', error)
-      setInspectionFee(250000) // Giá dự phòng nếu lỗi mạng
-    }
-  }
-
+  // Đã xoá các field liên quan đến kiểm định
   const [formData, setFormData] = useState({
     title: '',
     categoryId: '',
@@ -169,16 +142,9 @@ export default function SellPage() {
     allowNegotiation: false,
     city: 'HO_CHI_MINH',
     district: '',
-    requestInspection: false,
-    inspectionAddress: '',
-    inspectionScheduledDate: '',
-    inspectionNote: ''
   })
 
-  const dynamicSteps = formData.requestInspection 
-    ? [...STEPS, { id: 5, label: 'ĐK Kiểm định' }] 
-    : STEPS;
-  const totalSteps = dynamicSteps.length;
+  const totalSteps = STEPS.length;
 
   const getInputClass = (fieldName, isRequired = false) => {
     if (!isRequired) return inputClass
@@ -243,15 +209,6 @@ export default function SellPage() {
       }
       if (!formData.price) errors.push('Giá niêm yết')
       if (!formData.district) errors.push('Quận/Huyện')
-      
-      if (formData.requestInspection) {
-        if (!formData.inspectionAddress) errors.push('Địa chỉ xem xe (Kiểm định)')
-        if (!formData.inspectionScheduledDate) {
-          errors.push('Ngày & Giờ hẹn (Kiểm định)')
-        } else if (new Date(formData.inspectionScheduledDate) <= new Date()) {
-          errors.push('Ngày hẹn kiểm định không được ở trong quá khứ')
-        }
-      }
 
       if (errors.length > 0) {
         const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
@@ -259,61 +216,34 @@ export default function SellPage() {
         return
       }
 
+      // Xây dựng cục dữ liệu sạch: Chỉ thêm các trường bắt buộc trước
       const postData = {
-        ...formData,
-        images: selectedImages,
-        year: parseInt(formData.year),
+        title: formData.title,
+        description: formData.description,
         price: parseFloat(formData.price),
-        categoryId: parseInt(formData.categoryId)
+        status: formData.status,
+        city: formData.city,
+        district: formData.district,
+        brand: formData.brand,
+        categoryId: parseInt(formData.categoryId),
+        allowNegotiation: formData.allowNegotiation,
+        images: selectedImages // Ảnh (nếu có)
       }
 
-      if (!formData.requestInspection) {
-        postData.inspectionAddress = null;
-        postData.inspectionScheduledDate = null;
-        postData.inspectionNote = null;
-      } else if (postData.inspectionScheduledDate && postData.inspectionScheduledDate.length === 16) {
-        postData.inspectionScheduledDate = postData.inspectionScheduledDate + ':00';
-      }
+      // Chỉ gán các trường không bắt buộc NẾU người dùng thực sự có nhập/chọn
+      if (formData.model) postData.model = formData.model;
+      if (formData.year) postData.year = parseInt(formData.year);
+      if (formData.frameMaterial) postData.frameMaterial = formData.frameMaterial;
+      if (formData.frameSize) postData.frameSize = formData.frameSize;
+      if (formData.brakeType) postData.brakeType = formData.brakeType;
+      if (formData.groupset) postData.groupset = formData.groupset;
 
-      Object.keys(postData).forEach(key => {
-        if (postData[key] === '') {
-          postData[key] = null;
-        }
-      });
-
-      console.log('📝 Creating post:', postData)
-      const response = await postService.create(postData)
-      const newPostId = response.id || response.data?.id; 
-      setCreatedPostId(newPostId)
-
-      // 🔥 ĐÃ SỬA: Dùng inspectionFee (giá từ DB) thay vì hardcode 250k
-      if (formData.requestInspection && newPostId) {
-        try {
-          const paymentData = {
-            bikePostId: newPostId,
-            amount: inspectionFee > 0 ? inspectionFee : 250000, 
-            description: `Thanh toán phí kiểm định xe`,
-            type: "INSPECTION_FEE",         
-            referenceId: newPostId,         
-            name: "Khách hàng CycleMart",
-            phone: "0999999999",
-            address: "Thanh toán kiểm định"
-          }
-
-          const paymentRes = await api.post('/v1/payments/create', paymentData)
-
-          if (paymentRes.data?.paymentUrl) {
-            localStorage.setItem('payment_intent', 'INSPECTION_FEE')
-            window.location.href = paymentRes.data.paymentUrl 
-            return; 
-          }
-        } catch (payError) {
-          console.error("Lỗi tạo thanh toán", payError)
-          alert("Lỗi tạo thanh toán kiểm định. Tin của bạn đã được đăng, bạn có thể thanh toán sau trong mục Quản lý tin đăng.")
-        }
-      }
-
+      console.log('📝 Creating post with valid data:', postData)
+      await postService.create(postData)
+      
+      // Đăng thành công thì chuyển ngay sang màn hình báo thành công
       setSubmitted(true)
+
     } catch (error) {
       console.error('Error creating post:', error)
       alert(error.response?.data?.message || error.message || 'Lỗi khi tạo bài đăng')
@@ -368,12 +298,12 @@ export default function SellPage() {
           </span>
           <h2 className="text-2xl font-bold text-content-primary mb-3">Tin đăng đã gửi duyệt!</h2>
           <p className="text-sm text-content-secondary mb-2">
-            Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Thường mất từ 24–48 giờ.
+            Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Quá trình này giúp đảm bảo chất lượng nền tảng (Thường mất từ vài phút đến vài giờ).
           </p>
           <p className="text-sm text-content-secondary mb-8">
             Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
             <Link to={ROUTES.MY_LISTINGS}>
               <Button variant="primary">Xem tin đăng của tôi</Button>
             </Link>
@@ -383,34 +313,25 @@ export default function SellPage() {
           </div>
         </div>
 
-        {!formData.requestInspection && (
-          <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center">
-                <span className="material-symbols-outlined text-navy text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-content-primary mb-0.5">Tăng uy tín với kiểm định xe</p>
-                <p className="text-xs text-content-secondary mb-3">
-                  {/* 🔥 ĐÃ SỬA: Hiển thị giá động bằng formatPrice(inspectionFee) */}
-                  Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(inspectionFee)}</strong>.
-                </p>
-                <button
-                  onClick={() => setShowInspection(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white rounded-sm"
-                  style={{ backgroundColor: '#ff6b35' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-                >
-                  <span className="material-symbols-outlined text-[1rem]">add_circle</span>
-                  Đăng ký kiểm định ngay
-                </button>
-              </div>
+        {/* Cập nhật UI mời gọi kiểm định để phù hợp với luồng mới */}
+        <div className="bg-white border border-border-light rounded-sm shadow-card p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full z-0"></div>
+          <div className="flex items-start gap-3 relative z-10">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="material-symbols-outlined text-blue-600 text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-content-primary mb-1">Tăng giá trị xe với Dịch vụ Kiểm định</p>
+              <p className="text-xs text-content-secondary mb-3 leading-relaxed">
+                Xe có huy hiệu <strong>"Đã kiểm định"</strong> thường bán nhanh hơn gấp 5 lần và tạo được sự tin tưởng tuyệt đối với người mua. 
+                <br /><br />
+                <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded font-medium inline-block">
+                  💡 Bạn có thể đăng ký dịch vụ này trong trang "Quản lý tin đăng" ngay sau khi bài đăng này được duyệt thành công.
+                </span>
+              </p>
             </div>
           </div>
-        )}
-
-        {showInspection && <InspectionModal postId={createdPostId} onClose={() => setShowInspection(false)} />}
+        </div>
       </div>
     )
   }
@@ -422,7 +343,7 @@ export default function SellPage() {
         <p className="text-sm text-content-secondary mt-1">Điền thông tin đầy đủ để thu hút người mua</p>
       </div>
 
-      <ProgressBar currentStep={currentStep} steps={dynamicSteps} />
+      <ProgressBar currentStep={currentStep} steps={STEPS} />
 
       {draftSaved && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-green/10 border border-green/20 rounded-sm mb-4 text-sm text-green font-medium">
@@ -687,78 +608,9 @@ export default function SellPage() {
                 </div>
               </div>
             )}
-
-            <div className="mt-8 pt-6 border-t border-border-light">
-              <label className="flex items-start gap-3 cursor-pointer p-4 bg-surface rounded-sm border border-border-light hover:border-navy transition-colors">
-                <input
-                  type="checkbox"
-                  checked={formData.requestInspection}
-                  onChange={set('requestInspection')}
-                  className="mt-1 w-5 h-5 text-navy focus:ring-navy rounded-sm"
-                />
-                <div>
-                  <span className="block text-sm font-bold text-content-primary">Tôi muốn đăng ký kiểm định xe này ngay</span>
-                  {/* 🔥 ĐÃ SỬA: Thêm giá động vào phần giải thích checkbox */}
-                  <span className="block text-xs text-content-secondary mt-1 leading-relaxed">
-                    Chuyên viên của chúng tôi sẽ đến tận nơi kiểm tra với mức phí <strong>{formatPrice(inspectionFee)}</strong>. Xe vượt qua kiểm định sẽ nhận được huy hiệu <strong className="text-success">"Đã kiểm định"</strong>, giúp bán nhanh hơn gấp 5 lần!
-                  </span>
-                </div>
-              </label>
-            </div>
+            {/* Đã gỡ phần checkbox "Đăng ký kiểm định ngay" */}
           </div>
         )}
-
-        {currentStep === 5 && formData.requestInspection && (
-          <div className="space-y-5 animate-fade-in">
-            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
-              Thông tin Kiểm định
-            </h2>
-
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-sm mb-4 flex items-start gap-3">
-              <span className="material-symbols-outlined text-blue-600 mt-0.5 text-[1.2rem]">security</span>
-              <p className="text-sm text-blue-800 leading-relaxed">
-                <strong>Bảo mật thông tin:</strong> Địa chỉ kiểm định và ghi chú này chỉ hiển thị nội bộ cho Quản trị viên và Nhân viên phân công. Sẽ <strong>không</strong> hiển thị công khai trên bài đăng của bạn.
-              </p>
-            </div>
-
-            <div>
-              <label className={labelClass}>Địa chỉ xem xe <span className="text-error">*</span></label>
-              <input
-                type="text"
-                value={formData.inspectionAddress}
-                onChange={set('inspectionAddress')}
-                className={getInputClass('inspectionAddress', true)}
-                placeholder="Nhập địa chỉ chính xác để nhân viên đến kiểm tra"
-                required
-              />
-              {!formData.inspectionAddress && <p className="text-xs text-error mt-1">Vui lòng nhập địa chỉ xem xe</p>}
-            </div>
-
-            <div>
-              <label className={labelClass}>Ngày & Giờ hẹn <span className="text-error">*</span></label>
-              <input
-                type="datetime-local"
-                value={formData.inspectionScheduledDate}
-                onChange={set('inspectionScheduledDate')}
-                className={getInputClass('inspectionScheduledDate', true)}
-                required
-              />
-              {!formData.inspectionScheduledDate && <p className="text-xs text-error mt-1">Vui lòng chọn ngày giờ hẹn</p>}
-            </div>
-
-            <div>
-              <label className={labelClass}>Ghi chú <span className="text-content-tertiary font-normal">(Tuỳ chọn)</span></label>
-              <textarea
-                value={formData.inspectionNote}
-                onChange={set('inspectionNote')}
-                className={inputClass}
-                rows={3}
-                placeholder="VD: Xe nằm ở tầng hầm chung cư, đến nơi vui lòng gọi điện thoại..."
-              />
-            </div>
-          </div>
-        )}
-
       </div>
 
       <div className="flex items-center gap-3">
@@ -797,7 +649,7 @@ export default function SellPage() {
             onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
           >
             <span className="material-symbols-outlined text-[1rem]">send</span>
-            {loading ? 'Đang xử lý...' : (formData.requestInspection ? 'Thanh toán & Gửi duyệt' : 'Submit để kiểm duyệt')}
+            {loading ? 'Đang xử lý...' : 'Submit để kiểm duyệt'}
           </button>
         )}
       </div>
