@@ -5,33 +5,23 @@ export const postService = {
     try {
       const formData = new FormData()
       
-      formData.append('title', postData.title)
-      formData.append('description', postData.description)
-      formData.append('price', postData.price)
-      formData.append('status', postData.status)
-      formData.append('city', postData.city)
-      formData.append('district', postData.district)
-      formData.append('brand', postData.brand)
-      formData.append('model', postData.model)
-      formData.append('year', postData.year)
-      formData.append('frameMaterial', postData.frameMaterial)
-      formData.append('frameSize', postData.frameSize)
-      formData.append('brakeType', postData.brakeType)
-      formData.append('groupset', postData.groupset)
-      formData.append('mileage', postData.mileage)
-      formData.append('categoryId', postData.categoryId)
-      formData.append('allowNegotiation', postData.allowNegotiation)
-      
-      formData.append('requestInspection', postData.requestInspection || false)
-      if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)
-      if (postData.inspectionScheduledDate) formData.append('inspectionScheduledDate', postData.inspectionScheduledDate)
-      if (postData.inspectionNote) formData.append('inspectionNote', postData.inspectionNote)
-      
-      if (postData.images && postData.images.length > 0) {
-        postData.images.forEach((image) => {
-          formData.append('images', image)
-        })
-      }
+      // Lặp qua tất cả các trường dữ liệu được truyền vào
+      Object.keys(postData).forEach(key => {
+        if (key === 'images') {
+          // Xử lý riêng mảng hình ảnh
+          if (postData.images && postData.images.length > 0) {
+            postData.images.forEach((image) => {
+              formData.append('images', image)
+            })
+          }
+        } else {
+          // QUAN TRỌNG: Chỉ append nếu giá trị khác undefined và null
+          // Giúp tránh lỗi chuỗi "undefined" gửi xuống Backend
+          if (postData[key] !== undefined && postData[key] !== null && postData[key] !== '') {
+            formData.append(key, postData[key])
+          }
+        }
+      })
       
       const response = await api.post('/v1/posts', formData)
       return response.data
@@ -78,7 +68,24 @@ export const postService = {
 
   update: async (id, postData) => {
     try {
-      const response = await api.put(`/v1/posts/${id}`, postData)
+      const formData = new FormData()
+      
+      // Update cũng cần gửi dạng form-data giống hệt lúc Create
+      Object.keys(postData).forEach(key => {
+        if (key === 'images') {
+          if (postData.images && postData.images.length > 0) {
+            postData.images.forEach((image) => {
+              formData.append('images', image)
+            })
+          }
+        } else {
+          if (postData[key] !== undefined && postData[key] !== null && postData[key] !== '') {
+            formData.append(key, postData[key])
+          }
+        }
+      })
+
+      const response = await api.put(`/v1/posts/${id}`, formData)
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi cập nhật bài đăng' }
