@@ -4,7 +4,8 @@ import { formatPrice } from '@/utils/formatPrice'
 import { inspectionService } from '@/services/inspection'
 import { postService } from '@/services/post'
 import api from '@/services/api'
-const INSPECTION_FEE = 250000
+
+// Đã xoá hằng số cứng: const INSPECTION_FEE = 250000
 
 const STATUS_CONFIG = {
   PENDING:    { label: 'Chờ phân công',  color: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -73,48 +74,63 @@ export default function InspectionModal({ onClose, preselectedId }) {
   const [activeListings, setActiveListings] = useState([])
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(false)
+  
+  // 🔥 MỚI: Thêm state lưu giá tiền lấy từ API
+  const [inspectionFee, setInspectionFee] = useState(0)
 
   const [form, setForm] = useState({ listingId: preselectedId || '', address: '', scheduledDateTime: '', note: '' })
   const [formStep, setFormStep] = useState(1)
-  const [errors, setErrors] = useState({}) // State lưu lỗi validate
+  const [errors, setErrors] = useState({}) 
 
-  // Load danh sách bài đăng của User để chọn xe
- useEffect(() => {
-  const fetchData = async () => {
-    try {
-      // 1. Lấy tất cả bài đăng của user
-      const postRes = await postService.getMyPosts()
-      const posts = postRes?.content || postRes || []
+  // Load danh sách bài đăng & giá tiền hệ thống
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // 1. Lấy tất cả bài đăng của user
+        const postRes = await postService.getMyPosts()
+        const posts = postRes?.content || postRes || []
 
-      // 2. Lấy tất cả request kiểm định
-      const reqRes = await inspectionService.getMyRequests({ page: 0, size: 100 })
-      const requests = reqRes?.content || []
+        // 2. Lấy tất cả request kiểm định
+        const reqRes = await inspectionService.getMyRequests({ page: 0, size: 100 })
+        const requests = reqRes?.content || []
 
-      // 3. Lấy danh sách ID bài đã đăng ký kiểm định
-      const inspectedPostIds = requests
-  .filter(r => r.status === 'PASSED') // chỉ xe đã đạt
-  .map(r => String(r.postId))
+        // 3. Lấy danh sách ID bài đã đăng ký kiểm định
+        const inspectedPostIds = requests
+          .filter(r => r.status === 'PASSED') 
+          .map(r => String(r.postId))
 
-      // 4. 🔥 FILTER
-      const filtered = posts.filter(post => 
-        post.postStatus === 'APPROVED' &&           // đã duyệt
-        !inspectedPostIds.includes(String(post.id)) // chưa kiểm định
-      )
+        // 4. FILTER
+        const filtered = posts.filter(post => 
+          post.postStatus === 'APPROVED' &&           
+          !inspectedPostIds.includes(String(post.id)) 
+        )
 
-      setActiveListings(filtered)
+        setActiveListings(filtered)
 
-      // Auto chọn xe đầu tiên nếu chưa chọn
-      if (!form.listingId && filtered.length > 0) {
-        setForm(prev => ({ ...prev, listingId: filtered[0].id }))
+        // Auto chọn xe đầu tiên nếu chưa chọn
+        if (!form.listingId && filtered.length > 0) {
+          setForm(prev => ({ ...prev, listingId: filtered[0].id }))
+        }
+
+      } catch (error) {
+        console.error("Lỗi load dữ liệu:", error)
       }
-
-    } catch (error) {
-      console.error("Lỗi load dữ liệu:", error)
     }
-  }
 
-  fetchData()
-}, [])
+    // 🔥 MỚI: Lấy giá tiền từ hệ thống
+    const fetchGlobalFee = async () => {
+      try {
+        const fee = await inspectionService.getGlobalFee()
+        setInspectionFee(fee)
+      } catch (error) {
+        console.error("Lỗi lấy giá tiền:", error)
+        setInspectionFee(250000) // Fallback giá mặc định nếu lỗi mạng
+      }
+    }
+
+    fetchData()
+    fetchGlobalFee()
+  }, [])
 
   // Load danh sách yêu cầu kiểm định khi mở tab requests
   useEffect(() => {
@@ -140,10 +156,8 @@ export default function InspectionModal({ onClose, preselectedId }) {
     setTimeout(() => setToast(''), 3500)
   }
 
-  // Tìm bài đăng đang được chọn trong Form
   const selected = activeListings.find((l) => String(l.id) === String(form.listingId))
 
-  // HÀM VALIDATE FORM
   const validateForm = () => {
     const newErrors = {}
 
@@ -158,7 +172,6 @@ export default function InspectionModal({ onClose, preselectedId }) {
     if (!form.scheduledDateTime) {
       newErrors.scheduledDateTime = 'Vui lòng chọn ngày và giờ hẹn'
     } else {
-      // Chặn ngày giờ trong quá khứ
       const selectedDate = new Date(form.scheduledDateTime)
       const now = new Date()
       if (selectedDate <= now) {
@@ -170,52 +183,49 @@ export default function InspectionModal({ onClose, preselectedId }) {
     return Object.keys(newErrors).length === 0
   }
 
-  // Chuyển sang bước 2 (Xác nhận)
   const handleNextStep = () => {
     if (validateForm()) {
       setFormStep(2)
     }
   }
 
-  // Gửi API tạo Yêu cầu
   const handleSubmit = async () => {
-  try {
-    setLoading(true)
+    try {
+      setLoading(true)
 
-    // ❌ selectedPost -> sửa thành selected
-    if (!selected) {
-      alert('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
+      if (!selected) {
+        alert('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
+        setLoading(false)
+        return
+      }
+
+      const paymentData = {
+        bikePostId: selected.id,   
+        amount: inspectionFee > 0 ? inspectionFee : 250000, // 🔥 MỚI: Dùng giá động để thanh toán
+        description: `Thanh toán phí kiểm định xe`,
+        type: "INSPECTION_FEE",
+        referenceId: selected.id, 
+        name: "Khách hàng CycleMart",
+        phone: "0999999999",
+        address: "Thanh toán kiểm định"
+      }
+
+      const paymentRes = await api.post('/v1/payments/create', paymentData)
+
+      if (paymentRes.data?.paymentUrl) {
+        localStorage.setItem('payment_intent', 'INSPECTION_FEE')
+        window.location.href = paymentRes.data.paymentUrl 
+      } else {
+        alert('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.')
+      }
+
+    } catch (error) {
+      console.error("Lỗi khi đăng ký kiểm định:", error)
+      alert(error.response?.data?.message || error.message || 'Lỗi khi tạo yêu cầu thanh toán kiểm định')
+    } finally {
       setLoading(false)
-      return
     }
-
-    const paymentData = {
-      bikePostId: selected.id,   // ✅ sửa ở đây
-      amount: INSPECTION_FEE,
-      description: `Thanh toán phí kiểm định xe`,
-      type: "INSPECTION_FEE",
-      referenceId: selected.id, // ✅ sửa ở đây
-      name: "Khách hàng CycleMart",
-      phone: "0999999999",
-      address: "Thanh toán kiểm định"
-    }
-
-    const paymentRes = await api.post('/v1/payments/create', paymentData)
-
-    if (paymentRes.data?.paymentUrl) {
-      localStorage.setItem('payment_intent', 'INSPECTION_FEE')
-      window.location.href = paymentRes.data.paymentUrl 
-    } else {
-      alert('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.')
-    }
-
-  } catch (error) {
-    console.error("Lỗi khi đăng ký kiểm định:", error)
-    alert(error.response?.data?.message || error.message || 'Lỗi khi tạo yêu cầu thanh toán kiểm định')
-  } finally {
-    setLoading(false)
   }
-}
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -341,7 +351,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
                     {errors.address && <p className="text-xs text-error mt-1">{errors.address}</p>}
                   </div>
 
-                  {/* Date & Time (DATETIME-LOCAL) */}
+                  {/* Date & Time */}
                   <div>
                     <label className="block text-sm font-bold text-content-primary mb-1.5 uppercase tracking-wide">
                       3. Ngày & Giờ mong muốn <span className="text-error">*</span>
@@ -379,9 +389,9 @@ export default function InspectionModal({ onClose, preselectedId }) {
                   <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-sm px-4 py-3">
                     <span className="material-symbols-outlined text-blue-600 text-[1.2rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
                     <p className="text-sm text-blue-800 leading-relaxed">
-  Phí dịch vụ kiểm định: <strong className="text-lg">{formatPrice(INSPECTION_FEE)}</strong>. 
-  Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
-</p>
+                      Phí dịch vụ kiểm định: <strong className="text-lg">{formatPrice(inspectionFee)}</strong>. {/* 🔥 MỚI: Hiển thị giá động */}
+                      Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
+                    </p>
                   </div>
                 </div>
               )}
@@ -395,7 +405,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
                       { label: 'Xe cần kiểm định', value: selected?.title },
                       { label: 'Địa chỉ xem xe', value: form.address },
                       { label: 'Thời gian', value: form.scheduledDateTime ? new Date(form.scheduledDateTime).toLocaleString('vi-VN') : '' },
-                      { label: 'Phí dịch vụ', value: formatPrice(INSPECTION_FEE) }
+                      { label: 'Phí dịch vụ', value: formatPrice(inspectionFee) } // 🔥 MỚI: Dùng giá động tại màn hình Confirm
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between px-4 py-3 text-sm">
                         <span className="text-content-secondary font-medium">{label}</span>
