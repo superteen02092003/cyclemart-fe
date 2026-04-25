@@ -269,6 +269,13 @@ export default function SellPage() {
         city: formData.city,
         district: formData.district,
         brand: formData.brand,
+        model: formData.model,
+        year: formData.year ? parseInt(formData.year) : null,
+        frameMaterial: formData.frameMaterial,
+        frameSize: formData.frameSize,
+        brakeType: formData.brakeType,
+        groupset: formData.groupset,
+        mileage: formData.mileage ? parseInt(formData.mileage) : null,
         categoryId: parseInt(formData.categoryId),
         allowNegotiation: formData.allowNegotiation,
         images: selectedImages
