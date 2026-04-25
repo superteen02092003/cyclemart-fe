@@ -58,17 +58,22 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     
     try {
+      const total = bike.price + platformFee + shippingFee;
       const paymentData = {
         bikePostId: parseInt(id),
+        amount: total,
         name: form.name,
         phone: form.phone,
         address: form.address,
-        description: form.note || 'Không có ghi chú'
+        description: form.note || `Thanh toan mua xe: ${bike.title}`,
+        type: 'ORDER_PAYMENT',
+        referenceId: parseInt(id)
       };
 
       console.log('Payment data:', paymentData);
       
-      const response = await api.post('/v1/payments/sepay/create', paymentData);
+      // SỬA LỖI 404: Đã đổi đường dẫn sang VNPay
+      const response = await api.post('/v1/payments/create', paymentData);
       
       if (response.data.success && response.data.paymentUrl) {
         // Redirect to VNPay payment page

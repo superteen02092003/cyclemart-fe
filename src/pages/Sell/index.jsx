@@ -1,350 +1,379 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { postService } from '../../services/post'
-import { categoryService } from '../../services/category'
-import { inspectionService } from '../../services/inspection'
-import api from '../../services/api'
-import './Sell.css'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Button } from '@/components/ui/Button'
+import { formatPrice } from '@/utils/formatPrice'
+import { ROUTES } from '@/constants/routes'
+import { cn } from '@/utils/cn'
+import { postService } from '@/services/post'
+import { categoryService } from '@/services/category'
 
-export default function Sell() {
+const STEPS = [
+  { id: 1, label: 'Thông tin cơ bản' },
+  { id: 2, label: 'Thông số kỹ thuật' },
+  { id: 3, label: 'Giá & Vị trí' },
+  { id: 4, label: 'Hình ảnh' },
+]
+
+const YEARS = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i)
+
+const BRANDS = [
+  'GIANT', 'TREK', 'SPECIALIZED', 'CANNONDALE', 'SCOTT', 'MERIDA', 'BIANCHI', 'PINARELLO',
+  'CERVELO', 'COLNAGO', 'BMC', 'ORBEA', 'CUBE', 'FOCUS', 'CANYON', 'SANTA_CRUZ',
+  'THONG_NHAT', 'ASAMA', 'FORNIX', 'OTHER'
+]
+
+const CONDITIONS = [
+  { value: 'NEW', label: 'Mới 100%' },
+  { value: 'LIKE_NEW', label: 'Như mới (>90%)' },
+  { value: 'GOOD', label: 'Tốt (70-90%)' },
+  { value: 'USED', label: 'Đã dùng (50-70%)' },
+  { value: 'NEED_REPAIR', label: 'Cần sửa (<50%)' },
+]
+
+const FRAME_MATERIALS = ['CARBON', 'ALUMINUM', 'STEEL', 'TITANIUM', 'ALLOY', 'CHROMOLY']
+const FRAME_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'SIZE_47', 'SIZE_49', 'SIZE_51', 'SIZE_53', 'SIZE_55', 'SIZE_57', 'SIZE_59', 'SIZE_61']
+const BRAKE_TYPES = ['DISC_HYDRAULIC', 'DISC_MECHANICAL', 'RIM_BRAKE', 'V_BRAKE', 'CANTILEVER']
+const GROUPSETS = [
+  'SHIMANO_DURA_ACE', 'SHIMANO_ULTEGRA', 'SHIMANO_105', 'SHIMANO_TIAGRA', 'SHIMANO_SORA',
+  'SHIMANO_CLARIS', 'SHIMANO_XTR', 'SHIMANO_XT', 'SHIMANO_SLX', 'SHIMANO_DEORE',
+  'SRAM_RED', 'SRAM_FORCE', 'SRAM_RIVAL', 'SRAM_APEX', 'CAMPAGNOLO_SUPER_RECORD',
+  'CAMPAGNOLO_RECORD', 'CAMPAGNOLO_CHORUS', 'OTHER'
+]
+
+const CITIES = ['HO_CHI_MINH']
+const DISTRICTS = [
+  'QUAN_1', 'QUAN_2', 'QUAN_3', 'QUAN_4', 'QUAN_5', 'QUAN_6', 'QUAN_7', 'QUAN_8',
+  'QUAN_9', 'QUAN_10', 'QUAN_11', 'QUAN_12', 'QUAN_BINH_THANH', 'QUAN_GO_VAP',
+  'QUAN_PHU_NHUAN', 'QUAN_TAN_BINH', 'QUAN_TAN_PHU', 'QUAN_THU_DUC', 'HUYEN_BINH_CHANH',
+  'HUYEN_CAN_GIO', 'HUYEN_CU_CHI', 'HUYEN_HOC_MON', 'HUYEN_NHA_BE'
+]
+
+const inputClass =
+  'w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors'
+const inputErrorClass =
+  'w-full px-3 py-2.5 border border-error rounded-sm focus:outline-none focus:border-error text-sm transition-colors'
+const labelClass = 'block text-sm font-medium text-content-primary mb-1.5'
+const hintClass = 'text-xs text-content-secondary mt-1'
+
+function ProgressBar({ currentStep, steps }) {
+  return (
+    <div className="mb-8">
+      <div className="flex items-start gap-0 relative">
+        <div className="absolute top-4 left-0 right-0 h-0.5 bg-border-light z-0" />
+        {steps.map((step) => {
+          const done = step.id < currentStep
+          const active = step.id === currentStep
+          return (
+            <div key={step.id} className="flex-1 flex flex-col items-center z-10">
+              <div
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors',
+                  done
+                    ? 'bg-navy border-navy text-white'
+                    : active
+                      ? 'border-orange-500 bg-white text-orange-500'
+                      : 'bg-white border-border-light text-content-secondary'
+                )}
+                style={active ? { borderColor: '#ff6b35', color: '#ff6b35' } : {}}
+              >
+                {done ? (
+                  <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    check
+                  </span>
+                ) : (
+                  step.id
+                )}
+              </div>
+              <span
+                className={cn(
+                  'text-xs mt-1.5 text-center hidden sm:block',
+                  active ? 'font-semibold text-content-primary' : 'text-content-secondary'
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <p className="sm:hidden text-center text-sm font-semibold text-content-primary mt-3">
+        Bước {currentStep}: {steps[currentStep - 1]?.label}
+      </p>
+    </div>
+  )
+}
+
+export default function SellPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const editId = searchParams.get('editId')
-
-  // State
+  const isEditing = Boolean(editId)
   const [currentStep, setCurrentStep] = useState(1)
-  const [isLoadingPost, setIsLoadingPost] = useState(!!editId)
-  const [createdPostId, setCreatedPostId] = useState(null)
-  const [inspectionFee, setInspectionFee] = useState(0)
+  const [draftSaved, setDraftSaved] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedImages, setSelectedImages] = useState([])
+
+  useEffect(() => {
+    loadCategories()
+    if (isEditing && editId) {
+      loadPostData(editId)
+    }
+  }, [isEditing, editId])
+
+  const loadCategories = async () => {
+    try {
+      const data = await categoryService.getAllChildren()
+      setCategories(data)
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
+
+  const loadPostData = async (postId) => {
+    try {
+      setLoading(true)
+      const data = await postService.getById(postId)
+      
+      // Populate form with existing data
+      setFormData({
+        title: data.title || '',
+        categoryId: data.categoryId || '',
+        brand: data.brand || '',
+        model: data.model || '',
+        year: data.year || '',
+        status: data.status || '',
+        frameMaterial: data.frameMaterial || '',
+        frameSize: data.frameSize || '',
+        brakeType: data.brakeType || '',
+        groupset: data.groupset || '',
+        description: data.description || '',
+        price: data.price || '',
+        allowNegotiation: data.allowNegotiation || false,
+        city: data.city || 'HO_CHI_MINH',
+        district: data.district || '',
+        requestInspection: data.isRequestedInspection || false,
+        inspectionAddress: data.inspectionAddress || '',
+        inspectionScheduledDate: data.inspectionScheduledDate || '',
+        inspectionNote: data.inspectionNote || ''
+      })
+
+      // Note: We don't load existing images for editing to avoid complexity
+      // User will need to re-upload images if they want to change them
+      
+    } catch (error) {
+      console.error('Error loading post data:', error)
+      alert('Lỗi khi tải dữ liệu bài đăng: ' + (error.message || 'Không xác định'))
+      navigate('/my-listings')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const [formData, setFormData] = useState({
     title: '',
-    description: '',
     categoryId: '',
     brand: '',
     model: '',
-    year: new Date().getFullYear(),
-    condition: 'like-new',
+    year: '',
+    status: '',
     frameMaterial: '',
     frameSize: '',
     brakeType: '',
     groupset: '',
-    mileage: 0,
-    price: 0,
-    city: '',
-    district: '',
+    description: '',
+    price: '',
     allowNegotiation: false,
-    requestInspection: false,
-    inspectionAddress: '',
-    inspectionScheduledDate: '',
-    inspectionNote: '',
-    images: [],
+    city: 'HO_CHI_MINH',
+    district: '',
   })
 
-  const [errors, setErrors] = useState({})
-  const [imagePreview, setImagePreview] = useState([])
+  const totalSteps = STEPS.length;
 
-  // Load categories
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const data = await categoryService.getAllChildren()
-        setCategories(data.data || [])
-      } catch (error) {
-        console.error('Failed to load categories:', error)
-      }
-    }
-    loadCategories()
-  }, [])
-
-  // Load global inspection fee
-  useEffect(() => {
-    const loadGlobalFee = async () => {
-      try {
-        const data = await inspectionService.getGlobalFee()
-        setInspectionFee(data.data || 0)
-      } catch (error) {
-        console.error('Failed to load inspection fee:', error)
-      }
-    }
-    loadGlobalFee()
-  }, [])
-
-  // Load post data if editing
-  useEffect(() => {
-    if (editId) {
-      loadPostData(editId)
-    }
-  }, [editId])
-
-  const loadPostData = async (id) => {
-    try {
-      setIsLoadingPost(true)
-      const data = await postService.getById(id)
-      const post = data.data
-
-      setFormData({
-        title: post.title || '',
-        description: post.description || '',
-        categoryId: post.categoryId || '',
-        brand: post.brand || '',
-        model: post.model || '',
-        year: post.year || new Date().getFullYear(),
-        condition: post.condition || 'like-new',
-        frameMaterial: post.frameMaterial || '',
-        frameSize: post.frameSize || '',
-        brakeType: post.brakeType || '',
-        groupset: post.groupset || '',
-        mileage: post.mileage || 0,
-        price: post.price || 0,
-        city: post.city || '',
-        district: post.district || '',
-        allowNegotiation: post.allowNegotiation || false,
-        requestInspection: post.requestInspection || false,
-        inspectionAddress: post.inspectionAddress || '',
-        inspectionScheduledDate: post.inspectionScheduledDate || '',
-        inspectionNote: post.inspectionNote || '',
-        images: post.images || [],
-      })
-
-      // Set image previews from existing images
-      if (post.images && post.images.length > 0) {
-        setImagePreview(post.images.map(img => ({
-          url: img,
-          isExisting: true,
-        })))
-      }
-
-      setIsLoadingPost(false)
-    } catch (error) {
-      console.error('Failed to load post:', error)
-      setIsLoadingPost(false)
-    }
+  const getInputClass = (fieldName, isRequired = false) => {
+    if (!isRequired) return inputClass
+    const isEmpty = !formData[fieldName] || (fieldName === 'description' && formData[fieldName].length < 50)
+    return isEmpty ? inputErrorClass : inputClass
   }
 
-  const validateStep = (step) => {
-    const newErrors = {}
-
-    if (step === 1) {
-      if (!formData.title.trim()) newErrors.title = 'Tiêu đề không được để trống'
-      if (!formData.description.trim()) newErrors.description = 'Mô tả không được để trống'
-      if (!formData.categoryId) newErrors.categoryId = 'Vui lòng chọn danh mục'
-      if (!formData.condition) newErrors.condition = 'Vui lòng chọn tình trạng'
-    }
-
-    if (step === 2) {
-      if (!formData.brand.trim()) newErrors.brand = 'Thương hiệu không được để trống'
-      if (!formData.model.trim()) newErrors.model = 'Model không được để trống'
-      if (!formData.year) newErrors.year = 'Năm sản xuất không được để trống'
-      if (!formData.frameMaterial.trim()) newErrors.frameMaterial = 'Chất liệu khung không được để trống'
-      if (!formData.frameSize.trim()) newErrors.frameSize = 'Kích thước khung không được để trống'
-      if (!formData.brakeType.trim()) newErrors.brakeType = 'Loại phanh không được để trống'
-      if (!formData.groupset.trim()) newErrors.groupset = 'Groupset không được để trống'
-    }
-
-    if (step === 3) {
-      if (!formData.price || formData.price <= 0) newErrors.price = 'Giá phải lớn hơn 0'
-      if (!formData.city.trim()) newErrors.city = 'Thành phố không được để trống'
-      if (!formData.district.trim()) newErrors.district = 'Quận/Huyện không được để trống'
-    }
-
-    if (step === 4) {
-      if (imagePreview.length === 0) newErrors.images = 'Vui lòng tải lên ít nhất 1 ảnh'
-    }
-
-    if (step === 5) {
-      if (formData.requestInspection) {
-        if (!formData.inspectionAddress.trim()) newErrors.inspectionAddress = 'Địa chỉ kiểm định không được để trống'
-        if (!formData.inspectionScheduledDate) newErrors.inspectionScheduledDate = 'Ngày kiểm định không được để trống'
-      }
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+  const set = (field) => (e) => {
+    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+    setFormData((prev) => ({ ...prev, [field]: val }))
   }
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(currentStep + 1)
+    const errors = []
+    if (currentStep === 1) {
+      if (!formData.title) errors.push('Tiêu đề tin đăng')
+      if (!formData.categoryId) errors.push('Loại xe')
+      if (!formData.brand) errors.push('Thương hiệu')
+      if (!formData.model) errors.push('Model/Tên xe')
+      if (!formData.year) errors.push('Năm sản xuất')
+      if (!formData.status) errors.push('Tình trạng xe')
+    } else if (currentStep === 2) {
+      if (!formData.description || formData.description.length < 50) {
+        errors.push('Mô tả chi tiết (tối thiểu 50 ký tự)')
+      }
+    } else if (currentStep === 3) {
+      if (!formData.price) errors.push('Giá niêm yết')
+      if (!formData.district) errors.push('Quận/Huyện')
     }
-  }
 
+    if (errors.length > 0) {
+      const errorMessage = `Vui lòng điền đầy đủ thông tin bước ${currentStep}:\n\n${errors.map(error => `• ${error}`).join('\n')}`
+      alert(errorMessage)
+      return
+    }
+
+    if (currentStep < totalSteps) setCurrentStep(currentStep + 1)
+  }
+  
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }))
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: '',
-      }))
+  const handleSaveDraft = () => {
+    setDraftSaved(true)
+    setTimeout(() => setDraftSaved(false), 3000)
+  }
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      const errors = []
+      
+      if (!formData.title) errors.push('Tiêu đề tin đăng')
+      if (!formData.categoryId) errors.push('Loại xe')
+      if (!formData.brand) errors.push('Thương hiệu')
+      if (!formData.model) errors.push('Model/Tên xe')
+      if (!formData.year) errors.push('Năm sản xuất')
+      if (!formData.status) errors.push('Tình trạng xe')
+      if (!formData.description || formData.description.length < 50) {
+        errors.push('Mô tả chi tiết (tối thiểu 50 ký tự)')
+      }
+      if (!formData.price) errors.push('Giá niêm yết')
+      if (!formData.district) errors.push('Quận/Huyện')
+
+      if (errors.length > 0) {
+        const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
+        alert(errorMessage)
+        return
+      }
+
+      const postData = {
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        status: formData.status,
+        city: formData.city,
+        district: formData.district,
+        brand: formData.brand,
+        model: formData.model,
+        year: formData.year ? parseInt(formData.year) : null,
+        frameMaterial: formData.frameMaterial,
+        frameSize: formData.frameSize,
+        brakeType: formData.brakeType,
+        groupset: formData.groupset,
+        mileage: formData.mileage ? parseInt(formData.mileage) : null,
+        categoryId: parseInt(formData.categoryId),
+        allowNegotiation: formData.allowNegotiation,
+        images: selectedImages
+      }
+
+      if (isEditing) {
+        console.log('📝 Updating post with FormData')
+        await postService.update(editId, postData)
+        alert('Cập nhật bài đăng thành công!')
+        navigate('/my-listings')
+      } else {
+        console.log('📝 Creating post with FormData')
+        await postService.create(postData)
+        setSubmitted(true)
+      }
+
+    } catch (error) {
+      console.error('Error submitting post:', error)
+      alert(error.response?.data?.message || error.message || 'Lỗi khi xử lý bài đăng')
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files)
-    const totalImages = imagePreview.length + files.length
+    const validFiles = []
+    const errors = []
 
-    if (totalImages > 10) {
-      setErrors(prev => ({
-        ...prev,
-        images: 'Tối đa 10 ảnh',
-      }))
-      return
-    }
-
-    const newPreviews = files.map(file => ({
-      file,
-      url: URL.createObjectURL(file),
-      isExisting: false,
-    }))
-
-    setImagePreview(prev => [...prev, ...newPreviews])
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...files],
-    }))
-    setErrors(prev => ({
-      ...prev,
-      images: '',
-    }))
-  }
-
-  const removeImage = (index) => {
-    setImagePreview(prev => prev.filter((_, i) => i !== index))
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }))
-  }
-
-  const handleSaveDraft = async () => {
-    try {
-      setIsSubmitting(true)
-      // Save draft logic - could be implemented based on backend support
-      alert('Bài đăng đã được lưu')
-    } catch (error) {
-      console.error('Failed to save draft:', error)
-      alert('Lỗi khi lưu bài đăng')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleSubmit = async () => {
-    if (!validateStep(5)) {
-      return
-    }
-
-    try {
-      setIsSubmitting(true)
-
-      // Prepare form data
-      const submitData = {
-        ...formData,
-        images: formData.images.filter(img => img instanceof File),
-      }
-
-      let postId
-      if (editId) {
-        await postService.update(editId, submitData)
-        postId = editId
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        errors.push(`${file.name} không phải là file ảnh.`)
       } else {
-        const response = await postService.create(submitData)
-        postId = response.data?.id
+        validFiles.push(file)
       }
+    })
 
-      // Create inspection payment if requested
-      if (formData.requestInspection && postId) {
-        try {
-          await api.post('/v1/payments', {
-            bikePostId: postId,
-            amount: inspectionFee,
-            paymentMethod: 'INSPECTION_FEE',
-            description: 'Phí kiểm định xe đạp',
-          })
-        } catch (error) {
-          console.error('Failed to create inspection payment:', error)
-        }
-      }
-
-      setCreatedPostId(postId)
-      setCurrentStep(6) // Success page
-    } catch (error) {
-      console.error('Failed to submit post:', error)
-      alert(error.message || 'Lỗi khi đăng bài')
-    } finally {
-      setIsSubmitting(false)
+    if (errors.length > 0) {
+      alert(`Một số file không hợp lệ:\n\n${errors.join('\n')}`)
     }
+
+    if (validFiles.length > 0) {
+      setSelectedImages(prev => {
+        const newImages = [...prev, ...validFiles]
+        if (newImages.length > 10) {
+          alert('Tối đa 10 ảnh. Chỉ thêm được ' + (10 - prev.length) + ' ảnh nữa.')
+          return [...prev, ...validFiles].slice(0, 10)
+        }
+        return newImages
+      })
+    }
+
+    e.target.value = ''
   }
 
-  if (isLoadingPost) {
-    return <div className="sell-container"><p>Đang tải dữ liệu...</p></div>
-  }
-
-  // Success page
-  if (currentStep === 6) {
+  if (submitted) {
     return (
-      <div className="sell-container">
-        <div className="success-page">
-          <div className="success-icon">✓</div>
-          <h1>{editId ? 'Cập nhật thành công!' : 'Đăng bài thành công!'}</h1>
-          <p>{editId ? 'Bài đăng của bạn đã được cập nhật' : 'Bài đăng của bạn đã được đăng lên'}</p>
-          <div className="success-actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate(`/bike/${createdPostId}`)}
-            >
-              Xem bài đăng
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => navigate('/my-listings')}
-            >
-              Quay lại danh sách
-            </button>
-            <button
-              className="btn btn-outline"
-              onClick={() => {
-                setCurrentStep(1)
-                setFormData({
-                  title: '',
-                  description: '',
-                  categoryId: '',
-                  brand: '',
-                  model: '',
-                  year: new Date().getFullYear(),
-                  condition: 'like-new',
-                  frameMaterial: '',
-                  frameSize: '',
-                  brakeType: '',
-                  groupset: '',
-                  mileage: 0,
-                  price: 0,
-                  city: '',
-                  district: '',
-                  allowNegotiation: false,
-                  requestInspection: false,
-                  inspectionAddress: '',
-                  inspectionScheduledDate: '',
-                  inspectionNote: '',
-                  images: [],
-                })
-                setImagePreview([])
-              }}
-            >
-              Đăng bài mới
-            </button>
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-16">
+        <div className="text-center mb-8">
+          <span
+            className="material-symbols-outlined mb-4"
+            style={{ fontSize: '4rem', fontVariationSettings: "'FILL' 1", color: '#10b981' }}
+          >
+            check_circle
+          </span>
+          <h2 className="text-2xl font-bold text-content-primary mb-3">Tin đăng đã gửi duyệt!</h2>
+          <p className="text-sm text-content-secondary mb-2">
+            Tin đăng của bạn đang chờ đội ngũ kiểm duyệt. Quá trình này giúp đảm bảo chất lượng nền tảng (Thường mất từ vài phút đến vài giờ).
+          </p>
+          <p className="text-sm text-content-secondary mb-8">
+            Bạn sẽ nhận thông báo khi tin được duyệt hoặc cần chỉnh sửa.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+            <Link to={ROUTES.MY_LISTINGS}>
+              <Button variant="primary">Xem tin đăng của tôi</Button>
+            </Link>
+            <Link to={ROUTES.BROWSE}>
+              <Button variant="outline">Về trang mua xe</Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white border border-border-light rounded-sm shadow-card p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full z-0"></div>
+          <div className="flex items-start gap-3 relative z-10">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="material-symbols-outlined text-blue-600 text-[1.2rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-content-primary mb-1">Tăng giá trị xe với Dịch vụ Kiểm định</p>
+              <p className="text-xs text-content-secondary mb-3 leading-relaxed">
+                Xe có huy hiệu <strong>"Đã kiểm định"</strong> thường bán nhanh hơn gấp 5 lần và tạo được sự tin tưởng tuyệt đối với người mua. 
+                <br /><br />
+                <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded font-medium inline-block">
+                  💡 Bạn có thể đăng ký dịch vụ này trong trang "Quản lý tin đăng" ngay sau khi bài đăng này được duyệt thành công.
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -352,410 +381,324 @@ export default function Sell() {
   }
 
   return (
-    <div className="sell-container">
-      <div className="sell-header">
-        <h1>{editId ? 'Chỉnh sửa bài đăng' : 'Đăng bài bán xe đạp'}</h1>
-        <div className="step-indicator">
-          {[1, 2, 3, 4, 5].map(step => (
-            <div
-              key={step}
-              className={`step ${currentStep >= step ? 'active' : ''} ${currentStep === step ? 'current' : ''}`}
-            >
-              {step}
-            </div>
-          ))}
-        </div>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-content-primary">
+          {isEditing ? 'Chỉnh sửa bài đăng' : 'Đăng tin bán xe'}
+        </h1>
+        <p className="text-sm text-content-secondary mt-1">
+          {isEditing ? 'Cập nhật thông tin bài đăng của bạn' : 'Điền thông tin đầy đủ để thu hút người mua'}
+        </p>
       </div>
 
-      <div className="sell-form">
-        {/* Step 1: Basic Info */}
+      <ProgressBar currentStep={currentStep} steps={STEPS} />
+
+      {draftSaved && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-green/10 border border-green/20 rounded-sm mb-4 text-sm text-green font-medium">
+          <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1", color: '#10b981' }}>check_circle</span>
+          Đã lưu nháp thành công!
+        </div>
+      )}
+
+      <div className="bg-white rounded-sm border border-border-light shadow-card p-6 mb-6">
         {currentStep === 1 && (
-          <div className="form-step">
-            <h2>Thông tin cơ bản</h2>
-            <div className="form-group">
-              <label>Tiêu đề bài đăng *</label>
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Thông tin cơ bản
+            </h2>
+
+            <div>
+              <label className={labelClass}>Tiêu đề tin đăng <span className="text-error">*</span></label>
               <input
                 type="text"
-                name="title"
                 value={formData.title}
-                onChange={handleInputChange}
-                placeholder="VD: Xe đạp Mountain Bike Trek 2023"
-                className={errors.title ? 'error' : ''}
+                onChange={set('title')}
+                placeholder="VD: Bán xe đạp Giant Defy Advanced 2 năm 2023"
+                className={getInputClass('title', true)}
+                required
               />
-              {errors.title && <span className="error-text">{errors.title}</span>}
+              {!formData.title && <p className="text-xs text-error mt-1">Vui lòng nhập tiêu đề tin đăng</p>}
             </div>
 
-            <div className="form-group">
-              <label>Mô tả chi tiết *</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Mô tả chi tiết về xe đạp của bạn..."
-                rows="5"
-                className={errors.description ? 'error' : ''}
-              />
-              {errors.description && <span className="error-text">{errors.description}</span>}
+            <div>
+              <label className={labelClass}>Loại xe <span className="text-error">*</span></label>
+              <select value={formData.categoryId} onChange={set('categoryId')} className={getInputClass('categoryId', true)} required>
+                <option value="">-- Chọn loại xe --</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {!formData.categoryId && <p className="text-xs text-error mt-1">Vui lòng chọn loại xe</p>}
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Danh mục *</label>
-                <select
-                  name="categoryId"
-                  value={formData.categoryId}
-                  onChange={handleInputChange}
-                  className={errors.categoryId ? 'error' : ''}
-                >
-                  <option value="">Chọn danh mục</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
+            <div>
+              <label className={labelClass}>Thương hiệu <span className="text-error">*</span></label>
+              <select value={formData.brand} onChange={set('brand')} className={getInputClass('brand', true)} required>
+                <option value="">-- Chọn thương hiệu --</option>
+                {BRANDS.map((b) => (
+                  <option key={b} value={b}>{b.replace('_', ' ')}</option>
+                ))}
+              </select>
+              {!formData.brand && <p className="text-xs text-error mt-1">Vui lòng chọn thương hiệu</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Model / Tên xe <span className="text-error">*</span></label>
+              <input
+                type="text"
+                value={formData.model}
+                onChange={set('model')}
+                placeholder="Defy Advanced 2, Domane AL 4..."
+                className={getInputClass('model', true)}
+                required
+              />
+              {!formData.model && <p className="text-xs text-error mt-1">Vui lòng nhập tên model xe</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Năm sản xuất <span className="text-error">*</span></label>
+                <select value={formData.year} onChange={set('year')} className={getInputClass('year', true)} required>
+                  <option value="">-- Chọn năm --</option>
+                  {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
-                {errors.categoryId && <span className="error-text">{errors.categoryId}</span>}
+                {!formData.year && <p className="text-xs text-error mt-1">Vui lòng chọn năm</p>}
               </div>
-
-              <div className="form-group">
-                <label>Tình trạng *</label>
-                <select
-                  name="condition"
-                  value={formData.condition}
-                  onChange={handleInputChange}
-                  className={errors.condition ? 'error' : ''}
-                >
-                  <option value="like-new">Như mới</option>
-                  <option value="excellent">Xuất sắc</option>
-                  <option value="good">Tốt</option>
-                  <option value="fair">Bình thường</option>
+              <div>
+                <label className={labelClass}>Tình trạng <span className="text-error">*</span></label>
+                <select value={formData.status} onChange={set('status')} className={getInputClass('status', true)} required>
+                  <option value="">-- Chọn --</option>
+                  {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
-                {errors.condition && <span className="error-text">{errors.condition}</span>}
+                {!formData.status && <p className="text-xs text-error mt-1">Vui lòng chọn tình trạng</p>}
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 2: Technical Info */}
         {currentStep === 2 && (
-          <div className="form-step">
-            <h2>Thông tin kỹ thuật</h2>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Thương hiệu *</label>
-                <input
-                  type="text"
-                  name="brand"
-                  value={formData.brand}
-                  onChange={handleInputChange}
-                  placeholder="VD: Trek, Giant, Specialized"
-                  className={errors.brand ? 'error' : ''}
-                />
-                {errors.brand && <span className="error-text">{errors.brand}</span>}
-              </div>
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Thông số kỹ thuật
+            </h2>
 
-              <div className="form-group">
-                <label>Model *</label>
-                <input
-                  type="text"
-                  name="model"
-                  value={formData.model}
-                  onChange={handleInputChange}
-                  placeholder="VD: FX 3"
-                  className={errors.model ? 'error' : ''}
-                />
-                {errors.model && <span className="error-text">{errors.model}</span>}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Chất liệu khung</label>
+                <select value={formData.frameMaterial} onChange={set('frameMaterial')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {FRAME_MATERIALS.map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+                </select>
               </div>
-
-              <div className="form-group">
-                <label>Năm sản xuất *</label>
-                <input
-                  type="number"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleInputChange}
-                  min="1990"
-                  max={new Date().getFullYear()}
-                  className={errors.year ? 'error' : ''}
-                />
-                {errors.year && <span className="error-text">{errors.year}</span>}
+              <div>
+                <label className={labelClass}>Size khung</label>
+                <select value={formData.frameSize} onChange={set('frameSize')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {FRAME_SIZES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                </select>
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Chất liệu khung *</label>
-                <input
-                  type="text"
-                  name="frameMaterial"
-                  value={formData.frameMaterial}
-                  onChange={handleInputChange}
-                  placeholder="VD: Aluminum, Carbon, Steel"
-                  className={errors.frameMaterial ? 'error' : ''}
-                />
-                {errors.frameMaterial && <span className="error-text">{errors.frameMaterial}</span>}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Loại phanh</label>
+                <select value={formData.brakeType} onChange={set('brakeType')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {BRAKE_TYPES.map((b) => <option key={b} value={b}>{b.replace('_', ' ')}</option>)}
+                </select>
               </div>
-
-              <div className="form-group">
-                <label>Kích thước khung *</label>
-                <input
-                  type="text"
-                  name="frameSize"
-                  value={formData.frameSize}
-                  onChange={handleInputChange}
-                  placeholder="VD: 17 inch, M, L"
-                  className={errors.frameSize ? 'error' : ''}
-                />
-                {errors.frameSize && <span className="error-text">{errors.frameSize}</span>}
+              <div>
+                <label className={labelClass}>Groupset / Hệ truyền động</label>
+                <select value={formData.groupset} onChange={set('groupset')} className={inputClass}>
+                  <option value="">-- Chọn --</option>
+                  {GROUPSETS.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
+                </select>
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Loại phanh *</label>
-                <input
-                  type="text"
-                  name="brakeType"
-                  value={formData.brakeType}
-                  onChange={handleInputChange}
-                  placeholder="VD: Disc, Rim, Hydraulic"
-                  className={errors.brakeType ? 'error' : ''}
-                />
-                {errors.brakeType && <span className="error-text">{errors.brakeType}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Groupset *</label>
-                <input
-                  type="text"
-                  name="groupset"
-                  value={formData.groupset}
-                  onChange={handleInputChange}
-                  placeholder="VD: Shimano, SRAM, Campagnolo"
-                  className={errors.groupset ? 'error' : ''}
-                />
-                {errors.groupset && <span className="error-text">{errors.groupset}</span>}
-              </div>
+            <div>
+              <label className={labelClass}>
+                Mô tả chi tiết <span className="text-error">*</span>
+                <span className="ml-2 font-normal text-xs text-content-secondary">(tối thiểu 50 ký tự)</span>
+              </label>
+              <textarea
+                rows={6}
+                value={formData.description}
+                onChange={set('description')}
+                placeholder="Mô tả tình trạng xe, lịch sử sử dụng, lý do bán, phụ kiện kèm theo..."
+                className={cn(getInputClass('description', true), 'resize-none')}
+                minLength={50}
+                required
+              />
+              <p className={cn(hintClass, formData.description.length < 50 ? 'text-error' : 'text-content-secondary')}>
+                {formData.description.length}/50 ký tự tối thiểu
+              </p>
+              {formData.description.length < 50 && formData.description.length > 0 && (
+                <p className="text-xs text-error mt-1">Mô tả cần ít nhất 50 ký tự</p>
+              )}
             </div>
+          </div>
+        )}
 
-            <div className="form-group">
-              <label>Quãng đường đã đi (km)</label>
+        {currentStep === 3 && (
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Giá & Vị trí
+            </h2>
+
+            <div>
+              <label className={labelClass}>Giá niêm yết (₫) <span className="text-error">*</span></label>
               <input
                 type="number"
-                name="mileage"
-                value={formData.mileage}
-                onChange={handleInputChange}
-                min="0"
+                min="100000"
+                value={formData.price}
+                onChange={set('price')}
+                placeholder="VD: 28500000"
+                className={getInputClass('price', true)}
+                required
               />
+              {formData.price && (
+                <p className="text-sm font-semibold text-content-primary mt-1.5">
+                  ≈ {formatPrice(Number(formData.price))}
+                </p>
+              )}
+              {!formData.price && <p className="text-xs text-error mt-1">Vui lòng nhập giá bán</p>}
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.allowNegotiation}
+                onChange={set('allowNegotiation')}
+                className="w-4 h-4 rounded border-border-light accent-orange-500"
+              />
+              <span className="text-sm text-content-primary">Cho phép thương lượng giá</span>
+            </label>
+
+            <div>
+              <label className={labelClass}>Thành phố <span className="text-error">*</span></label>
+              <select value={formData.city} onChange={set('city')} className={inputClass} required>
+                <option value="HO_CHI_MINH">TP. Hồ Chí Minh</option>
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Quận/Huyện <span className="text-error">*</span></label>
+              <select value={formData.district} onChange={set('district')} className={getInputClass('district', true)} required>
+                <option value="">-- Chọn quận/huyện --</option>
+                {DISTRICTS.map((d) => (
+                  <option key={d} value={d}>{d.replace('_', ' ').replace('QUAN', 'Quận').replace('HUYEN', 'Huyện')}</option>
+                ))}
+              </select>
+              {!formData.district && <p className="text-xs text-error mt-1">Vui lòng chọn quận/huyện</p>}
             </div>
           </div>
         )}
 
-        {/* Step 3: Price & Location */}
-        {currentStep === 3 && (
-          <div className="form-step">
-            <h2>Giá & Vị trí</h2>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Giá (VND) *</label>
-                <input
-                  type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleInputChange}
-                  min="0"
-                  placeholder="0"
-                  className={errors.price ? 'error' : ''}
-                />
-                {errors.price && <span className="error-text">{errors.price}</span>}
-              </div>
-
-              <div className="form-group checkbox">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="allowNegotiation"
-                    checked={formData.allowNegotiation}
-                    onChange={handleInputChange}
-                  />
-                  Cho phép thương lượng giá
-                </label>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label>Thành phố *</label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  placeholder="VD: Hà Nội, TP. Hồ Chí Minh"
-                  className={errors.city ? 'error' : ''}
-                />
-                {errors.city && <span className="error-text">{errors.city}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Quận/Huyện *</label>
-                <input
-                  type="text"
-                  name="district"
-                  value={formData.district}
-                  onChange={handleInputChange}
-                  placeholder="VD: Hoàn Kiếm, Bình Thạnh"
-                  className={errors.district ? 'error' : ''}
-                />
-                {errors.district && <span className="error-text">{errors.district}</span>}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Images */}
         {currentStep === 4 && (
-          <div className="form-step">
-            <h2>Ảnh xe đạp</h2>
-            <p className="step-description">Tải lên tối đa 10 ảnh ({imagePreview.length}/10)</p>
+          <div className="space-y-5">
+            <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
+              Hình ảnh
+            </h2>
 
-            <div className="image-upload">
-              <label className="upload-box">
+            <div>
+              <label className={labelClass}>Ảnh xe (tùy chọn)</label>
+              <div className="border-2 border-dashed border-border-light rounded-sm p-8 text-center hover:border-navy transition-colors cursor-pointer bg-surface-secondary">
                 <input
                   type="file"
                   multiple
                   accept="image/*"
                   onChange={handleImageChange}
-                  disabled={imagePreview.length >= 10}
+                  className="hidden"
+                  id="image-upload"
                 />
-                <div className="upload-content">
-                  <span className="upload-icon">📷</span>
-                  <p>Nhấp để chọn ảnh hoặc kéo thả</p>
-                </div>
-              </label>
-              {errors.images && <span className="error-text">{errors.images}</span>}
-            </div>
-
-            <div className="image-preview-grid">
-              {imagePreview.map((preview, index) => (
-                <div key={index} className="image-preview-item">
-                  <img src={preview.url} alt={`Preview ${index}`} />
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={() => removeImage(index)}
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <span
+                    className="material-symbols-outlined text-content-secondary mb-2"
+                    style={{ fontSize: '2.5rem', fontVariationSettings: "'FILL' 0" }}
                   >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Inspection */}
-        {currentStep === 5 && (
-          <div className="form-step">
-            <h2>Kiểm định xe</h2>
-            <div className="inspection-info">
-              <p>Phí kiểm định: <strong>{inspectionFee.toLocaleString('vi-VN')} VND</strong></p>
+                    add_photo_alternate
+                  </span>
+                  <p className="text-sm font-medium text-content-primary">Kéo thả ảnh vào đây</p>
+                  <p className="text-xs text-content-secondary mt-1">hoặc click để chọn từ thiết bị</p>
+                  <p className={cn(hintClass, 'mt-3')}>Tối đa 10 ảnh · JPG/PNG</p>
+                </label>
+              </div>
             </div>
 
-            <div className="form-group checkbox">
-              <label>
-                <input
-                  type="checkbox"
-                  name="requestInspection"
-                  checked={formData.requestInspection}
-                  onChange={handleInputChange}
-                />
-                Yêu cầu kiểm định xe
-              </label>
-            </div>
-
-            {formData.requestInspection && (
-              <>
-                <div className="form-group">
-                  <label>Địa chỉ kiểm định *</label>
-                  <input
-                    type="text"
-                    name="inspectionAddress"
-                    value={formData.inspectionAddress}
-                    onChange={handleInputChange}
-                    placeholder="Nhập địa chỉ kiểm định"
-                    className={errors.inspectionAddress ? 'error' : ''}
-                  />
-                  {errors.inspectionAddress && <span className="error-text">{errors.inspectionAddress}</span>}
+            {selectedImages.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-content-secondary uppercase tracking-wide mb-2">
+                  Ảnh đã chọn ({selectedImages.length}/10)
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {selectedImages.map((image, index) => (
+                    <div
+                      key={index}
+                      className="aspect-square bg-surface-secondary rounded-sm border border-border-light flex flex-col items-center justify-center relative group"
+                    >
+                      <img
+                        src={URL.createObjectURL(image)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover rounded-sm"
+                      />
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-1 py-0.5 rounded">
+                        Ảnh {index + 1}
+                      </div>
+                      <button 
+                        onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white border border-border-light flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-error text-[0.75rem]">close</span>
+                      </button>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="form-group">
-                  <label>Ngày kiểm định *</label>
-                  <input
-                    type="datetime-local"
-                    name="inspectionScheduledDate"
-                    value={formData.inspectionScheduledDate}
-                    onChange={handleInputChange}
-                    className={errors.inspectionScheduledDate ? 'error' : ''}
-                  />
-                  {errors.inspectionScheduledDate && <span className="error-text">{errors.inspectionScheduledDate}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label>Ghi chú kiểm định</label>
-                  <textarea
-                    name="inspectionNote"
-                    value={formData.inspectionNote}
-                    onChange={handleInputChange}
-                    placeholder="Ghi chú thêm cho người kiểm định..."
-                    rows="3"
-                  />
-                </div>
-              </>
+              </div>
             )}
           </div>
         )}
+      </div>
 
-        {/* Form Actions */}
-        <div className="form-actions">
-          {currentStep > 1 && (
-            <button
-              className="btn btn-secondary"
-              onClick={handleBack}
-              disabled={isSubmitting}
-            >
-              Quay lại
-            </button>
-          )}
+      <div className="flex items-center gap-3">
+        <Button variant="secondary" onClick={handleSaveDraft} size="sm">
+          <span className="material-symbols-outlined text-[1rem]">save</span>
+          Lưu nháp
+        </Button>
 
-          {currentStep < 5 && (
-            <button
-              className="btn btn-primary"
-              onClick={handleNext}
-              disabled={isSubmitting}
-            >
-              Tiếp theo
-            </button>
-          )}
+        <div className="flex-1" />
 
-          {currentStep === 5 && (
-            <>
-              <button
-                className="btn btn-outline"
-                onClick={handleSaveDraft}
-                disabled={isSubmitting}
-              >
-                Lưu nháp
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Đang xử lý...' : editId ? 'Cập nhật' : 'Đăng bài'}
-              </button>
-            </>
-          )}
-        </div>
+        {currentStep > 1 && (
+          <Button variant="outline" onClick={handleBack} size="sm">
+            <span className="material-symbols-outlined text-[1rem]">arrow_back</span>
+            Quay lại
+          </Button>
+        )}
+
+        {currentStep < totalSteps ? (
+          <button
+            onClick={handleNext}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors"
+            style={{ backgroundColor: '#ff6b35' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+          >
+            Tiếp theo
+            <span className="material-symbols-outlined text-[1rem]">arrow_forward</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors disabled:opacity-50"
+            style={{ backgroundColor: '#ff6b35' }}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff7849')}
+            onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
+          >
+            <span className="material-symbols-outlined text-[1rem]">send</span>
+            {loading ? 'Đang xử lý...' : isEditing ? 'Cập nhật bài đăng' : 'Submit để kiểm duyệt'}
+          </button>
+        )}
       </div>
     </div>
   )

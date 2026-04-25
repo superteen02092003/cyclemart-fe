@@ -3,25 +3,46 @@ import api from './api'
 export const postService = {
   create: async (postData) => {
     try {
+      // If postData is already FormData, use it directly
+      if (postData instanceof FormData) {
+        const response = await api.post('/v1/posts', postData)
+        return response.data
+      }
+      
+      // Otherwise, create FormData from object (legacy support)
       const formData = new FormData()
       
-      // Lặp qua tất cả các trường dữ liệu được truyền vào
-      Object.keys(postData).forEach(key => {
-        if (key === 'images') {
-          // Xử lý riêng mảng hình ảnh
-          if (postData.images && postData.images.length > 0) {
-            postData.images.forEach((image) => {
-              formData.append('images', image)
-            })
-          }
-        } else {
-          // QUAN TRỌNG: Chỉ append nếu giá trị khác undefined và null
-          // Giúp tránh lỗi chuỗi "undefined" gửi xuống Backend
-          if (postData[key] !== undefined && postData[key] !== null && postData[key] !== '') {
-            formData.append(key, postData[key])
-          }
-        }
-      })
+      // Required fields
+      if (postData.title) formData.append('title', postData.title)
+      if (postData.description) formData.append('description', postData.description)
+      if (postData.price) formData.append('price', postData.price)
+      if (postData.status) formData.append('status', postData.status)
+      if (postData.city) formData.append('city', postData.city)
+      if (postData.district) formData.append('district', postData.district)
+      if (postData.brand) formData.append('brand', postData.brand)
+      if (postData.categoryId) formData.append('categoryId', postData.categoryId)
+      
+      // Optional fields
+      if (postData.model) formData.append('model', postData.model)
+      if (postData.year) formData.append('year', postData.year)
+      if (postData.frameMaterial) formData.append('frameMaterial', postData.frameMaterial)
+      if (postData.frameSize) formData.append('frameSize', postData.frameSize)
+      if (postData.brakeType) formData.append('brakeType', postData.brakeType)
+      if (postData.groupset) formData.append('groupset', postData.groupset)
+      if (postData.mileage) formData.append('mileage', postData.mileage)
+      
+      formData.append('allowNegotiation', postData.allowNegotiation || false)
+      
+      formData.append('requestInspection', postData.requestInspection || false)
+      if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)
+      if (postData.inspectionScheduledDate) formData.append('inspectionScheduledDate', postData.inspectionScheduledDate)
+      if (postData.inspectionNote) formData.append('inspectionNote', postData.inspectionNote)
+      
+      if (postData.images && postData.images.length > 0) {
+        postData.images.forEach((image) => {
+          formData.append('images', image)
+        })
+      }
       
       const response = await api.post('/v1/posts', formData)
       return response.data
@@ -70,21 +91,34 @@ export const postService = {
     try {
       const formData = new FormData()
       
-      // Update cũng cần gửi dạng form-data giống hệt lúc Create
-      Object.keys(postData).forEach(key => {
-        if (key === 'images') {
-          if (postData.images && postData.images.length > 0) {
-            postData.images.forEach((image) => {
-              formData.append('images', image)
-            })
-          }
-        } else {
-          if (postData[key] !== undefined && postData[key] !== null && postData[key] !== '') {
-            formData.append(key, postData[key])
-          }
-        }
-      })
-
+      formData.append('title', postData.title)
+      formData.append('description', postData.description)
+      formData.append('price', postData.price)
+      formData.append('status', postData.status)
+      formData.append('city', postData.city)
+      formData.append('district', postData.district)
+      formData.append('brand', postData.brand)
+      formData.append('model', postData.model)
+      formData.append('year', postData.year)
+      formData.append('frameMaterial', postData.frameMaterial)
+      formData.append('frameSize', postData.frameSize)
+      formData.append('brakeType', postData.brakeType)
+      formData.append('groupset', postData.groupset)
+      formData.append('mileage', postData.mileage)
+      formData.append('categoryId', postData.categoryId)
+      formData.append('allowNegotiation', postData.allowNegotiation)
+      
+      formData.append('requestInspection', postData.requestInspection || false)
+      if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)
+      if (postData.inspectionScheduledDate) formData.append('inspectionScheduledDate', postData.inspectionScheduledDate)
+      if (postData.inspectionNote) formData.append('inspectionNote', postData.inspectionNote)
+      
+      if (postData.images && postData.images.length > 0) {
+        postData.images.forEach((image) => {
+          formData.append('images', image)
+        })
+      }
+      
       const response = await api.put(`/v1/posts/${id}`, formData)
       return response.data
     } catch (error) {
