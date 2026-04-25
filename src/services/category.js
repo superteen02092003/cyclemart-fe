@@ -12,6 +12,17 @@ export const categoryService = {
     }
   },
 
+  // Lấy tất cả danh mục con (chỉ dùng cho trang Sell)
+  getAllChildren: async () => {
+    try {
+      const response = await api.get('/v1/categories/all-children')
+      return response.data
+    } catch (error) {
+      console.error('Failed to fetch child categories:', error)
+      throw error.response?.data || { message: 'Lỗi khi tải danh mục con' }
+    }
+  },
+
   // Lấy danh mục theo ID
   getById: async (id) => {
     try {

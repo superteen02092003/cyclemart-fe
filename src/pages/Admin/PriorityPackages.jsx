@@ -34,7 +34,6 @@ export default function PriorityPackages() {
     fetchPackages()
   }, [])
 
-  // Xử lý Lưu (Tạo mới)
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
@@ -45,9 +44,28 @@ export default function PriorityPackages() {
       })
       alert('Tạo gói thành công!')
       setShowForm(false)
-      fetchPackages() // Load lại bảng
+      fetchPackages() 
     } catch (error) {
-      alert(error.message || 'Có lỗi xảy ra')
+  
+      let errorMessage = 'Có lỗi xảy ra khi tạo gói';
+      
+      const errorData = error.response?.data;
+      
+      if (errorData) {
+        if (typeof errorData === 'string') {
+           errorMessage = errorData;
+        } else if (errorData.message) {
+           errorMessage = errorData.message;
+        } else if (errorData.errors && Array.isArray(errorData.errors)) {
+           errorMessage = errorData.errors.map(err => err.defaultMessage || err).join('\n');
+        } else if (typeof errorData === 'object') {
+           errorMessage = Object.values(errorData).join('\n');
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert('Lỗi: \n' + errorMessage);
     }
   }
 
@@ -81,7 +99,7 @@ export default function PriorityPackages() {
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-sm shadow-sm mb-6 grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Tên gói</label>
-            <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2" />
+            <input required minLength={3} type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border p-2" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Mức ưu tiên</label>

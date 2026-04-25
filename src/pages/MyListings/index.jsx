@@ -8,6 +8,7 @@ import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
+import api from '@/services/api' // Đảm bảo đã import api
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -16,29 +17,29 @@ const STATUS_TABS = [
   { value: 'ACTIVE', label: 'Đang bán' },
   { value: 'SOLD', label: 'Đã bán' },
   { value: 'REJECTED', label: 'Bị từ chối' },
+  { value: 'INSPECTIONS', label: 'Dịch vụ Kiểm định' }, // 🔥 THÊM TAB NÀY
 ]
 
-// Lưu ý: Ở BE bạn dùng PostStatus.APPROVED, PENDING... Bạn có thể cần map lại cho khớp nếu gọi API thật.
 const STATUS_CONFIG = {
   DRAFT: { label: 'Nháp', badge: 'subtle' },
   PENDING_REVIEW: { label: 'Chờ duyệt', badge: 'navy' },
   ACTIVE: { label: 'Đang bán', badge: 'verified' },
-  APPROVED: { label: 'Đang bán', badge: 'verified' }, // Phụ trợ cho BE thật
-  PENDING: { label: 'Chờ duyệt', badge: 'navy' },     // Phụ trợ cho BE thật
+  APPROVED: { label: 'Đang bán', badge: 'verified' }, 
+  PENDING: { label: 'Chờ duyệt', badge: 'navy' },     
   SOLD: { label: 'Đã bán', badge: 'subtle' },
   REJECTED: { label: 'Từ chối', badge: 'subtle' },
 }
 
 function ListingCard({ listing, onAction, onInspect, onDelete }) {
-  // Lấy postStatus (BE thật) hoặc status (FE Mock)
   const currentStatus = listing.postStatus || listing.status; 
   const cfg = STATUS_CONFIG[currentStatus] || { label: currentStatus, badge: 'subtle' }
+  const viewCount = listing.views ?? listing.viewCount ?? listing.view_count ?? 0
 
   return (
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
       <div className="flex gap-4">
         {/* Thumbnail */}
-        <div className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light overflow-hidden">
+        <Link to={`/bike/${listing.id}`} className="w-20 h-20 flex-shrink-0 rounded-sm bg-surface-secondary flex items-center justify-center border border-border-light overflow-hidden hover:opacity-80 transition-opacity">
           {listing.images && listing.images.length > 0 ? (
             <img 
               src={typeof listing.images[0] === 'string' ? listing.images[0] : listing.images[0].url} 
@@ -53,17 +54,18 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               directions_bike
             </span>
           )}
-        </div>
+        </Link>
 
         {/* Details */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2">
-              {listing.title}
-            </h3>
+            <Link to={`/bike/${listing.id}`} className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-content-primary leading-snug line-clamp-2 hover:text-navy transition-colors">
+                {listing.title}
+              </h3>
+            </Link>
             
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              {/* THÊM MỚI: Hiển thị Tem Ưu Tiên (Nếu có) */}
               {listing.activePriority && (
                 <Badge variant={listing.activePriority.priorityLevel.toLowerCase()}>
                   <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -73,6 +75,28 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                    listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
                 </Badge>
               )}
+
+              {/* Nhãn Đã kiểm định */}
+              {listing.isVerified && (
+                <Badge variant="verified">
+                  <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    verified
+                  </span>
+                  Đã kiểm định
+                </Badge>
+              )}
+
+              {/* 🔥 THÊM MỚI: Tem Không đạt kiểm định (Chỉ hiện trong MyListings) */}
+              {!listing.isVerified && listing.inspectionStatus === 'FAILED' && (
+                <Badge className="bg-error/10 text-error border border-error/20">
+                  <span className="material-symbols-outlined text-[0.8rem]">
+                    cancel
+                  </span>
+                  Chưa đạt kiểm định
+                </Badge>
+              )}
+
+              {/* Nhãn Trạng thái tin */}
               <Badge variant={cfg.badge}>
                 {cfg.label}
               </Badge>
@@ -82,10 +106,10 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           <p className="text-base font-bold text-content-primary mb-1">{formatPrice(listing.price)}</p>
 
           <div className="flex items-center gap-3 text-xs text-content-secondary mb-2">
-            {listing.views != null && (
+            {viewCount != null && (
               <span className="flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
-                {listing.views} lượt xem
+                {viewCount} lượt xem
               </span>
             )}
             <span className="flex items-center gap-0.5">
@@ -130,10 +154,24 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
         )}
 
         {(currentStatus === 'PENDING_REVIEW' || currentStatus === 'PENDING') && (
-          <Button variant="secondary" size="sm" disabled>
-            <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
-            Đang xử lý...
-          </Button>
+          <>
+            <Link to={`/bike/${listing.id}`}>
+              <Button variant="secondary" size="sm">
+                <span className="material-symbols-outlined text-[0.9rem]">open_in_new</span>
+                Xem chi tiết
+              </Button>
+            </Link>
+            <Button variant="secondary" size="sm" disabled>
+              <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
+              Đang xử lý...
+            </Button>
+            <Link to={`${ROUTES.SELL}?editId=${listing.id}`}>
+              <Button variant="secondary" size="sm">
+                <span className="material-symbols-outlined text-[0.9rem]">edit</span>
+                Sửa bài đăng
+              </Button>
+            </Link>
+          </>
         )}
 
         {(currentStatus === 'ACTIVE' || currentStatus === 'APPROVED') && (
@@ -144,6 +182,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                 Chỉnh sửa
               </Button>
             </Link>
+            
             <button
               onClick={() => onAction('hide', listing.id)}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-content-secondary border border-border-light rounded-sm hover:bg-surface-secondary transition-colors"
@@ -151,26 +190,50 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
               <span className="material-symbols-outlined text-[0.9rem]">visibility_off</span>
               Ẩn tin
             </button>
-            <button
-              onClick={() => onAction('boost', listing.id)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
-              style={{ backgroundColor: '#1e3a5f' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
-            >
-              <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
-              {listing.activePriority ? 'Đổi gói ưu tiên' : 'Mua gói ưu tiên'}
-            </button>
-            <button
-              onClick={() => onInspect(listing)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
-              style={{ backgroundColor: '#ff6b35' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-            >
-              <span className="material-symbols-outlined text-[0.9rem]">verified</span>
-              Đăng ký kiểm định
-            </button>
+
+            {listing.activePriority ? (
+              <button
+                disabled
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-80"
+                style={{ backgroundColor: '#64748b' }}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]">check_circle</span>
+                Đang dùng: {listing.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' : listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
+              </button>
+            ) : (
+              <button
+                onClick={() => onAction('boost', listing.id)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+                style={{ backgroundColor: '#1e3a5f' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
+                Mua gói ưu tiên
+              </button>
+            )}
+
+            {listing.isVerified ? (
+              <button
+                disabled
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-90"
+                style={{ backgroundColor: '#10b981' }}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                Xe đã kiểm định
+              </button>
+            ) : (
+              <button
+                onClick={() => onInspect(listing)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+                style={{ backgroundColor: '#ff6b35' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+              >
+                <span className="material-symbols-outlined text-[0.9rem]">verified</span>
+                Đăng ký kiểm định
+              </button>
+            )}
           </>
         )}
 
@@ -192,7 +255,6 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
           </Link>
         )}
 
-        {/* Delete — always available */}
         <button
           onClick={() => onDelete(listing.id)}
           className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-error border border-error/30 rounded-sm hover:bg-error/5 transition-colors ml-auto"
@@ -205,12 +267,99 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
   )
 }
 
+function InspectionHistory() {
+  const [inspections, setInspections] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMyInspections = async () => {
+      try {
+        const res = await api.get('/v1/inspections/me?page=0&size=50');
+        if (res.data?.content) {
+          setInspections(res.data.content);
+        }
+      } catch (error) {
+        console.error("Lỗi lấy danh sách kiểm định:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMyInspections();
+  }, []);
+
+  if (isLoading) {
+    return <div className="p-10 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-navy mx-auto"></div></div>;
+  }
+
+  if (inspections.length === 0) {
+    return (
+      <div className="bg-white p-10 text-center rounded-sm border border-border-light shadow-sm mt-4">
+        <span className="material-symbols-outlined text-4xl text-content-tertiary mb-2">health_and_safety</span>
+        <p className="text-content-secondary font-medium">Bạn chưa đăng ký dịch vụ kiểm định nào.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <h2 className="text-lg font-bold text-navy flex items-center gap-2 mb-4">
+        <span className="material-symbols-outlined text-[#ff6b35]">fact_check</span>
+        Lịch sử đăng ký kiểm định
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {inspections.map(ins => (
+          <div key={ins.id} className="bg-white p-5 rounded-sm border border-border-light shadow-sm relative overflow-hidden">
+            <div className={cn(
+              "absolute top-0 left-0 w-1 h-full",
+              ins.status === 'PASSED' ? "bg-green-500" : 
+              ins.status === 'FAILED' ? "bg-error" : "bg-warning"
+            )} />
+            
+            <div className="pl-3">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-navy line-clamp-1">{ins.postTitle}</h3>
+                <span className={cn(
+                  "text-[0.7rem] font-bold px-2 py-1 rounded-sm uppercase tracking-wider whitespace-nowrap ml-3",
+                  ins.status === 'PASSED' ? "bg-green-100 text-green-700" : 
+                  ins.status === 'FAILED' ? "bg-error/10 text-error" : "bg-warning/10 text-warning-content"
+                )}>
+                  {ins.status === 'PENDING' ? 'Chờ xếp lịch' :
+                   ins.status === 'ASSIGNED' ? 'Đã xếp lịch' :
+                   ins.status === 'INSPECTING' ? 'Đang kiểm tra' :
+                   ins.status === 'PASSED' ? 'Đạt' : 'Không đạt'}
+                </span>
+              </div>
+              
+              <div className="text-sm text-content-secondary space-y-1.5 mt-3">
+                <p className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[1rem]">calendar_clock</span>
+                  {ins.scheduledDateTime ? new Date(ins.scheduledDateTime).toLocaleString('vi-VN') : 'Chưa xếp lịch'}
+                </p>
+                <p className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[1rem]">engineering</span>
+                  Inspector: <span className="font-medium text-navy">{ins.inspectorName || 'Đang chờ phân công...'}</span>
+                </p>
+                {ins.resultNote && (
+                  <div className="mt-3 p-3 bg-surface-secondary rounded-sm border border-border-light">
+                    <p className="text-xs font-bold text-navy mb-1">Ghi chú kết quả:</p>
+                    <p className="text-sm italic">{ins.resultNote}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function MyListingsPage() {
   const [activeTab, setActiveTab] = useState('ALL')
   const [listings, setListings] = useState([])
   const [toastMsg, setToastMsg] = useState('')
   const [inspectionTarget, setInspectionTarget] = useState(null)
-  const [boostTarget, setBoostTarget] = useState(null) // THÊM MỚI: State cho Modal Mua gói
+  const [boostTarget, setBoostTarget] = useState(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -220,9 +369,7 @@ export default function MyListingsPage() {
   const loadMyListings = async () => {
     try {
       setLoading(true)
-      // Sử dụng API lấy danh sách bài đăng của user đang login
       const data = await postService.getMyPosts()
-      // Nhớ trích xuất content nếu BE trả về Pageable
       setListings(data?.content || data || [])
     } catch (error) {
       console.error('Error loading my listings:', error)
@@ -248,8 +395,24 @@ export default function MyListingsPage() {
       )
       showToast('Đã ẩn tin đăng.')
     } else if (action === 'boost') {
-      // THÊM MỚI: Mở modal khi bấm nút Mua gói
       setBoostTarget(id)
+    } else if (action === 'cancel') {
+      handleCancelPost(id)
+    }
+  }
+
+  const handleCancelPost = async (id) => {
+    if (!window.confirm('Bạn chắc chắn muốn hủy yêu cầu đăng tin này? Bạn có thể chỉnh sửa và gửi lại sau.')) return
+    try {
+      setLoading(true)
+      await postService.cancelPost(id)
+      await loadMyListings()
+      showToast('Đã hủy yêu cầu đăng tin.')
+    } catch (error) {
+      console.error('Error canceling post:', error)
+      alert(error.message || 'Lỗi khi hủy yêu cầu')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -279,7 +442,10 @@ export default function MyListingsPage() {
     [activeTab, listings]
   )
 
-  const totalViews = listings.reduce((sum, l) => sum + (l.views ?? 0), 0)
+  const totalViews = listings.reduce((sum, l) => {
+    const viewCount = Number(l.views ?? l.viewCount ?? l.view_count ?? 0)
+    return sum + (Number.isFinite(viewCount) ? viewCount : 0)
+  }, 0)
   const activeCount = listings.filter((l) => (l.postStatus || l.status) === 'ACTIVE' || l.postStatus === 'APPROVED').length
 
   if (loading) {
@@ -339,12 +505,15 @@ export default function MyListingsPage() {
       {/* Status tabs */}
       <div className="flex gap-1 bg-surface-secondary rounded-sm p-1 mb-6 overflow-x-auto">
         {STATUS_TABS.map((tab) => {
-          const count =
-            tab.value === 'ALL'
-              ? listings.length
-              : listings.filter((l) => (l.postStatus || l.status) === tab.value || 
+          let count = 0;
+          if (tab.value === 'ALL') {
+            count = listings.length;
+          } else if (tab.value !== 'INSPECTIONS') {
+            count = listings.filter((l) => (l.postStatus || l.status) === tab.value || 
                    (tab.value === 'ACTIVE' && l.postStatus === 'APPROVED') || 
-                   (tab.value === 'PENDING_REVIEW' && l.postStatus === 'PENDING')).length
+                   (tab.value === 'PENDING_REVIEW' && l.postStatus === 'PENDING')).length;
+          }
+
           return (
             <button
               key={tab.value}
@@ -357,7 +526,7 @@ export default function MyListingsPage() {
               )}
             >
               {tab.label}
-              {count > 0 && (
+              {tab.value !== 'INSPECTIONS' && count > 0 && (
                 <span className={cn(
                   'text-xs px-1.5 py-0.5 rounded-full',
                   activeTab === tab.value ? 'bg-surface-secondary text-content-primary' : 'bg-border-light text-content-secondary'
@@ -370,8 +539,10 @@ export default function MyListingsPage() {
         })}
       </div>
 
-      {/* Listing cards */}
-      {filtered.length === 0 ? (
+      {/* Nội dung bên dưới Tabs */}
+      {activeTab === 'INSPECTIONS' ? (
+        <InspectionHistory />
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <span
             className="material-symbols-outlined text-content-tertiary mb-3"
@@ -417,14 +588,14 @@ export default function MyListingsPage() {
         />
       )}
 
-      {/* THÊM MỚI: Modal Mua gói Ưu Tiên */}
+      {/* Modal Mua gói Ưu Tiên */}
       {boostTarget && (
         <SubscribeModal
           postId={boostTarget}
           onClose={() => setBoostTarget(null)}
           onSuccess={() => {
             setBoostTarget(null)
-            loadMyListings() // Reload lại để cập nhật Badge ưu tiên
+            loadMyListings()
             showToast('Đăng ký gói ưu tiên thành công!')
           }}
         />

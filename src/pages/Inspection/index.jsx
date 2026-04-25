@@ -1,3 +1,4 @@
+// File: src/pages/Inspection/index.jsx
 import { useState } from 'react'
 import InspectionModal from '@/components/inspection/InspectionModal'
 

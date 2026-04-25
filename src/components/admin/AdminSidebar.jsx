@@ -7,6 +7,9 @@ const ADMIN_MENU = [
   { title: 'Tổng quan', path: '/admin', icon: 'dashboard' },
   { title: 'Quản lý người dùng', path: '/admin/users', icon: 'group' },
   { title: 'Kiểm duyệt tin đăng', path: '/admin/listings', icon: 'fact_check' },
+  { title: 'Kiểm định xe', path: '/admin/inspections', icon: 'verified' }, 
+  // 🔥 THÊM DÒNG NÀY: Mục Quản lý Hạng mục kiểm định
+  { title: 'Hạng mục kiểm định', path: '/admin/inspection-criteria', icon: 'checklist' }, 
   { title: 'Báo cáo vi phạm', path: '/admin/reports', icon: 'report' },
   { title: 'Quản lý tranh chấp', path: '/admin/disputes', icon: 'gavel' },
   { title: 'Danh mục & thương hiệu', path: '/admin/categories', icon: 'label' },
@@ -102,7 +105,7 @@ export function AdminSidebar() {
           </button>
         ) : (
           <button
-            onClick={handleLogout} // GẮN SỰ KIỆN Ở ĐÂY
+            onClick={handleLogout} 
             className="w-full flex items-center justify-center p-2 hover:bg-white/10 rounded-sm transition-colors text-error"
             title="Đăng xuất"
           >

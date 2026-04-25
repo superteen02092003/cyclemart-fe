@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_ORDERS } from '@/constants/mockData';
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
+import { ordersService } from '@/services/orders';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import ReviewModal from '@/components/orders/ReviewModal';
 import DisputeDepositModal from '@/components/orders/DisputeDepositModal';
@@ -114,29 +114,62 @@ function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, 
 
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState('BUYER'); // BUYER | SELLER
-  
-  // Dùng state để mock luồng đổi trạng thái sống
-  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // States cho Modals
   const [returnOrder, setReturnOrder] = useState(null);
   const [reviewOrder, setReviewOrder] = useState(null);
   const [disputeOrder, setDisputeOrder] = useState(null);
 
+  // Fetch orders from backend
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const response = await ordersService.getPaymentHistory(0, 50);
+        
+        // Map payment data to order format
+        const mappedOrders = response.content?.map(payment => ({
+          id: payment.orderId,
+          bikeId: payment.bikePostId,
+          bikeTitle: payment.bikeTitle || 'Xe đạp',
+          price: payment.amount,
+          status: payment.status === 'SUCCESS' ? 'PAID_WAITING_DELIVERY' : 'PENDING_PAYMENT',
+          counterpartName: payment.sellerName || 'Người bán',
+          deliveryAddress: '',
+          createdAt: new Date(payment.createdAt).toLocaleDateString('vi-VN'),
+          role: 'BUYER' // Assuming current user is buyer
+        })) || [];
+        
+        setOrders(mappedOrders);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+        setError('Không thể tải danh sách đơn hàng');
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => o.role === activeTab).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return orders.filter(o => o.role === activeTab).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [orders, activeTab]);
 
   const simulateStatusUpdate = (orderId, newStatus) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     
-    // Nếu chuyển sang COMPLETED, hỏi user có muốn Review không
     if (newStatus === 'COMPLETED') {
-       const userChoice = window.confirm("Đơn hàng đã hoàn tất! Bạn có muốn đánh giá người bán ngay không?");
-       if (userChoice) {
-          const theOrder = orders.find(x => x.id === orderId);
-          setReviewOrder({...theOrder, status: 'COMPLETED'});
-       }
+      const userChoice = window.confirm("Đơn hàng đã hoàn tất! Bạn có muốn đánh giá người bán ngay không?");
+      if (userChoice) {
+        const theOrder = orders.find(x => x.id === orderId);
+        setReviewOrder({...theOrder, status: 'COMPLETED'});
+      }
     }
   }
 
@@ -155,11 +188,22 @@ export default function OrdersPage() {
     simulateStatusUpdate(orderId, 'DISPUTE_SYSTEM');
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <div className="text-center py-20">
+          <div className="w-12 h-12 border-4 border-navy/20 border-t-navy rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-content-secondary">Đang tải danh sách đơn hàng...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-content-primary mb-1">Đơn hàng của tôi</h1>
-        <p className="text-sm text-content-secondary">Quản lý giao dịch mua và bán an toàn qua PayOS Escrow</p>
+        <p className="text-sm text-content-secondary">Quản lý giao dịch mua và bán an toàn qua Sepay</p>
       </div>
 
       {/* Tabs */}
@@ -177,6 +221,13 @@ export default function OrdersPage() {
            Đơn bán của tôi
          </button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-error/10 border border-error/20 rounded-lg p-4 mb-6 text-error text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Order List */}
       {filteredOrders.length === 0 ? (

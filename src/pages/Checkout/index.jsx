@@ -1,17 +1,21 @@
+import { useEffect } from 'react';
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { MOCK_BIKES } from '@/constants/mockData';
 import { formatPrice } from '@/utils/formatPrice';
-import { ROUTES } from '@/constants/routes';
+import { bikePostService } from '@/services/bikePost';
+import { useAuth } from '@/hooks/useAuth';
+import api from '@/services/api';
 
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const bike = MOCK_BIKES.find((b) => b.id === id) || MOCK_BIKES[0];
+  const { user } = useAuth();
+  const [bike, setBike] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const platformFee = 0; // Phí nền tảng là 0 theo SRS (100% Escrow về Seller)
+  const platformFee = 0;
   const shippingFee = 200000;
-  const total = bike.price + platformFee + shippingFee;
 
   const [form, setForm] = useState({
     name: '',
@@ -20,31 +24,109 @@ export default function CheckoutPage() {
     note: ''
   });
   
-  const [showPayOSContent, setShowPayOSContent] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentResponse, setPaymentResponse] = useState(null);
+  const [showQRModal, setShowQRModal] = useState(false);
 
-  const handleSubmitCheckout = (e) => {
+  // Auto-fill form từ user info
+  useEffect(() => {
+    if (user) {
+      setForm(prev => ({
+        ...prev,
+        name: user.fullName || '',
+        phone: user.phone || ''
+      }))
+    }
+  }, [user])
+
+  const handleSubmitCheckout = async (e) => {
     e.preventDefault();
+    
+    if (!form.name.trim()) {
+      alert('Vui lòng nhập tên người nhận');
+      return;
+    }
+    if (!form.phone.trim()) {
+      alert('Vui lòng nhập số điện thoại');
+      return;
+    }
+    if (!form.address.trim()) {
+      alert('Vui lòng nhập địa chỉ');
+      return;
+    }
+
     setIsProcessing(true);
     
-    // Fake thời gian tạo order và load cổng thanh toán (QR)
-    setTimeout(() => {
+    try {
+      // 1. Ép kiểu rõ ràng để tránh lỗi cộng chuỗi (VD: "1000" + 200 = "1000200")
+      const bikePrice = Number(bike.price) || 0;
+      const totalAmount = Math.round(bikePrice + platformFee + shippingFee); 
+
+      // 2. Chuẩn bị payload chuẩn xác
+      const paymentData = {
+        bikePostId: Number(id),
+        amount: totalAmount,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+        description: form.note ? form.note.trim() : `Thanh toan don hang ${id}`,
+        type: 'ORDER_PAYMENT',
+        referenceId: Number(id)
+      };
+
+      console.log('Đang gửi payload:', paymentData);
+      
+      const response = await api.post('/v1/payments/create', paymentData);
+      
+      if (response.data && response.data.paymentUrl) {
+        window.location.href = response.data.paymentUrl;
+      } else {
+        alert('Lỗi tạo thanh toán: ' + (response.data?.message || 'Không xác định'));
+        setIsProcessing(false);
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      // Hiển thị trực tiếp lỗi trả về từ Spring Boot để dễ fix
+      const backendErrorMsg = error.response?.data?.message || error.response?.data || error.message;
+      alert('Lỗi từ Server: ' + JSON.stringify(backendErrorMsg));
       setIsProcessing(false);
-      setShowPayOSContent(true);
-    }, 1500);
+    }
   };
 
-  const handleSimulatePaymentSuccess = () => {
-    // Fake xử lý thành công webhook
-    setShowPayOSContent(false);
-    setShowSuccessModal(true);
-  };
+  useEffect(() => {
+    if (!id) return;
 
-  const closeSuccessAndRedirect = () => {
-    navigate('/orders');
-  };
+    const fetchBike = async () => {
+      try {
+        setLoading(true);
+        const data = await bikePostService.getById(id);
+        setBike(data?.result || data?.data || data);
+        setError(null);
+      } catch (err) {
+        console.error('Fetch bike error:', err);
+        setBike(null);
+        setError(err?.response?.data?.message || err.message || 'Không tải được thông tin xe');
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchBike();
+  }, [id]);
+
+  if (loading) {
+    return <div>Đang tải dữ liệu...</div>;
+  }
+
+  if (error || !bike) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-surface-primary min-h-screen">
+        <p className="text-sm text-error">{error || 'Không tìm thấy dữ liệu xe'}</p>
+      </div>
+    );
+  }
+
+  const total = bike.price + platformFee + shippingFee;
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-surface-primary min-h-screen">
       <Link to={`/bike/${bike.id}`} className="inline-flex items-center gap-1 text-sm text-content-secondary hover:text-content-primary transition-colors mb-6">
@@ -188,71 +270,105 @@ export default function CheckoutPage() {
                 </>
               )}
             </button>
+
+            {/* Mock Payment Test Buttons (Local Testing) */}
+            <div className="mt-4 pt-4 border-t border-border-light space-y-2">
+              <p className="text-xs text-content-tertiary text-center mb-2">🧪 Test Mode (Local)</p>
+              <button
+                onClick={() => navigate(`/payment-success?orderId=ORDER_${Date.now()}`)}
+                className="w-full py-2 bg-green/10 hover:bg-green/20 text-green font-semibold rounded-sm transition-all text-sm border border-green/30"
+              >
+                ✓ Test Thanh Toán Thành Công
+              </button>
+              <button
+                onClick={() => navigate(`/payment-failure?reason=Lỗi kết nối&bikeId=${id}`)}
+                className="w-full py-2 bg-error/10 hover:bg-error/20 text-error font-semibold rounded-sm transition-all text-sm border border-error/30"
+              >
+                ✗ Test Thanh Toán Thất Bại
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Mock PayOS Dialog */}
-      {showPayOSContent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/80 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-md shadow-2xl w-full max-w-md overflow-hidden relative animate-in fade-in zoom-in duration-300">
-             <div className="bg-[#1a237e] p-4 text-white text-center rounded-t-xl sm:rounded-none">
-                <h3 className="font-bold text-lg">Cổng thanh toán PayOS (Mô phỏng)</h3>
-                <p className="text-sm opacity-80 mt-1">Quét mã QR bằng App Ngân Hàng</p>
-             </div>
-             
-             <div className="p-6 text-center space-y-4">
-               <div className="w-48 h-48 bg-surface-secondary border-2 border-dashed border-border mx-auto flex items-center justify-center rounded-md relative group">
-                  <span className="material-symbols-outlined text-border text-[4rem]">qr_code_2</span>
-                  <div className="absolute inset-0 bg-white/60 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex">
-                     <span className="text-xs font-bold text-content-primary">MOCK QR</span>
-                  </div>
-               </div>
-
-               <div className="bg-surface-secondary rounded p-4 text-sm space-y-2 text-left mt-4 border border-border-light">
-                 <div className="flex justify-between">
-                   <span className="text-content-secondary">Số tiền:</span>
-                   <span className="font-bold text-navy">{formatPrice(total)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span className="text-content-secondary">Nội dung CK:</span>
-                   <span className="font-bold">CMART ORD001</span>
-                 </div>
-               </div>
-               
-               <p className="text-xs text-content-tertiary">Hoặc click nút bên dưới để mô phỏng webhook thành công từ PayOS trả về hệ thống.</p>
-               
-               <button
-                 onClick={handleSimulatePaymentSuccess}
-                 className="w-full py-3 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-sm shadow-sm transition-all flex justify-center items-center gap-2"
-               >
-                 <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
-                 Giả lập thanh toán hoàn tất
-               </button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Success */}
-      {showSuccessModal && (
+      {/* Mock Payment Test Modal - for sandbox testing */}
+      {showQRModal && paymentResponse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-           <div className="bg-white rounded-md shadow-2xl p-8 max-w-sm w-full text-center">
-              <div className="w-16 h-16 bg-green/10 rounded-full flex items-center justify-center text-green text-[2.5rem] mx-auto mb-4 border border-green/20">
-                <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>check_circle</span>
+          <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center">
+            {/* Header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-content-primary mb-2">Thanh toán VNPay</h2>
+              <p className="text-sm text-content-secondary">Đơn hàng của bạn đã được tạo thành công</p>
+            </div>
+
+            {/* Order Info */}
+            <div className="bg-blue/5 border border-blue/20 rounded-lg p-4 mb-6 text-left">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">Mã đơn hàng:</span>
+                  <span className="font-mono font-bold text-content-primary">{paymentResponse.orderId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">Số tiền:</span>
+                  <span className="font-bold text-orange">{formatPrice(paymentResponse.amount)}</span>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-content-primary mb-2">Đặt hàng thành công!</h3>
-              <p className="text-sm text-content-secondary mb-6 leading-relaxed">
-                Đơn hàng của bạn đã được ghi nhận và tiền đang được giữ an toàn tại hệ thống Escrow. Người bán sẽ tiến hành giao hàng cho bạn sớm nhất.
-              </p>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-orange/5 border border-orange/20 rounded-lg p-4 mb-6 text-left">
+              <p className="text-xs font-semibold text-content-primary mb-2">📱 Hướng dẫn:</p>
+              <ol className="text-xs text-content-secondary space-y-1 list-decimal list-inside">
+                <li>Bạn sẽ được chuyển hướng tới trang thanh toán VNPay</li>
+                <li>Nhập thông tin thẻ hoặc chọn phương thức thanh toán</li>
+                <li>Xác nhận giao dịch</li>
+                <li>Hệ thống sẽ tự động cập nhật khi thanh toán thành công</li>
+              </ol>
+            </div>
+
+            {/* Buttons */}
+            <div className="space-y-3">
               <button
-                onClick={closeSuccessAndRedirect}
-                className="w-full py-3 bg-[#ff6b35] hover:bg-[#ff7849] text-white font-bold rounded-sm transition-colors"
-                style={{letterSpacing: '0.3px'}}
+                onClick={async () => {
+                  try {
+                    // Simulate IPN webhook call to backend for testing
+                    const mockIpnData = {
+                      vnp_TxnRef: paymentResponse.orderId,
+                      vnp_ResponseCode: '00',
+                      vnp_TransactionNo: 'TEST_' + Date.now()
+                    };
+                    
+                    console.log('Simulating VNPay IPN:', mockIpnData);
+                    await api.post('/v1/payments/vnpay/ipn', mockIpnData);
+                    
+                    // Redirect to success page
+                    navigate(`/payment-success?orderId=${paymentResponse.orderId}`);
+                  } catch (error) {
+                    console.error('Error simulating payment:', error);
+                    alert('Lỗi giả lập thanh toán: ' + error.message);
+                  }
+                }}
+                className="w-full py-3 bg-green hover:bg-green/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                Xem đơn hàng của tôi
+                <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
+                ✓ Giả lập thanh toán thành công (Test)
               </button>
-           </div>
+
+              <button
+                onClick={() => {
+                  setShowQRModal(false);
+                  setPaymentResponse(null);
+                  setIsProcessing(false);
+                }}
+                className="w-full py-3 bg-surface-secondary hover:bg-surface-tertiary text-content-primary font-bold rounded-lg transition-colors border border-border-light"
+              >
+                Đóng
+              </button>
+              <p className="text-xs text-content-tertiary text-center">
+                Hệ thống sẽ tự động cập nhật khi thanh toán thành công
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

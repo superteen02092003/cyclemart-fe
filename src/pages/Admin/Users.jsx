@@ -1,24 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
-import { adminService } from '@/services/admin' // Gọi từ adminService thay vì userService
+import { adminService } from '@/services/admin'
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
   
-  // States cho các Modal
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
   
-  // States cho User Log Tracking
   const [userLogs, setUserLogs] = useState([])
   const [loadingLogs, setLoadingLogs] = useState(false)
 
   const [filterType, setFilterType] = useState('all')
   const [loading, setLoading] = useState(false)
 
-  // Load users từ API
   useEffect(() => {
     loadUsers()
   }, [])
@@ -26,7 +23,6 @@ export default function AdminUsers() {
   const loadUsers = async () => {
     try {
       setLoading(true)
-      // Lấy 100 user mới nhất
       const data = await adminService.getAllUsers({ page: 0, size: 100, sortBy: 'createdAt', sortDir: 'desc' })
       setUsers(data?.content || [])
     } catch (error) {
@@ -41,12 +37,16 @@ export default function AdminUsers() {
     ? users 
     : users.filter((u) => u.role?.toLowerCase() === filterType.toLowerCase())
 
+  const usersWithSTT = filteredUsers.map((user, index) => ({
+    ...user,
+    stt: index + 1
+  }))
+
   const handleViewDetails = (user) => {
     setSelectedUser(user)
     setIsDetailModalOpen(true)
   }
 
-  // --- XỬ LÝ XEM LOG ---
   const handleViewLogs = async (user) => {
     setSelectedUser(user)
     setIsLogModalOpen(true)
@@ -62,9 +62,7 @@ export default function AdminUsers() {
     }
   }
 
-  // --- XỬ LÝ KHÓA / MỞ KHÓA TÀI KHOẢN ---
   const handleToggleBanStatus = async (user) => {
-    // Nếu đang bị Banned -> Hỏi xem có muốn mở khóa không
     if (user.status === 'BANNED') {
       if (window.confirm(`Bạn có chắc chắn muốn MỞ KHÓA cho tài khoản ${user.email}?`)) {
         try {
@@ -81,9 +79,8 @@ export default function AdminUsers() {
       return;
     }
 
-    // Nếu đang Active -> Hỏi lý do Ban
     const reason = window.prompt(`Khóa tài khoản: ${user.email}\nVui lòng nhập lý do khóa (bắt buộc):`)
-    if (reason === null) return; // Bấm hủy
+    if (reason === null) return;
     if (reason.trim() === '') {
       alert('Lý do không được để trống!')
       return;
@@ -102,7 +99,7 @@ export default function AdminUsers() {
   }
 
   const columns = [
-    { key: 'id', label: 'ID', width: '60px' },
+    { key: 'stt', label: 'STT', width: '60px' },
     { key: 'fullName', label: 'Tên người dùng', width: '200px' },
     { key: 'email', label: 'Email', width: '220px' },
     {
@@ -110,9 +107,15 @@ export default function AdminUsers() {
       label: 'Loại',
       render: (value) => (
         <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${
-          value === 'SELLER' ? 'bg-navy/10 text-content-primary' : 'bg-success/10 text-success'
+          value === 'SELLER' ? 'bg-navy/10 text-content-primary' : 
+          value === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+          value === 'INSPECTOR' ? 'bg-amber-100 text-amber-700' :
+          'bg-success/10 text-success'
         }`}>
-          {value || 'BUYER'}
+          {value === 'BUYER' ? 'Người mua' : 
+           value === 'SELLER' ? 'Người bán' : 
+           value === 'ADMIN' ? 'Quản trị viên' : 
+           value === 'INSPECTOR' ? 'Kiểm định viên' : value}
         </span>
       ),
     },
@@ -150,7 +153,6 @@ export default function AdminUsers() {
         <p className="text-content-secondary mt-2">Giám sát hoạt động, khóa hoặc mở khóa tài khoản</p>
       </div>
 
-      {/* Filters */}
       <div className="mb-6 flex gap-4">
         <div>
           <label className="text-sm font-medium text-content-primary block mb-2">Loại người dùng</label>
@@ -163,11 +165,11 @@ export default function AdminUsers() {
             <option value="buyer">Người mua</option>
             <option value="seller">Người bán</option>
             <option value="admin">Quản trị viên</option>
+            <option value="inspector">Kiểm định viên</option>
           </select>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-surface rounded-sm border border-border-light p-4 shadow-sm">
           <p className="text-sm text-content-secondary font-medium">Tổng người dùng</p>
@@ -183,10 +185,9 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      {/* Table */}
       <Table
         columns={columns}
-        data={filteredUsers}
+        data={usersWithSTT}
         actions={(user) => [
           <button
             key="view"
@@ -217,7 +218,6 @@ export default function AdminUsers() {
         className="bg-surface"
       />
 
-      {/* --- MODAL 1: CHI TIẾT USER --- */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -226,18 +226,15 @@ export default function AdminUsers() {
       >
         {selectedUser && (
           <div className="space-y-4">
-            
-            {/* Nếu bị khóa thì hiện màu đỏ lý do */}
             {selectedUser.status === 'BANNED' && (
               <div className="bg-red-50 text-red-700 p-3 rounded-sm border border-red-200 text-sm">
                 <strong>Tài khoản đang bị khóa!</strong>
                 <p className="mt-1">Lý do: {selectedUser.banReason || 'Không có lý do'}</p>
               </div>
             )}
-
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">ID / Ngày tạo</p>
+                <p className="text-xs text-content-secondary font-medium uppercase">ID gốc / Ngày tạo</p>
                 <p className="text-content-primary font-medium mt-1">#{selectedUser.id} - {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('vi-VN') : ''}</p>
               </div>
               <div>
@@ -247,12 +244,10 @@ export default function AdminUsers() {
                 </p>
               </div>
             </div>
-            
             <div>
               <p className="text-xs text-content-secondary font-medium uppercase">Tên đầy đủ</p>
               <p className="text-content-primary font-medium mt-1">{selectedUser.fullName || 'Chưa cập nhật'}</p>
             </div>
-            
             <div>
               <p className="text-xs text-content-secondary font-medium uppercase">Email / Điện thoại</p>
               <p className="text-content-primary font-medium mt-1">{selectedUser.email} / {selectedUser.phone || 'N/A'}</p>
@@ -261,12 +256,11 @@ export default function AdminUsers() {
         )}
       </Modal>
 
-      {/* --- MODAL 2: XEM LOG HOẠT ĐỘNG --- */}
       <Modal
         isOpen={isLogModalOpen}
         onClose={() => setIsLogModalOpen(false)}
         title={`Lịch sử hoạt động: ${selectedUser?.email}`}
-        size="lg" // Modal bự hơn một chút để chứa bảng
+        size="lg"
       >
         {loadingLogs ? (
           <div className="py-10 text-center text-content-secondary">Đang trích xuất dữ liệu log...</div>
@@ -306,7 +300,6 @@ export default function AdminUsers() {
           </div>
         )}
       </Modal>
-
     </div>
   )
 }

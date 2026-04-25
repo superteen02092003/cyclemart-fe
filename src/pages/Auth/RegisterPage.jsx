@@ -18,6 +18,91 @@ export default function RegisterPage() {
   })
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  const normalizeBackendErrors = (error) => {
+    if (!error) return {}
+
+    const normalizeFieldMessage = (field, message) => {
+      if (!message) return ''
+      const lower = String(message).toLowerCase()
+
+      if (field === 'fullName') {
+        if (lower.includes('tên chỉ được chứa chữ cái và khoảng trắng')) {
+          return 'Tên chỉ được chứa chữ cái và khoảng trắng'
+        }
+        if (lower.includes('tên không được để trống')) {
+          return 'Tên không được để trống'
+        }
+        if (lower.includes('tên phải từ 2-100 ký tự')) {
+          return 'Tên phải từ 2-100 ký tự'
+        }
+      }
+
+      if (field === 'password') {
+        if (lower.includes('password phải có ít nhất 8 ký tự')) {
+          return 'Password phải có ít nhất 8 ký tự'
+        }
+        if (lower.includes('password không được để trống')) {
+          return 'Password không được để trống'
+        }
+        if (lower.includes('password phải có ít nhất 1 chữ hoa và 1 ký tự đặc biệt')) {
+          return 'Password phải có ít nhất 1 chữ hoa và 1 ký tự đặc biệt'
+        }
+      }
+
+      return message
+    }
+
+    if (typeof error === 'string') {
+      if (error.toLowerCase().includes('số điện thoại') || error.toLowerCase().includes('phone')) {
+        return { phone: error }
+      }
+      if (error.toLowerCase().includes('tên') || error.toLowerCase().includes('full name')) {
+        return { fullName: normalizeFieldMessage('fullName', error) }
+      }
+      if (error.toLowerCase().includes('password') || error.toLowerCase().includes('mật khẩu')) {
+        return { password: normalizeFieldMessage('password', error) }
+      }
+      return { submit: error }
+    }
+
+    if (typeof error === 'object') {
+      if (error.errors && typeof error.errors === 'object') {
+        return Object.fromEntries(
+          Object.entries(error.errors).map(([field, message]) => [field, normalizeFieldMessage(field, message)])
+        )
+      }
+
+      if (error.phone || error.email || error.fullName || error.password) {
+        return {
+          ...(error.phone ? { phone: normalizeFieldMessage('phone', error.phone) } : {}),
+          ...(error.email ? { email: normalizeFieldMessage('email', error.email) } : {}),
+          ...(error.fullName ? { fullName: normalizeFieldMessage('fullName', error.fullName) } : {}),
+          ...(error.password ? { password: normalizeFieldMessage('password', error.password) } : {}),
+        }
+      }
+
+      if (error.message) {
+        const message = error.message
+        const lowerMessage = message.toLowerCase()
+
+        if (lowerMessage.includes('số điện thoại') || lowerMessage.includes('phone')) {
+          return { phone: message }
+        }
+        if (lowerMessage.includes('tên') || lowerMessage.includes('full name')) {
+          return { fullName: normalizeFieldMessage('fullName', message) }
+        }
+        if (lowerMessage.includes('password') || lowerMessage.includes('mật khẩu')) {
+          return { password: normalizeFieldMessage('password', message) }
+        }
+
+        return { submit: message }
+      }
+    }
+
+    return { submit: 'Đăng ký thất bại. Vui lòng thử lại.' }
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -49,8 +134,15 @@ export default function RegisterPage() {
     
     if (!formData.phone.trim()) {
       newErrors.phone = 'Vui lòng nhập số điện thoại'
-   } else if (!/^0[35789][0-9]{8}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'SĐT phải bắt đầu bằng số 0 và có 10 chữ số'
+    } else {
+      const phoneDigits = formData.phone.replace(/\s/g, '')
+      if (!/^0/.test(phoneDigits)) {
+        newErrors.phone = 'SĐT phải bắt đầu bằng số 0'
+      } else if (phoneDigits.length !== 10) {
+        newErrors.phone = 'SĐT phải có đúng 10 chữ số'
+      } else if (!/^0[0-9]{9}$/.test(phoneDigits)) {
+        newErrors.phone = 'SĐT không hợp lệ'
+      }
     }
     
     if (!formData.password) {
@@ -76,22 +168,31 @@ export default function RegisterPage() {
       await register(formData)
       
       // Hiển thị toast thành công
-      showToast('Đăng ký thành công! Chuyển hướng đến trang đăng nhập...', 'success')
+      showToast('Đăng ký thành công! Chuyển hướng đến xác thực email...', 'success')
       
-      // Chuyển hướng đến trang đăng nhập sau 2 giây
+      // Chuyển hướng đến trang xác thực OTP sau 1.5 giây
       setTimeout(() => {
-        navigate(ROUTES.LOGIN)
-      }, 2000)
+        navigate('/verify-otp', {
+          state: {
+            email: formData.email,
+            password: formData.password
+          }
+        })
+      }, 1500)
     } catch (error) {
-      console.error('Register error:', error)
-      
-      // Hiển thị lỗi từ server
-      if (error.message) {
-        setErrors({ submit: error.message })
-        showToast(error.message, 'error')
-      } else {
-        setErrors({ submit: 'Đăng ký thất bại. Vui lòng thử lại.' })
-        showToast('Đăng ký thất bại. Vui lòng thử lại.', 'error')
+      console.error('❌ Register error:', error)
+      console.log('Error type:', typeof error)
+      console.log('Error structure:', error)
+
+      const backendErrors = normalizeBackendErrors(error)
+      setErrors(prev => ({
+        ...prev,
+        ...backendErrors,
+      }))
+
+      const firstError = backendErrors.phone || backendErrors.email || backendErrors.fullName || backendErrors.password || backendErrors.submit
+      if (firstError) {
+        showToast(firstError, 'error')
       }
     } finally {
       setIsSubmitting(false)
@@ -108,11 +209,6 @@ export default function RegisterPage() {
         </h1>
         <p className="text-sm text-content-secondary mb-8">Tham gia cộng đồng CycleMart</p>
 
-        {errors.submit && (
-          <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-sm">
-            <p className="text-sm text-error">{errors.submit}</p>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -168,18 +264,28 @@ export default function RegisterPage() {
           
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-2">Mật khẩu</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Ít nhất 8 ký tự"
-              className={`w-full rounded-sm px-4 py-3 text-sm border bg-white text-content-primary outline-none transition-all ${
-                errors.password 
-                  ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
-                  : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
-              }`}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Ít nhất 8 ký tự"
+                className={`w-full rounded-sm px-4 py-3 pr-10 text-sm border bg-white text-content-primary outline-none transition-all ${
+                  errors.password 
+                    ? 'border-error focus:border-error focus:ring-2 focus:ring-error/20' 
+                    : 'border-border focus:border-orange focus:ring-2 focus:ring-orange-subtle'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary"
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              >
+                <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
             {errors.password && <p className="text-xs text-error mt-1">{errors.password}</p>}
           </div>
 
