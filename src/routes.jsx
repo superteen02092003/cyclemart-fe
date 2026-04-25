@@ -27,6 +27,7 @@ import AdminDisputes from '@/pages/Admin/Disputes'
 import AdminCategories from '@/pages/Admin/Categories'
 import AdminTransactions from '@/pages/Admin/Transactions'
 import AdminStatistics from '@/pages/Admin/Statistics'
+import AdminFinance from '@/pages/Admin/Finance'
 // THÊM IMPORT TRANG MỚI Ở ĐÂY
 import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
 
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
       { path: 'disputes', element: <AdminDisputes /> },
       { path: 'categories', element: <AdminCategories /> },
       { path: 'transactions', element: <AdminTransactions /> },
+      { path: 'finance', element: <AdminFinance /> },
       { path: 'statistics', element: <AdminStatistics /> },
       // THÊM ROUTE MỚI VÀO ĐÂY
       { path: 'priority-packages', element: <AdminPriorityPackages /> },
