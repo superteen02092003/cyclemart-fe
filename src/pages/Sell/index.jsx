@@ -7,7 +7,8 @@ import { cn } from '@/utils/cn'
 import InspectionModal from '@/components/inspection/InspectionModal'
 import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
-import api from '@/services/api' // 🔥 Đã thêm import api
+import { inspectionService } from '@/services/inspection' // 🔥 Import service kiểm định
+import api from '@/services/api' 
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -121,11 +122,15 @@ export default function SellPage() {
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [selectedImages, setSelectedImages] = useState([])
-  const [createdPostId, setCreatedPostId] = useState(null) // 🔥 Đã thêm state này
+  const [createdPostId, setCreatedPostId] = useState(null)
+  
+  // 🔥 MỚI: State lưu giá kiểm định hệ thống
+  const [inspectionFee, setInspectionFee] = useState(0)
 
-  // Load categories từ API
+  // Load categories và fee từ API
   useEffect(() => {
     loadCategories()
+    loadGlobalFee()
   }, [])
 
   const loadCategories = async () => {
@@ -137,42 +142,46 @@ export default function SellPage() {
     }
   }
 
+  // 🔥 MỚI: Hàm lấy giá tự động
+  const loadGlobalFee = async () => {
+    try {
+      const fee = await inspectionService.getGlobalFee()
+      setInspectionFee(fee)
+    } catch (error) {
+      console.error('Error loading global fee:', error)
+      setInspectionFee(250000) // Giá dự phòng nếu lỗi mạng
+    }
+  }
+
   const [formData, setFormData] = useState({
-    // Step 1
     title: '',
     categoryId: '',
     brand: '',
     model: '',
     year: '',
-    status: '', // condition -> status
-    // Step 2
+    status: '',
     frameMaterial: '',
     frameSize: '',
     brakeType: '',
     groupset: '',
     description: '',
-    // Step 3
     price: '',
-    allowNegotiation: false, // isNegotiable -> allowNegotiation
-    city: 'HO_CHI_MINH', // Default to HCM
+    allowNegotiation: false,
+    city: 'HO_CHI_MINH',
     district: '',
-    // Step 4 & 5 (Kiểm định)
     requestInspection: false,
     inspectionAddress: '',
     inspectionScheduledDate: '',
     inspectionNote: ''
   })
 
-  // Động lực hoá số bước: Nếu tick kiểm định thì có thêm bước 5
   const dynamicSteps = formData.requestInspection 
     ? [...STEPS, { id: 5, label: 'ĐK Kiểm định' }] 
     : STEPS;
   const totalSteps = dynamicSteps.length;
 
-  // Helper function to get input class based on validation
   const getInputClass = (fieldName, isRequired = false) => {
     if (!isRequired) return inputClass
-    
     const isEmpty = !formData[fieldName] || (fieldName === 'description' && formData[fieldName].length < 50)
     return isEmpty ? inputErrorClass : inputClass
   }
@@ -183,9 +192,7 @@ export default function SellPage() {
   }
 
   const handleNext = () => {
-    // Validate current step before moving to next
     const errors = []
-    
     if (currentStep === 1) {
       if (!formData.title) errors.push('Tiêu đề tin đăng')
       if (!formData.categoryId) errors.push('Loại xe')
@@ -223,8 +230,6 @@ export default function SellPage() {
   const handleSubmit = async () => {
     try {
       setLoading(true)
-      
-      // Validate required fields với thông báo cụ thể
       const errors = []
       
       if (!formData.title) errors.push('Tiêu đề tin đăng')
@@ -239,7 +244,6 @@ export default function SellPage() {
       if (!formData.price) errors.push('Giá niêm yết')
       if (!formData.district) errors.push('Quận/Huyện')
       
-      // Validate bước 5 (Kiểm định)
       if (formData.requestInspection) {
         if (!formData.inspectionAddress) errors.push('Địa chỉ xem xe (Kiểm định)')
         if (!formData.inspectionScheduledDate) {
@@ -255,7 +259,6 @@ export default function SellPage() {
         return
       }
 
-      // Prepare data for API
       const postData = {
         ...formData,
         images: selectedImages,
@@ -264,18 +267,14 @@ export default function SellPage() {
         categoryId: parseInt(formData.categoryId)
       }
 
-      // 🔥 FIX LỖI 400 BAD REQUEST: Xử lý dữ liệu Ngày tháng & Chuỗi rỗng cho Backend Java
       if (!formData.requestInspection) {
-        // Nếu không kiểm định, bắt buộc gán null để Java không bị lỗi parse chuỗi rỗng ""
         postData.inspectionAddress = null;
         postData.inspectionScheduledDate = null;
         postData.inspectionNote = null;
       } else if (postData.inspectionScheduledDate && postData.inspectionScheduledDate.length === 16) {
-        // Nếu có kiểm định, phải nối thêm số giây (":00") để khớp định dạng LocalDateTime của Java
         postData.inspectionScheduledDate = postData.inspectionScheduledDate + ':00';
       }
 
-      // Dọn dẹp các trường rỗng khác (vd: groupset, frameSize...) thành null để tránh lỗi Enum Backend
       Object.keys(postData).forEach(key => {
         if (postData[key] === '') {
           postData[key] = null;
@@ -284,18 +283,18 @@ export default function SellPage() {
 
       console.log('📝 Creating post:', postData)
       const response = await postService.create(postData)
-      const newPostId = response.id || response.data?.id; // Lấy ID bài vừa tạo
+      const newPostId = response.id || response.data?.id; 
       setCreatedPostId(newPostId)
 
-      // 🔥 KỊCH BẢN 1: Nếu người dùng có tick chọn kiểm định, gọi thanh toán VNPay
+      // 🔥 ĐÃ SỬA: Dùng inspectionFee (giá từ DB) thay vì hardcode 250k
       if (formData.requestInspection && newPostId) {
         try {
           const paymentData = {
             bikePostId: newPostId,
-            amount: 250000, // Giá phí kiểm định (Bạn có thể đổi số này)
+            amount: inspectionFee > 0 ? inspectionFee : 250000, 
             description: `Thanh toán phí kiểm định xe`,
-            type: "INSPECTION_FEE",         // Báo cho BE biết đây là kiểm định
-            referenceId: newPostId,         // Truyền ID bài đăng lên làm Reference
+            type: "INSPECTION_FEE",         
+            referenceId: newPostId,         
             name: "Khách hàng CycleMart",
             phone: "0999999999",
             address: "Thanh toán kiểm định"
@@ -306,7 +305,7 @@ export default function SellPage() {
           if (paymentRes.data?.paymentUrl) {
             localStorage.setItem('payment_intent', 'INSPECTION_FEE')
             window.location.href = paymentRes.data.paymentUrl 
-            return; // Dừng tại đây để web chuyển trang sang VNPay
+            return; 
           }
         } catch (payError) {
           console.error("Lỗi tạo thanh toán", payError)
@@ -314,7 +313,6 @@ export default function SellPage() {
         }
       }
 
-      // 🔥 KỊCH BẢN 2: Nếu không kiểm định, hiện trang Success như bình thường
       setSubmitted(true)
     } catch (error) {
       console.error('Error creating post:', error)
@@ -326,7 +324,7 @@ export default function SellPage() {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files)
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    const maxSize = 5 * 1024 * 1024 
     const validFiles = []
     const errors = []
 
@@ -355,14 +353,12 @@ export default function SellPage() {
       })
     }
 
-    // Reset input để có thể chọn lại cùng file
     e.target.value = ''
   }
 
   if (submitted) {
     return (
       <div className="max-w-xl mx-auto px-4 sm:px-6 py-16">
-        {/* Success */}
         <div className="text-center mb-8">
           <span
             className="material-symbols-outlined mb-4"
@@ -387,7 +383,6 @@ export default function SellPage() {
           </div>
         </div>
 
-        {/* Nếu chưa chọn đăng ký kiểm định lúc tạo bài thì hiện upsell */}
         {!formData.requestInspection && (
           <div className="bg-white border border-border-light rounded-sm shadow-card p-5">
             <div className="flex items-start gap-3">
@@ -397,7 +392,8 @@ export default function SellPage() {
               <div className="flex-1">
                 <p className="text-sm font-bold text-content-primary mb-0.5">Tăng uy tín với kiểm định xe</p>
                 <p className="text-xs text-content-secondary mb-3">
-                  Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(250000)}</strong>.
+                  {/* 🔥 ĐÃ SỬA: Hiển thị giá động bằng formatPrice(inspectionFee) */}
+                  Xe được gắn badge <strong>"Đã kiểm định"</strong> giúp bán nhanh hơn và được giá hơn. Inspector đến tận nơi kiểm tra — chỉ <strong>{formatPrice(inspectionFee)}</strong>.
                 </p>
                 <button
                   onClick={() => setShowInspection(true)}
@@ -414,7 +410,6 @@ export default function SellPage() {
           </div>
         )}
 
-        {/* 🔥 Truyền postId vào Modal nếu người dùng click Upsell */}
         {showInspection && <InspectionModal postId={createdPostId} onClose={() => setShowInspection(false)} />}
       </div>
     )
@@ -422,16 +417,13 @@ export default function SellPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      {/* Page header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-content-primary">Đăng tin bán xe</h1>
         <p className="text-sm text-content-secondary mt-1">Điền thông tin đầy đủ để thu hút người mua</p>
       </div>
 
-      {/* Progress bar */}
       <ProgressBar currentStep={currentStep} steps={dynamicSteps} />
 
-      {/* Draft saved notice */}
       {draftSaved && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-green/10 border border-green/20 rounded-sm mb-4 text-sm text-green font-medium">
           <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1", color: '#10b981' }}>check_circle</span>
@@ -439,10 +431,7 @@ export default function SellPage() {
         </div>
       )}
 
-      {/* Form card */}
       <div className="bg-white rounded-sm border border-border-light shadow-card p-6 mb-6">
-
-        {/* ── Step 1 ─────────────────────────────────────────────────── */}
         {currentStep === 1 && (
           <div className="space-y-5">
             <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
@@ -518,7 +507,6 @@ export default function SellPage() {
           </div>
         )}
 
-        {/* ── Step 2 ─────────────────────────────────────────────────── */}
         {currentStep === 2 && (
           <div className="space-y-5">
             <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
@@ -583,7 +571,6 @@ export default function SellPage() {
           </div>
         )}
 
-        {/* ── Step 3 ─────────────────────────────────────────────────── */}
         {currentStep === 3 && (
           <div className="space-y-5">
             <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
@@ -639,14 +626,12 @@ export default function SellPage() {
           </div>
         )}
 
-        {/* ── Step 4 ─────────────────────────────────────────────────── */}
         {currentStep === 4 && (
           <div className="space-y-5">
             <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
               Hình ảnh
             </h2>
 
-            {/* Upload zone */}
             <div>
               <label className={labelClass}>Ảnh xe (tùy chọn)</label>
               <div className="border-2 border-dashed border-border-light rounded-sm p-8 text-center hover:border-navy transition-colors cursor-pointer bg-surface-secondary">
@@ -672,7 +657,6 @@ export default function SellPage() {
               </div>
             </div>
 
-            {/* Selected images */}
             {selectedImages.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-content-secondary uppercase tracking-wide mb-2">
@@ -704,7 +688,6 @@ export default function SellPage() {
               </div>
             )}
 
-            {/* ── Checkbox Đăng ký Kiểm định Ngay ── */}
             <div className="mt-8 pt-6 border-t border-border-light">
               <label className="flex items-start gap-3 cursor-pointer p-4 bg-surface rounded-sm border border-border-light hover:border-navy transition-colors">
                 <input
@@ -715,17 +698,16 @@ export default function SellPage() {
                 />
                 <div>
                   <span className="block text-sm font-bold text-content-primary">Tôi muốn đăng ký kiểm định xe này ngay</span>
+                  {/* 🔥 ĐÃ SỬA: Thêm giá động vào phần giải thích checkbox */}
                   <span className="block text-xs text-content-secondary mt-1 leading-relaxed">
-                    Chuyên viên của chúng tôi sẽ đến tận nơi kiểm tra. Xe vượt qua kiểm định sẽ nhận được huy hiệu <strong className="text-success">"Đã kiểm định"</strong>, giúp bán nhanh hơn gấp 5 lần!
+                    Chuyên viên của chúng tôi sẽ đến tận nơi kiểm tra với mức phí <strong>{formatPrice(inspectionFee)}</strong>. Xe vượt qua kiểm định sẽ nhận được huy hiệu <strong className="text-success">"Đã kiểm định"</strong>, giúp bán nhanh hơn gấp 5 lần!
                   </span>
                 </div>
               </label>
             </div>
-            {/* ──────────────────────────────────────────────── */}
           </div>
         )}
 
-        {/* ── Step 5: KIỂM ĐỊNH (Chỉ hiện khi tick Checkbox) ── */}
         {currentStep === 5 && formData.requestInspection && (
           <div className="space-y-5 animate-fade-in">
             <h2 className="text-base font-bold text-content-primary border-b border-border-light pb-3 mb-5">
@@ -779,9 +761,7 @@ export default function SellPage() {
 
       </div>
 
-      {/* Navigation buttons */}
       <div className="flex items-center gap-3">
-        {/* Always: Save draft */}
         <Button variant="secondary" onClick={handleSaveDraft} size="sm">
           <span className="material-symbols-outlined text-[1rem]">save</span>
           Lưu nháp
