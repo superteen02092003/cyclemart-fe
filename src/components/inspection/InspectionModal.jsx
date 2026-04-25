@@ -5,8 +5,6 @@ import { inspectionService } from '@/services/inspection'
 import { postService } from '@/services/post'
 import api from '@/services/api'
 
-// Đã xoá hằng số cứng: const INSPECTION_FEE = 250000
-
 const STATUS_CONFIG = {
   PENDING:    { label: 'Chờ phân công',  color: 'bg-amber-50 text-amber-700 border-amber-200' },
   ASSIGNED:   { label: 'Đã phân công',   color: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -22,7 +20,6 @@ const STEPS = [
   { icon: 'verified',          title: 'Nhận kết quả',          desc: 'Đạt → badge "Đã kiểm định". Không đạt → ghi lý do.' },
 ]
 
-// ─── Request Card ─────────────────────────────────────────────
 function RequestCard({ req }) {
   const cfg = STATUS_CONFIG[req.status] || { label: req.status, color: 'bg-gray-50 text-gray-700 border-gray-200' }
   
@@ -41,7 +38,6 @@ function RequestCard({ req }) {
         </span>
         <span className="flex items-center gap-1">
           <span className="material-symbols-outlined text-[0.8rem]">schedule</span>
-          {/* Hiển thị cả ngày và giờ */}
           {new Date(req.scheduledDateTime).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
         </span>
         {req.inspectorName && (
@@ -67,39 +63,31 @@ function RequestCard({ req }) {
   )
 }
 
-// ─── Main Modal ───────────────────────────────────────────────
 export default function InspectionModal({ onClose, preselectedId }) {
   const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
   const [requests, setRequests] = useState([])
   const [activeListings, setActiveListings] = useState([])
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(false)
-  
-  // 🔥 MỚI: Thêm state lưu giá tiền lấy từ API
   const [inspectionFee, setInspectionFee] = useState(0)
 
   const [form, setForm] = useState({ listingId: preselectedId || '', address: '', scheduledDateTime: '', note: '' })
   const [formStep, setFormStep] = useState(1)
   const [errors, setErrors] = useState({}) 
 
-  // Load danh sách bài đăng & giá tiền hệ thống
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Lấy tất cả bài đăng của user
         const postRes = await postService.getMyPosts()
         const posts = postRes?.content || postRes || []
 
-        // 2. Lấy tất cả request kiểm định
         const reqRes = await inspectionService.getMyRequests({ page: 0, size: 100 })
-        const requests = reqRes?.content || []
+        const requestsList = reqRes?.content || []
 
-        // 3. Lấy danh sách ID bài đã đăng ký kiểm định
-        const inspectedPostIds = requests
+        const inspectedPostIds = requestsList
           .filter(r => r.status === 'PASSED') 
           .map(r => String(r.postId))
 
-        // 4. FILTER
         const filtered = posts.filter(post => 
           post.postStatus === 'APPROVED' &&           
           !inspectedPostIds.includes(String(post.id)) 
@@ -107,24 +95,21 @@ export default function InspectionModal({ onClose, preselectedId }) {
 
         setActiveListings(filtered)
 
-        // Auto chọn xe đầu tiên nếu chưa chọn
         if (!form.listingId && filtered.length > 0) {
           setForm(prev => ({ ...prev, listingId: filtered[0].id }))
         }
-
       } catch (error) {
         console.error("Lỗi load dữ liệu:", error)
       }
     }
 
-    // 🔥 MỚI: Lấy giá tiền từ hệ thống
     const fetchGlobalFee = async () => {
       try {
         const fee = await inspectionService.getGlobalFee()
         setInspectionFee(fee)
       } catch (error) {
         console.error("Lỗi lấy giá tiền:", error)
-        setInspectionFee(250000) // Fallback giá mặc định nếu lỗi mạng
+        setInspectionFee(250000) 
       }
     }
 
@@ -132,7 +117,6 @@ export default function InspectionModal({ onClose, preselectedId }) {
     fetchGlobalFee()
   }, [])
 
-  // Load danh sách yêu cầu kiểm định khi mở tab requests
   useEffect(() => {
     if (tab === 'requests') {
       loadMyRequests()
@@ -151,24 +135,13 @@ export default function InspectionModal({ onClose, preselectedId }) {
     }
   }
 
-  const showToast = (msg) => {
-    setToast(msg)
-    setTimeout(() => setToast(''), 3500)
-  }
-
   const selected = activeListings.find((l) => String(l.id) === String(form.listingId))
 
   const validateForm = () => {
     const newErrors = {}
-
-    if (!form.listingId) {
-      newErrors.listingId = 'Vui lòng chọn xe cần kiểm định'
-    }
-
-    if (!form.address || form.address.trim() === '') {
-      newErrors.address = 'Vui lòng nhập địa chỉ xem xe'
-    }
-
+    if (!form.listingId) newErrors.listingId = 'Vui lòng chọn xe cần kiểm định'
+    if (!form.address || form.address.trim() === '') newErrors.address = 'Vui lòng nhập địa chỉ xem xe'
+    
     if (!form.scheduledDateTime) {
       newErrors.scheduledDateTime = 'Vui lòng chọn ngày và giờ hẹn'
     } else {
@@ -189,6 +162,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
     }
   }
 
+  // 🔥 ĐÃ SỬA HÀM NÀY: Gọi API tạo kiểm định trước, tạo VNPay sau
   const handleSubmit = async () => {
     try {
       setLoading(true)
@@ -199,15 +173,34 @@ export default function InspectionModal({ onClose, preselectedId }) {
         return
       }
 
+      // 1. TẠO YÊU CẦU VÀO DATABASE ĐỂ ADMIN THẤY
+      try {
+        await inspectionService.createRequest({
+          postId: selected.id,
+          address: form.address,
+          scheduledDateTime: form.scheduledDateTime,
+          note: form.note
+        })
+      } catch (error) {
+        const msg = error.response?.data?.message || error.message
+        // Nếu lỗi do đã bấm trước đó rồi (xe đang pending) thì cho phép đi tiếp tới thanh toán
+        if (!msg.includes('đang trong quá trình xử lý')) {
+          alert(msg)
+          setLoading(false)
+          return
+        }
+      }
+
+      // 2. TẠO LINK VNPay
       const paymentData = {
         bikePostId: selected.id,   
-        amount: inspectionFee > 0 ? inspectionFee : 250000, // 🔥 MỚI: Dùng giá động để thanh toán
+        amount: inspectionFee > 0 ? inspectionFee : 250000, 
         description: `Thanh toán phí kiểm định xe`,
         type: "INSPECTION_FEE",
         referenceId: selected.id, 
         name: "Khách hàng CycleMart",
         phone: "0999999999",
-        address: "Thanh toán kiểm định"
+        address: form.address
       }
 
       const paymentRes = await api.post('/v1/payments/create', paymentData)
@@ -230,7 +223,6 @@ export default function InspectionModal({ onClose, preselectedId }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white w-full max-w-2xl rounded-sm shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
-
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-light flex-shrink-0 bg-surface">
           <div className="flex items-center gap-2">
@@ -389,7 +381,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
                   <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-sm px-4 py-3">
                     <span className="material-symbols-outlined text-blue-600 text-[1.2rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>info</span>
                     <p className="text-sm text-blue-800 leading-relaxed">
-                      Phí dịch vụ kiểm định: <strong className="text-lg">{formatPrice(inspectionFee)}</strong>. {/* 🔥 MỚI: Hiển thị giá động */}
+                      Phí dịch vụ kiểm định: <strong className="text-lg">{formatPrice(inspectionFee)}</strong>.
                       Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
                     </p>
                   </div>
@@ -405,7 +397,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
                       { label: 'Xe cần kiểm định', value: selected?.title },
                       { label: 'Địa chỉ xem xe', value: form.address },
                       { label: 'Thời gian', value: form.scheduledDateTime ? new Date(form.scheduledDateTime).toLocaleString('vi-VN') : '' },
-                      { label: 'Phí dịch vụ', value: formatPrice(inspectionFee) } // 🔥 MỚI: Dùng giá động tại màn hình Confirm
+                      { label: 'Phí dịch vụ', value: formatPrice(inspectionFee) } 
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between px-4 py-3 text-sm">
                         <span className="text-content-secondary font-medium">{label}</span>
