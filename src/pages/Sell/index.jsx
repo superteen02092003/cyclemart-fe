@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
@@ -107,6 +107,9 @@ function ProgressBar({ currentStep, steps }) {
 
 export default function SellPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const editId = searchParams.get('editId')
+  const isEditing = Boolean(editId)
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -118,7 +121,10 @@ export default function SellPage() {
   // Load categories từ API
   useEffect(() => {
     loadCategories()
-  }, [])
+    if (isEditing && editId) {
+      loadPostData(editId)
+    }
+  }, [isEditing, editId])
 
   const loadCategories = async () => {
     try {
@@ -126,6 +132,46 @@ export default function SellPage() {
       setCategories(data)
     } catch (error) {
       console.error('Error loading categories:', error)
+    }
+  }
+
+  const loadPostData = async (postId) => {
+    try {
+      setLoading(true)
+      const data = await postService.getById(postId)
+      
+      // Populate form with existing data
+      setFormData({
+        title: data.title || '',
+        categoryId: data.categoryId || '',
+        brand: data.brand || '',
+        model: data.model || '',
+        year: data.year || '',
+        status: data.status || '',
+        frameMaterial: data.frameMaterial || '',
+        frameSize: data.frameSize || '',
+        brakeType: data.brakeType || '',
+        groupset: data.groupset || '',
+        description: data.description || '',
+        price: data.price || '',
+        allowNegotiation: data.allowNegotiation || false,
+        city: data.city || 'HO_CHI_MINH',
+        district: data.district || '',
+        requestInspection: data.isRequestedInspection || false,
+        inspectionAddress: data.inspectionAddress || '',
+        inspectionScheduledDate: data.inspectionScheduledDate || '',
+        inspectionNote: data.inspectionNote || ''
+      })
+
+      // Note: We don't load existing images for editing to avoid complexity
+      // User will need to re-upload images if they want to change them
+      
+    } catch (error) {
+      console.error('Error loading post data:', error)
+      alert('Lỗi khi tải dữ liệu bài đăng: ' + (error.message || 'Không xác định'))
+      navigate('/my-listings')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -275,13 +321,20 @@ export default function SellPage() {
         postData.append('images', image)
       })
 
-      console.log('📝 Creating post with FormData')
-      await postService.create(postData)
+      if (isEditing) {
+        console.log('📝 Updating post with FormData')
+        await postService.update(editId, postData)
+        alert('Cập nhật bài đăng thành công!')
+        navigate('/my-listings')
+      } else {
+        console.log('📝 Creating post with FormData')
+        await postService.create(postData)
+        setSubmitted(true)
+      }
 
-      setSubmitted(true)
     } catch (error) {
-      console.error('Error creating post:', error)
-      alert(error.response?.data?.message || error.message || 'Lỗi khi tạo bài đăng')
+      console.error('Error submitting post:', error)
+      alert(error.response?.data?.message || error.message || 'Lỗi khi xử lý bài đăng')
     } finally {
       setLoading(false)
     }
@@ -289,14 +342,11 @@ export default function SellPage() {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files)
-    const maxSize = 5 * 1024 * 1024 // 5MB
     const validFiles = []
     const errors = []
 
     files.forEach(file => {
-      if (file.size > maxSize) {
-        errors.push(`${file.name} quá lớn (${(file.size / 1024 / 1024).toFixed(1)}MB). Tối đa 5MB/ảnh.`)
-      } else if (!file.type.startsWith('image/')) {
+      if (!file.type.startsWith('image/')) {
         errors.push(`${file.name} không phải là file ảnh.`)
       } else {
         validFiles.push(file)
@@ -386,8 +436,12 @@ export default function SellPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-content-primary">Đăng tin bán xe</h1>
-        <p className="text-sm text-content-secondary mt-1">Điền thông tin đầy đủ để thu hút người mua</p>
+        <h1 className="text-2xl font-bold text-content-primary">
+          {isEditing ? 'Chỉnh sửa bài đăng' : 'Đăng tin bán xe'}
+        </h1>
+        <p className="text-sm text-content-secondary mt-1">
+          {isEditing ? 'Cập nhật thông tin bài đăng của bạn' : 'Điền thông tin đầy đủ để thu hút người mua'}
+        </p>
       </div>
 
       {/* Progress bar */}
@@ -629,7 +683,7 @@ export default function SellPage() {
                   </span>
                   <p className="text-sm font-medium text-content-primary">Kéo thả ảnh vào đây</p>
                   <p className="text-xs text-content-secondary mt-1">hoặc click để chọn từ thiết bị</p>
-                  <p className={cn(hintClass, 'mt-3')}>Tối đa 10 ảnh · JPG/PNG · Tối đa 5MB/ảnh</p>
+                  <p className={cn(hintClass, 'mt-3')}>Tối đa 10 ảnh · JPG/PNG</p>
                 </label>
               </div>
             </div>
@@ -652,7 +706,7 @@ export default function SellPage() {
                         className="w-full h-full object-cover rounded-sm"
                       />
                       <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-1 py-0.5 rounded">
-                        {(image.size / 1024 / 1024).toFixed(1)}MB
+                        Ảnh {index + 1}
                       </div>
                       <button
                         onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
@@ -781,7 +835,7 @@ export default function SellPage() {
             onMouseLeave={(e) => !loading && (e.currentTarget.style.backgroundColor = '#ff6b35')}
           >
             <span className="material-symbols-outlined text-[1rem]">send</span>
-            {loading ? 'Đang gửi...' : 'Submit để kiểm duyệt'}
+            {loading ? 'Đang xử lý...' : isEditing ? 'Cập nhật bài đăng' : 'Submit để kiểm duyệt'}
           </button>
         )}
       </div>
