@@ -6,16 +6,16 @@ import InspectionModal from '@/components/inspection/InspectionModal'
 
 export default function InspectionPage() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
   const [open, setOpen] = useState(true)
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/login?redirect=' + encodeURIComponent('/inspection'));
       return;
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   return (
     <>

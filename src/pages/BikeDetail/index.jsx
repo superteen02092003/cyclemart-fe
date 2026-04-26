@@ -10,7 +10,6 @@ import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
 import { LoginRequiredModal } from '@/components/modals'
-import { useAuthGuard } from '@/hooks/useAuthGuard'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -475,13 +474,14 @@ OfferModal.propTypes = {
 export default function BikeDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { requireAuth, showLoginModal, loginAction, closeLoginModal } = useAuthGuard()
 
   const [bike, setBike] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [loginAction, setLoginAction] = useState('')
 
   const [sellerInfo, setSellerInfo] = useState(null)
   const [sellerRatings, setSellerRatings] = useState([])
@@ -550,15 +550,23 @@ export default function BikeDetailPage() {
   }, [sellerId])
 
   const handleBuyNow = () => {
-    requireAuth('mua hàng', () => {
-      navigate(`/checkout/${bike.id}`)
-    })
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      setLoginAction('mua hàng')
+      setShowLoginModal(true)
+      return
+    }
+    navigate(`/checkout/${bike.id}`)
   }
 
   const handleOfferClick = () => {
-    requireAuth('đặt giá', () => {
-      setShowOfferModal(true)
-    })
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      setLoginAction('đặt giá')
+      setShowLoginModal(true)
+      return
+    }
+    setShowOfferModal(true)
   }
 
   const handleMessageSeller = async () => {
@@ -994,7 +1002,7 @@ export default function BikeDetailPage() {
       {/* Login Required Modal */}
       <LoginRequiredModal
         isOpen={showLoginModal}
-        onClose={closeLoginModal}
+        onClose={() => setShowLoginModal(false)}
         action={loginAction}
       />
     </div>

@@ -107,17 +107,17 @@ function ProgressBar({ currentStep, steps }) {
 export default function SellPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
   const editId = searchParams.get('editId')
   const isEditing = Boolean(editId)
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/login?redirect=' + encodeURIComponent('/sell'));
       return;
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
