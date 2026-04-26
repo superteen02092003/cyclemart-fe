@@ -4,15 +4,24 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { bikePostService } from '@/services/bikePost';
 import { useAuth } from '@/hooks/useAuth';
+import { LoginRequiredModal } from '@/components/modals';
 import api from '@/services/api';
 
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login?redirect=' + encodeURIComponent(`/checkout/${id}`));
+      return;
+    }
+  }, [isAuthenticated, navigate, id]);
 
   const platformFee = 0;
   const shippingFee = 200000;

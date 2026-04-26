@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { ROUTES } from '@/constants/routes'
@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { register, isLoading } = useAuth()
   const { toast, showToast, hideToast } = useToast()
   

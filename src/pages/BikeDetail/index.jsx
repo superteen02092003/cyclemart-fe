@@ -9,6 +9,8 @@ import { bikePostService } from '@/services/bikePost'
 import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
+import { LoginRequiredModal } from '@/components/modals'
+import { useAuthGuard } from '@/hooks/useAuthGuard'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -473,6 +475,7 @@ OfferModal.propTypes = {
 export default function BikeDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { requireAuth, showLoginModal, loginAction, closeLoginModal } = useAuthGuard()
 
   const [bike, setBike] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -547,7 +550,15 @@ export default function BikeDetailPage() {
   }, [sellerId])
 
   const handleBuyNow = () => {
-    navigate(`/checkout/${bike.id}`)
+    requireAuth('mua hàng', () => {
+      navigate(`/checkout/${bike.id}`)
+    })
+  }
+
+  const handleOfferClick = () => {
+    requireAuth('đặt giá', () => {
+      setShowOfferModal(true)
+    })
   }
 
   const handleMessageSeller = async () => {
@@ -859,7 +870,7 @@ export default function BikeDetailPage() {
                   <Button
                     variant="outline"
                     fullWidth
-                    onClick={() => setShowOfferModal(true)}
+                    onClick={handleOfferClick}
                     className="mb-4"
                   >
                     <span className="material-symbols-outlined text-[1rem]">gavel</span>
@@ -979,6 +990,13 @@ export default function BikeDetailPage() {
       {!isOwnPost && showOfferModal && (
         <OfferModal bike={bike} onClose={() => setShowOfferModal(false)} />
       )}
+
+      {/* Login Required Modal */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={closeLoginModal}
+        action={loginAction}
+      />
     </div>
   )
 }

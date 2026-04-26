@@ -4,19 +4,31 @@ import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { NotificationBell } from '@/components/shared/NotificationBell'
+import { LoginRequiredModal } from '@/components/modals'
+import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { cn } from '@/utils/cn'
 
 const NAV_LINKS = [
-  { label: 'Mua xe', href: ROUTES.BROWSE },
-  { label: 'Bán xe', href: ROUTES.SELL },
-  { label: 'Kiểm định', href: ROUTES.INSPECTION },
-  { label: 'Cộng đồng', href: ROUTES.COMMUNITY },
+  { label: 'Mua xe', href: ROUTES.BROWSE, requireAuth: false },
+  { label: 'Bán xe', href: ROUTES.SELL, requireAuth: true },
+  { label: 'Kiểm định', href: ROUTES.INSPECTION, requireAuth: true },
+  { label: 'Cộng đồng', href: ROUTES.COMMUNITY, requireAuth: false },
 ]
 
 // Airbnb nav: white sticky, centered content, logo left, auth right
 export function TopNavBar() {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { requireAuth, showLoginModal, loginAction, closeLoginModal } = useAuthGuard()
+
+  const handleNavClick = (e, link) => {
+    if (link.requireAuth) {
+      e.preventDefault()
+      requireAuth(`truy cập ${link.label}`, () => {
+        window.location.href = link.href
+      })
+    }
+  }
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-border-light">
@@ -43,6 +55,7 @@ export function TopNavBar() {
                 <Link
                   key={link.href}
                   to={link.href}
+                  onClick={(e) => handleNavClick(e, link)}
                   className={cn(
                     'px-4 py-2 rounded-sm text-sm font-semibold transition-colors duration-150',
                     isActive
@@ -82,7 +95,10 @@ export function TopNavBar() {
             <Link
               key={link.href}
               to={link.href}
-              onClick={() => setMobileOpen(false)}
+              onClick={(e) => {
+                setMobileOpen(false)
+                handleNavClick(e, link)
+              }}
               className="px-3 py-3 rounded-sm text-sm font-semibold text-content-primary hover:bg-surface-tertiary transition-colors"
             >
               {link.label}
@@ -90,6 +106,13 @@ export function TopNavBar() {
           ))}
         </div>
       )}
+
+      {/* Login Required Modal */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={closeLoginModal}
+        action={loginAction}
+      />
     </header>
   )
 }
