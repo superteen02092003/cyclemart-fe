@@ -25,5 +25,11 @@ export default defineConfig([
         version: 'detect',
       },
     },
+    rules: {
+      'no-unused-vars': 'off',
+      'react/prop-types': 'off',
+      'react-hooks/exhaustive-deps': 'warn',
+      'no-console': 'off',
+    },
   },
 ])

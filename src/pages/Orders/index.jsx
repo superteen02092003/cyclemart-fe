@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
 import { ordersService } from '@/services/orders';
-import { authService } from '@/services/auth';
 import DeliveryModal from '@/components/orders/DeliveryModal';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import DisputeModal from '@/components/orders/DisputeModal';
@@ -211,39 +210,39 @@ export default function OrdersPage() {
   const [disputeOrder, setDisputeOrder] = useState(null);
   const [reviewOrder, setReviewOrder] = useState(null);
 
-  const currentUser = authService.getCurrentUser();
-
-  const mapPayment = useCallback((payment) => {
-    const isBuyer = payment.userId === currentUser?.id;
-    return {
-      paymentId: payment.id,
-      orderId: payment.orderId,
-      bikePostId: payment.bikePostId,
-      bikeTitle: payment.bikeTitle || 'Xe đạp',
-      amount: payment.amount,
-      orderStatus: payment.orderStatus || (payment.status === 'SUCCESS' ? 'PAID_WAITING_DELIVERY' : 'PENDING_PAYMENT'),
-      role: isBuyer ? 'BUYER' : 'SELLER',
-      buyerName: payment.buyerName || 'Người mua',
-      sellerName: payment.sellerName || 'Người bán',
-      createdAt: payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('vi-VN') : '',
-      paymentUrl: payment.paymentUrl || null,
-      escrowPoints: payment.escrowPoints || 0,
-      verifiedAtPurchase: payment.verifiedAtPurchase || false,
-      deliveryMethod: payment.deliveryMethod || null,
-      deliveryEvidenceUrls: payment.deliveryEvidenceUrls || null,
-      deliveredAt: payment.deliveredAt || null,
-      autoReleaseAt: payment.autoReleaseAt || null,
-    };
-  }, [currentUser?.id]);
+  const mapPayment = useCallback((payment, role) => ({
+    paymentId: payment.id,
+    orderId: payment.orderId,
+    bikePostId: payment.bikePostId,
+    bikeTitle: payment.bikeTitle || 'Xe đạp',
+    amount: payment.amount,
+    orderStatus: payment.orderStatus || (payment.status === 'SUCCESS' ? 'PAID_WAITING_DELIVERY' : 'PENDING_PAYMENT'),
+    role,
+    buyerName: payment.buyerName || 'Người mua',
+    sellerName: payment.sellerName || 'Người bán',
+    createdAt: payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('vi-VN') : '',
+    paymentUrl: payment.paymentUrl || null,
+    escrowPoints: payment.escrowPoints || 0,
+    verifiedAtPurchase: payment.verifiedAtPurchase || false,
+    deliveryMethod: payment.deliveryMethod || null,
+    deliveryEvidenceUrls: payment.deliveryEvidenceUrls || null,
+    deliveredAt: payment.deliveredAt || null,
+    autoReleaseAt: payment.autoReleaseAt || null,
+  }), []);
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await ordersService.getPaymentHistory(0, 50);
-      const mapped = (response.content || [])
+      const [buyerRes, sellerRes] = await Promise.all([
+        ordersService.getPaymentHistory(0, 50),
+        ordersService.getPaymentHistoryAsSeller(0, 50),
+      ]);
+      const buyerOrders = (buyerRes.content || [])
         .filter(p => p.type === 'ORDER_PAYMENT')
-        .map(mapPayment);
-      setOrders(mapped);
+        .map(p => mapPayment(p, 'BUYER'));
+      const sellerOrders = (sellerRes.content || [])
+        .map(p => mapPayment(p, 'SELLER'));
+      setOrders([...buyerOrders, ...sellerOrders]);
       setError(null);
     } catch (err) {
       console.error('Error fetching orders:', err);

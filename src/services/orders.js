@@ -6,6 +6,11 @@ export const ordersService = {
     return response.data
   },
 
+  getPaymentHistoryAsSeller: async (page = 0, size = 50) => {
+    const response = await api.get('/v1/payments/history/as-seller', { params: { page, size } })
+    return response.data
+  },
+
   getPaymentHistoryByStatus: async (status, page = 0, size = 20) => {
     const response = await api.get(`/v1/payments/history/status/${status}`, { params: { page, size } })
     return response.data

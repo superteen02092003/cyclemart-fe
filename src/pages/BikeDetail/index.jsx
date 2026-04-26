@@ -503,7 +503,7 @@ export default function BikeDetailPage() {
   const [showReport, setShowReport] = useState(false)
   const [reportData, setReportData] = useState(null)
   const [criteria, setCriteria] = useState([])
-  const [isLoadingReport, setIsLoadingReport] = useState(false)
+  const [, setIsLoadingReport] = useState(false)
 
   const currentUser = authService.getCurrentUser()
   const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub
@@ -603,6 +603,10 @@ export default function BikeDetailPage() {
     if (!currentUser) {
       setLoginAction('mua hàng')
       setShowLoginModal(true)
+      return
+    }
+    if (!bike?.isVerified) {
+      handleMessageSeller()
       return
     }
     navigate(`/checkout/${bike.id}`)
@@ -986,38 +990,30 @@ export default function BikeDetailPage() {
                 <>
                   <button
                     onClick={handleBuyNow}
-                    disabled={!bike?.isInspected}
-                    className={`w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors ${
-                      !bike?.isInspected 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : 'bg-[#ff6b35] hover:bg-[#ff7849]'
-                    }`}
-                    style={bike?.isInspected ? { backgroundColor: '#ff6b35' } : {}}
-                    onMouseEnter={(e) => bike?.isInspected && (e.currentTarget.style.backgroundColor = '#ff7849')}
-                    onMouseLeave={(e) => bike?.isInspected && (e.currentTarget.style.backgroundColor = '#ff6b35')}
-                    title={!bike?.isInspected ? "Bài đăng chưa được kiểm định" : ""}
+                    className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors bg-[#ff6b35] hover:bg-[#ff7849]"
+                    style={{ backgroundColor: '#ff6b35' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
                   >
-                    {!bike?.isInspected ? '🔒 Chưa có kiểm định' : 'Mua ngay'}
+                    {bike?.isVerified ? 'Mua ngay' : 'Liên hệ người bán'}
                   </button>
 
                   <Button
                     variant="outline"
                     fullWidth
                     onClick={handleOfferClick}
-                    disabled={!bike?.isInspected}
-                    className={`mb-4 ${!bike?.isInspected ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={!bike?.isInspected ? "Bài đăng chưa được kiểm định" : ""}
+                    className="mb-4"
                   >
                     <span className="material-symbols-outlined text-[1rem]">gavel</span>
-                    {!bike?.isInspected ? 'Chưa có kiểm định' : 'Đặt giá'}
+                    Đặt giá
                   </Button>
 
-                  {!bike?.isInspected && (
-                    <div className="p-3 bg-warning/10 rounded-sm border border-warning/20 flex items-start gap-2 mb-4">
-                      <span className="material-symbols-outlined text-warning text-[1.2rem] flex-shrink-0">warning</span>
-                      <div className="text-xs text-warning leading-relaxed">
-                        <p className="font-semibold mb-1">⚠️ Bài đăng chưa được kiểm định</p>
-                        <p>Hệ thống không chịu trách nhiệm đối với các sự việc xảy ra khi giao dịch xe chưa qua kiểm định. Tuy nhiên, bạn có thể nhắn tin trực tiếp với người bán để trao đổi buôn bán.</p>
+                  {!bike?.isVerified && (
+                    <div className="p-3 bg-amber-50 rounded-sm border border-amber-200 flex items-start gap-2 mb-4">
+                      <span className="material-symbols-outlined text-amber-500 text-[1.2rem] flex-shrink-0">info</span>
+                      <div className="text-xs text-amber-700 leading-relaxed">
+                        <p className="font-semibold mb-1">Chưa có kiểm định</p>
+                        <p>Sản phẩm này chưa qua kiểm định CycleMart. Bạn vẫn có thể liên hệ người bán để thoả thuận và thanh toán trực tiếp, nhưng sẽ không được bảo vệ bởi hệ thống escrow.</p>
                       </div>
                     </div>
                   )}
