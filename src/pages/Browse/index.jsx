@@ -5,6 +5,7 @@ import { BIKE_CATEGORIES } from '@/constants/categories'
 import { bikePostService } from '@/services/bikePost'
 import { wishlistService } from '@/services/wishlist'
 import { authService } from '@/services/auth'
+import { sellerRatingService } from '@/services/sellerRating'
 
 const BRANDS = ['Giant', 'Trek', 'Specialized', 'Cannondale', 'Merida', 'Cube', 'Scott', 'Brompton', 'Canyon', 'Pinarello']
 
@@ -79,6 +80,7 @@ export default function BrowsePage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [sortBy, setSortBy] = useState('newest')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sellerRatings, setSellerRatings] = useState({})
 
   // Gọi API mỗi khi filter thay đổi
   useEffect(() => {
@@ -96,10 +98,36 @@ export default function BrowsePage() {
           sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'createdAt',
           direction: sortBy === 'price_asc' ? 'asc' : 'desc'
         }
+
         const data = await bikePostService.search(params)
         const nextBikes = data.content || []
         setBikes(nextBikes)
 
+        // ✅ LẤY DANH SÁCH SELLER UNIQUE
+        const sellerIds = [...new Set(nextBikes.map(b => b.userId).filter(Boolean))]
+
+        // ✅ GỌI API SONG SONG
+        const ratingResults = await Promise.all(
+          sellerIds.map(async (id) => {
+            try {
+              const res = await sellerRatingService.getSellerInfo(id)
+              const info = res?.result || res
+              return { id, info }
+            } catch {
+              return { id, info: null }
+            }
+          })
+        )
+
+        // ✅ CHUYỂN THÀNH MAP
+        const ratingMap = {}
+        ratingResults.forEach(({ id, info }) => {
+          ratingMap[id] = info
+        })
+
+        setSellerRatings(ratingMap)
+
+        // ✅ wishlist giữ nguyên
         if (authService.isAuthenticated()) {
           const wishlistData = await wishlistService.getMyWishlist(0, 100)
           const rawItems = Array.isArray(wishlistData?.content) ? wishlistData.content : []
@@ -109,6 +137,7 @@ export default function BrowsePage() {
         } else {
           setWishlistedIds([])
         }
+
       } catch (error) {
         console.error("Lỗi khi tìm kiếm xe:", error)
       } finally {
@@ -331,6 +360,7 @@ export default function BrowsePage() {
                 <BikeCard
                   key={bike.id}
                   bike={bike}
+                  sellerRating={sellerRatings[bike.userId]}
                   isWishlisted={wishlistedIds.includes(bike.id)}
                   onWishlistToggle={handleWishlistToggle}
                 />
