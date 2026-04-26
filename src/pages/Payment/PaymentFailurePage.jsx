@@ -7,12 +7,13 @@ export default function PaymentFailurePage() {
   const reason = searchParams.get('reason') || 'Giao dịch không thành công'
   const bikeId = searchParams.get('bikeId')
   
-  // Kiểm tra cờ từ localStorage để biết người dùng đang cố gắng mua gì
+  // 🔥 Bổ sung thêm cờ kiểm tra kiểm định
   const isPriorityAttempt = localStorage.getItem('payment_intent') === 'PRIORITY_PACKAGE'
+  const isInspectionAttempt = localStorage.getItem('payment_intent') === 'INSPECTION_FEE'
 
   const handleRetry = () => {
     localStorage.removeItem('payment_intent')
-    if (isPriorityAttempt) {
+    if (isPriorityAttempt || isInspectionAttempt) {
       navigate(ROUTES.MY_LISTINGS)
     } else if (bikeId) {
       navigate(`/checkout/${bikeId}`)
@@ -28,10 +29,10 @@ export default function PaymentFailurePage() {
         {/* Error Icon */}
         <div className="w-20 h-20 bg-error/10 rounded-full flex items-center justify-center text-error text-5xl mx-auto mb-6 border-2 border-error/30">
           <span 
-            className="material-symbols-outlined" 
+            className="material-symbols-outlined"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
-            cancel
+            error
           </span>
         </div>
 
@@ -39,13 +40,11 @@ export default function PaymentFailurePage() {
         <h1 className="text-2xl font-bold text-content-primary mb-2">
           Thanh toán thất bại
         </h1>
-
-        {/* Message */}
-        <p className="text-sm text-content-secondary mb-6 leading-relaxed">
-          Rất tiếc, yêu cầu thanh toán của bạn đã bị từ chối hoặc bị hủy bỏ.
+        <p className="text-sm text-content-secondary mb-8">
+          Giao dịch của bạn đã bị hủy hoặc xảy ra lỗi.
         </p>
 
-        {/* Error Details */}
+        {/* Error Reason */}
         <div className="bg-error/5 rounded-lg p-4 mb-8 border border-error/10">
           <p className="text-xs font-bold text-error uppercase mb-1">
             Lý do lỗi:
@@ -79,13 +78,9 @@ export default function PaymentFailurePage() {
         <div className="mt-8 pt-6 border-t border-border-light">
           <p className="text-xs text-content-tertiary">
             Bạn gặp khó khăn khi thanh toán? Hãy liên hệ{" "}
-            <span className="text-blue font-bold">
-              CSKH CycleMart
-            </span>{" "}
-            để được hỗ trợ 24/7.
+            <span className="text-blue-600 font-bold cursor-pointer hover:underline">CSKH CycleMart</span>
           </p>
         </div>
-
       </div>
     </div>
   )

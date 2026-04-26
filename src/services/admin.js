@@ -33,7 +33,25 @@ export const adminService = {
     return response.data
   },
 
-  // 🔥 THÊM MỚI: === QUẢN LÝ TIÊU CHÍ KIỂM ĐỊNH ===
+  // === QUẢN LÝ THÔNG BÁO & THỐNG KÊ ===
+  getAdminNotifications: async () => {
+    const response = await api.get('/v1/admin/notifications')
+    return response.data
+  },
+  getUnreadCount: async () => {
+    const response = await api.get('/v1/admin/notifications/unread-count')
+    return response.data
+  },
+  markNotificationAsRead: async (id) => {
+    const response = await api.put(`/v1/admin/notifications/${id}/mark-read`)
+    return response.data
+  },
+  markAllNotificationsAsRead: async () => {
+    const response = await api.put('/v1/admin/notifications/mark-all-read')
+    return response.data
+  },
+
+  // === QUẢN LÝ TIÊU CHÍ KIỂM ĐỊNH ===
   getAllCriteria: async () => {
     const response = await api.get('/v1/inspection-criteria')
     return response.data

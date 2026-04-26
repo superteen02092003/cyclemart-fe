@@ -44,7 +44,7 @@ export default function AdminDisputes() {
   }
 
   const handleResolve = (id, winnerClass) => {
-    // winnerClass: 'BUYER' or 'SELLER'
+    // winnerClass: 'BUYER' or 'SELLER' (for dispute resolution context)
     setDisputes(disputes.map((r) => (r.id === id ? { ...r, status: `RESOLVED_${winnerClass}` } : r)))
     setIsDetailModalOpen(false)
   }

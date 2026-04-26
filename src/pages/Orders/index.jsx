@@ -10,14 +10,14 @@ import DisputeModal from '@/components/orders/DisputeModal';
 import ReviewModal from '@/components/orders/ReviewModal';
 
 const STATUS_LABELS = {
-  PENDING_PAYMENT:       { text: 'Chờ thanh toán',      color: 'bg-navy/10 text-navy' },
-  PAID_WAITING_DELIVERY: { text: 'Chờ giao hàng',        color: 'bg-orange/10 text-orange' },
-  IN_DELIVERY:           { text: 'Đang giao hàng',       color: 'bg-blue-500/10 text-blue-600' },
-  DELIVERED:             { text: 'Đã nhận hàng',         color: 'bg-green/10 text-green' },
-  RETURN_REQUESTED:      { text: 'Yêu cầu hoàn hàng',   color: 'bg-error/10 text-error' },
-  DISPUTE_SYSTEM:        { text: 'Đang tranh chấp',      color: 'bg-error/10 text-error' },
-  COMPLETED:             { text: 'Hoàn tất',             color: 'bg-green/10 text-green' },
-  CANCELLED:             { text: 'Đã hủy',               color: 'bg-content-tertiary/20 text-content-secondary' },
+  PENDING_PAYMENT:       { text: 'Chờ thanh toán',    color: 'bg-navy/10 text-navy border border-navy/20' },
+  PAID_WAITING_DELIVERY: { text: 'Chờ giao hàng',      color: 'bg-orange/10 text-orange border border-orange/20' },
+  IN_DELIVERY:           { text: 'Đang vận chuyển',    color: 'bg-blue-500/10 text-blue-600 border border-blue-500/20' },
+  DELIVERED:             { text: 'Đã nhận hàng',       color: 'bg-green/10 text-green border border-green/20' },
+  RETURN_REQUESTED:      { text: 'Yêu cầu hoàn trả',  color: 'bg-error/10 text-error border border-error/20' },
+  DISPUTE_SYSTEM:        { text: 'Đang tranh chấp',    color: 'bg-error/10 text-error border border-error/20' },
+  COMPLETED:             { text: 'Hoàn tất',           color: 'bg-gray-100 text-gray-600 border border-gray-200' },
+  CANCELLED:             { text: 'Đã hủy',             color: 'bg-content-tertiary/20 text-content-secondary' },
 };
 
 function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openReviewModal }) {
@@ -38,10 +38,14 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
   };
 
   return (
-    <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
+    <div className="bg-white rounded-sm border border-border-light shadow-card p-5 transition-all hover:shadow-md">
       <div className="flex justify-between items-start border-b border-border-light pb-3 mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold text-content-secondary bg-surface-secondary px-2 py-0.5 rounded-sm uppercase tracking-tighter border border-border-light">
+              {isBuyer ? 'ĐƠN MUA' : 'ĐƠN BÁN'}
+            </span>
+            <span className="text-xs text-content-tertiary">|</span>
             <span className="text-xs font-bold text-content-secondary uppercase tracking-wide">Mã Đơn: {order.orderId}</span>
             <span className="text-xs text-content-tertiary">·</span>
             <span className="text-xs text-content-secondary">{order.createdAt}</span>
@@ -51,7 +55,7 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
             <span className="text-navy">{isBuyer ? order.sellerName : order.buyerName}</span>
           </p>
         </div>
-        <div className={cn('px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wide', STATUS_LABELS[order.orderStatus]?.color || '')}>
+        <div className={cn('px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wide', STATUS_LABELS[order.orderStatus]?.color || '')}>
           {STATUS_LABELS[order.orderStatus]?.text || order.orderStatus}
         </div>
       </div>
@@ -71,7 +75,6 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
         </div>
       </div>
 
-      {/* Delivery info for IN_DELIVERY+ */}
       {order.deliveryMethod && (
         <div className="mt-3 p-3 bg-surface-secondary rounded-sm text-xs text-content-secondary border border-border-light">
           <span className="font-semibold text-content-primary">Giao hàng:</span>{' '}
@@ -83,7 +86,6 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
         </div>
       )}
 
-      {/* Auto-release countdown for DELIVERED */}
       {order.orderStatus === 'DELIVERED' && order.autoReleaseAt && (
         <div className="mt-3 p-3 bg-orange/10 border border-orange/20 rounded-sm text-xs text-orange">
           <span className="material-symbols-outlined text-[0.9rem] align-middle mr-1">schedule</span>
@@ -92,9 +94,7 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
         </div>
       )}
 
-      {/* Action buttons */}
       <div className="mt-5 flex justify-end flex-wrap gap-3 pt-4 border-t border-border-light">
-        {/* PENDING_PAYMENT — buyer */}
         {order.orderStatus === 'PENDING_PAYMENT' && isBuyer && order.paymentUrl && (
           <a href={order.paymentUrl} target="_blank" rel="noopener noreferrer"
             className="py-2.5 px-6 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-xs font-bold rounded-sm transition-colors">
@@ -102,18 +102,17 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
           </a>
         )}
 
-        {/* PAID_WAITING_DELIVERY — seller submits delivery */}
         {order.orderStatus === 'PAID_WAITING_DELIVERY' && !isBuyer && (
           <button
             disabled={actionLoading}
             onClick={() => openDeliveryModal(order)}
-            className="py-2.5 px-6 bg-navy text-white text-xs font-bold rounded-sm transition-colors disabled:opacity-50"
+            className="py-2.5 px-6 bg-navy text-white text-xs font-bold rounded-sm transition-colors disabled:opacity-50 flex items-center gap-2"
           >
+            <span className="material-symbols-outlined text-[1rem]">local_shipping</span>
             Xác nhận đã giao hàng
           </button>
         )}
 
-        {/* PAID_WAITING_DELIVERY — buyer can cancel */}
         {order.orderStatus === 'PAID_WAITING_DELIVERY' && isBuyer && (
           <button
             disabled={actionLoading}
@@ -127,7 +126,6 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
           </button>
         )}
 
-        {/* IN_DELIVERY — buyer confirms received */}
         {order.orderStatus === 'IN_DELIVERY' && isBuyer && (
           <button
             disabled={actionLoading}
@@ -135,14 +133,20 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
               () => ordersService.confirmReceived(order.paymentId),
               'Xác nhận đã nhận được hàng'
             )}
-            className="py-2.5 px-6 bg-green text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1 disabled:opacity-50"
+            className="py-2.5 px-6 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-2 disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[1rem]">check_circle</span>
-            {actionLoading ? 'Đang xử lý...' : 'Đã nhận được hàng'}
+            <span className="material-symbols-outlined text-[1rem]">inventory_2</span>
+            {actionLoading ? 'Đang xử lý...' : 'Tôi đã nhận được hàng'}
           </button>
         )}
 
-        {/* DELIVERED — buyer can open dispute or complete */}
+        {order.orderStatus === 'IN_DELIVERY' && !isBuyer && (
+          <div className="py-2 px-4 text-xs font-medium text-blue-600 bg-blue-50 rounded-sm border border-blue-100 flex items-center gap-2">
+            <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            Đang vận chuyển đến khách hàng...
+          </div>
+        )}
+
         {order.orderStatus === 'DELIVERED' && isBuyer && (
           <>
             {order.verifiedAtPurchase && (
@@ -156,30 +160,29 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
             <button
               disabled={actionLoading}
               onClick={() => openReviewModal(order)}
-              className="py-2.5 px-6 bg-navy text-white text-xs font-bold rounded-sm transition-colors disabled:opacity-50"
+              className="py-2.5 px-6 bg-green hover:bg-green/90 text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1 disabled:opacity-50"
             >
+              <span className="material-symbols-outlined text-[1rem]">verified</span>
               Hoàn thành & Đánh giá
             </button>
           </>
         )}
 
-        {/* RETURN_REQUESTED — seller responds */}
+        {order.orderStatus === 'DELIVERED' && !isBuyer && (
+          <span className="py-2 px-4 text-xs font-medium text-green bg-green/10 rounded-sm border border-green/20">
+            Khách đã nhận hàng. Đang chờ đánh giá...
+          </span>
+        )}
+
         {order.orderStatus === 'RETURN_REQUESTED' && !isBuyer && (
-          <>
-            <button
-              disabled={actionLoading}
-              onClick={() => alert('Liên hệ Admin để xử lý tranh chấp')}
-              className="py-2.5 px-4 text-xs font-bold text-content-secondary hover:bg-surface-secondary rounded-sm transition-colors"
-            >
-              Từ chối (liên hệ Admin)
-            </button>
-          </>
+          <span className="py-2 px-4 text-xs font-medium text-error bg-error/10 rounded-sm border border-error/20">
+            Người mua đang yêu cầu hoàn trả — chờ Admin xử lý
+          </span>
         )}
         {order.orderStatus === 'RETURN_REQUESTED' && isBuyer && (
           <span className="py-2.5 text-xs text-content-secondary">Đang chờ Admin xử lý...</span>
         )}
 
-        {/* DISPUTE_SYSTEM */}
         {order.orderStatus === 'DISPUTE_SYSTEM' && (
           <span className="py-2.5 text-xs text-content-secondary flex items-center gap-1">
             <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
@@ -258,55 +261,52 @@ export default function OrdersPage() {
     [orders, activeTab]
   );
 
-  const handleReviewSuccess = () => {
-    setReviewOrder(null);
-    fetchOrders();
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <div className="text-center py-20">
-          <div className="w-12 h-12 border-4 border-navy/20 border-t-navy rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-content-secondary">Đang tải danh sách đơn hàng...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-content-primary mb-1">Đơn hàng của tôi</h1>
+        <h1 className="text-2xl font-bold text-content-primary mb-1 flex items-center gap-2">
+          <span className="material-symbols-outlined text-navy">shopping_cart_checkout</span>
+          Giao dịch của tôi
+        </h1>
         <p className="text-sm text-content-secondary">Quản lý giao dịch mua và bán an toàn qua hệ thống escrow điểm</p>
       </div>
 
-      <div className="flex gap-4 border-b border-border-light mb-6">
+      <div className="flex gap-8 border-b border-border-light mb-6">
         <button
           onClick={() => setActiveTab('BUYER')}
           className={cn('pb-3 text-sm font-bold uppercase tracking-wide border-b-2 transition-colors',
             activeTab === 'BUYER' ? 'border-orange text-orange' : 'border-transparent text-content-secondary hover:text-content-primary')}
         >
-          Đơn mua của tôi
+          Đơn mua ({orders.filter(o => o.role === 'BUYER').length})
         </button>
         <button
           onClick={() => setActiveTab('SELLER')}
           className={cn('pb-3 text-sm font-bold uppercase tracking-wide border-b-2 transition-colors',
             activeTab === 'SELLER' ? 'border-orange text-orange' : 'border-transparent text-content-secondary hover:text-content-primary')}
         >
-          Đơn bán của tôi
+          Đơn bán ({orders.filter(o => o.role === 'SELLER').length})
         </button>
       </div>
 
       {error && (
-        <div className="bg-error/10 border border-error/20 rounded-lg p-4 mb-6 text-error text-sm">{error}</div>
+        <div className="bg-error/10 border border-error/20 rounded-lg p-4 mb-6 text-error text-sm flex items-center gap-2">
+          <span className="material-symbols-outlined text-[1.2rem]">error</span>
+          {error}
+        </div>
       )}
 
-      {filteredOrders.length === 0 ? (
-        <div className="text-center py-20">
-          <span className="material-symbols-outlined text-[4rem] text-content-tertiary mb-3">inbox</span>
+      {loading ? (
+        <div className="text-center py-24 flex flex-col items-center gap-3 bg-white rounded-sm border border-border-light">
+          <div className="w-10 h-10 border-4 border-navy/20 border-t-navy rounded-full animate-spin"></div>
+          <p className="text-content-secondary text-sm font-medium">Đang tải dữ liệu...</p>
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="text-center py-24 bg-white rounded-sm border border-border-light border-dashed">
+          <span className="material-symbols-outlined text-[4rem] text-content-tertiary mb-3 opacity-30">inventory_2</span>
           <h3 className="text-base font-semibold text-content-primary mb-2">Chưa có đơn hàng nào</h3>
-          <p className="text-sm text-content-secondary">Bạn chưa thực hiện giao dịch nào ở mục này.</p>
+          <p className="text-sm text-content-secondary">
+            {activeTab === 'BUYER' ? 'Bạn chưa mua chiếc xe nào trên hệ thống.' : 'Bạn chưa bán được chiếc xe nào.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -316,7 +316,6 @@ export default function OrdersPage() {
               order={order}
               onAction={fetchOrders}
               openDeliveryModal={setDeliveryOrder}
-              openReturnModal={setReturnOrder}
               openDisputeModal={setDisputeOrder}
               openReviewModal={setReviewOrder}
             />
@@ -349,7 +348,7 @@ export default function OrdersPage() {
         <ReviewModal
           order={reviewOrder}
           onClose={() => setReviewOrder(null)}
-          onSuccess={handleReviewSuccess}
+          onSuccess={() => { setReviewOrder(null); fetchOrders(); }}
         />
       )}
     </div>

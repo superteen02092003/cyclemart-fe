@@ -50,5 +50,13 @@ export const inspectionService = {
   getActiveCriteria: async () => {
     const response = await api.get('/v1/inspection-criteria/active')
     return response.data
+  },
+  getLatestPassed: async (postId) => {
+    const response = await api.get(`/v1/inspections/post/${postId}/latest-passed`)
+    return response.data
+  },
+  getInspectorTasksByAdmin: async (inspectorId, params) => {
+    const response = await api.get(`/v1/inspections/admin/inspector/${inspectorId}/tasks`, { params })
+    return response.data
   }
 }

@@ -3,6 +3,8 @@ import { BikeCard } from '@/components/shared/BikeCard'
 import { Button } from '@/components/ui/Button'
 import { BIKE_CATEGORIES } from '@/constants/categories'
 import { bikePostService } from '@/services/bikePost'
+import { wishlistService } from '@/services/wishlist'
+import { authService } from '@/services/auth'
 
 const BRANDS = ['Giant', 'Trek', 'Specialized', 'Cannondale', 'Merida', 'Cube', 'Scott', 'Brompton', 'Canyon', 'Pinarello']
 
@@ -64,6 +66,7 @@ function CheckboxGroup({ label, items, selected, onChange }) {
 export default function BrowsePage() {
   const [bikes, setBikes] = useState([])
   const [loading, setLoading] = useState(false)
+  const [wishlistedIds, setWishlistedIds] = useState([])
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
@@ -101,6 +104,27 @@ export default function BrowsePage() {
     const timer = setTimeout(fetchData, 500)
     return () => clearTimeout(timer)
   }, [searchQuery, selectedBrands, minPrice, maxPrice, location, sortBy])
+
+  const handleWishlistToggle = async (postId) => {
+    if (!authService.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      return
+    }
+
+    const isWishlisted = wishlistedIds.includes(postId)
+    try {
+      if (isWishlisted) {
+        await wishlistService.removeFromWishlist(postId)
+        setWishlistedIds((prev) => prev.filter((id) => id !== postId))
+      } else {
+        await wishlistService.addToWishlist(postId)
+        setWishlistedIds((prev) => [...prev, postId])
+      }
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
+      alert(message)
+    }
+  }
 
   const clearFilters = () => {
     setSelectedCategories([])
@@ -289,7 +313,12 @@ export default function BrowsePage() {
           ) : bikes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {bikes.map((bike) => (
-                <BikeCard key={bike.id} bike={bike} />
+                <BikeCard
+                  key={bike.id}
+                  bike={bike}
+                  isWishlisted={wishlistedIds.includes(bike.id)}
+                  onWishlistToggle={handleWishlistToggle}
+                />
               ))}
             </div>
           ) : (

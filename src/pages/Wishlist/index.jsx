@@ -1,20 +1,59 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BikeCard } from '@/components/shared/BikeCard'
 import { Button } from '@/components/ui/Button'
-import { MOCK_BIKES } from '@/constants/mockData'
 import { ROUTES } from '@/constants/routes'
+import { wishlistService } from '@/services/wishlist'
 
-// Pre-populate wishlist with first 4 bikes as mock data
-const INITIAL_WISHLIST = MOCK_BIKES.slice(0, 4).map((b) => b.id)
+const mapWishlistItemToBikeCard = (item) => ({
+  id: item.postId,
+  title: item.title || 'Bài đăng không tiêu đề',
+  price: item.price || 0,
+  sellerName: item.sellerName || 'Người bán',
+  brand: item.brand || 'Không rõ',
+  year: item.year || 'N/A',
+  frameSize: item.frameSize || '',
+  location: item.city || 'Không rõ khu vực',
+  images: Array.isArray(item.images) ? item.images : [],
+  condition: 'used',
+  isNegotiable: false,
+  isVerified: item.postStatus === 'APPROVED',
+  viewCount: item.viewCount || 0,
+})
 
 export default function WishlistPage() {
-  const [wishlistedIds, setWishlistedIds] = useState(INITIAL_WISHLIST)
+  const [wishlistedBikes, setWishlistedBikes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const wishlistedBikes = MOCK_BIKES.filter((b) => wishlistedIds.includes(b.id))
+  const fetchWishlist = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const response = await wishlistService.getMyWishlist(0, 50)
+      const items = Array.isArray(response?.content) ? response.content : []
+      setWishlistedBikes(items.map(mapWishlistItemToBikeCard))
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể tải danh sách yêu thích'
+      setError(message)
+      setWishlistedBikes([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const handleToggle = (id) => {
-    setWishlistedIds((prev) => prev.filter((wId) => wId !== id))
+  useEffect(() => {
+    fetchWishlist()
+  }, [])
+
+  const handleToggle = async (postId) => {
+    try {
+      await wishlistService.removeFromWishlist(postId)
+      setWishlistedBikes((prev) => prev.filter((bike) => bike.id !== postId))
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể xóa khỏi danh sách yêu thích'
+      setError(message)
+    }
   }
 
   return (
@@ -40,7 +79,20 @@ export default function WishlistPage() {
       </div>
 
       {/* Content */}
-      {wishlistedBikes.length === 0 ? (
+      {loading ? (
+        <div className="py-20 text-center text-content-secondary">Đang tải danh sách yêu thích...</div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <span className="material-symbols-outlined mb-4 text-error" style={{ fontSize: '4rem' }}>
+            error
+          </span>
+          <h2 className="text-lg font-semibold text-content-primary mb-2">Tải danh sách thất bại</h2>
+          <p className="text-sm text-content-secondary mb-6 max-w-sm">{error}</p>
+          <Button variant="secondary" size="sm" onClick={fetchWishlist}>
+            Thử lại
+          </Button>
+        </div>
+      ) : wishlistedBikes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <span
             className="material-symbols-outlined mb-4"

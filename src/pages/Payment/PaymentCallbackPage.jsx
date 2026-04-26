@@ -15,22 +15,16 @@ export default function PaymentCallbackPage() {
 
     const handleCallback = async () => {
       try {
-        // Lấy tất cả query parameters từ VNPay trả về trên URL
         const params = Object.fromEntries(searchParams)
-        console.log('VNPay callback params:', params)
-
-        // Gọi API VNPay return của Backend
         const response = await api.get('/v1/payments/vnpay/return', { params })
-        console.log('VNPay response:', response.data)
+        
+        const paymentType = response.data?.type // Lấy type từ backend trả về
 
-        // Kiểm tra mã phản hồi từ VNPay (00 là thành công)
         if (params.vnp_ResponseCode === '00') {
-          // Đưa người dùng về trang hóa đơn thành công (Success Page)
-          // Trang Success Page sẽ tự nhận diện đây là Mua gói hay Mua xe để hiện hóa đơn
-          navigate(`/payment-success?orderId=${params.vnp_TxnRef}`)
+          
+          navigate(`/payment-success?orderId=${params.vnp_TxnRef}&type=${paymentType}`)
         } else {
-          // Nếu không thành công, đưa về trang Failure kèm lý do
-          navigate(`/payment-failure?reason=Giao dịch đã bị hủy hoặc không thành công (Mã: ${params.vnp_ResponseCode})`)
+          navigate(`/payment-failure?reason=Giao dịch thất bại (Mã: ${params.vnp_ResponseCode})`)
         }
       } catch (error) {
         console.error('Callback error:', error)
