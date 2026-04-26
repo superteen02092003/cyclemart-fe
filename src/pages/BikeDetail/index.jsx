@@ -34,6 +34,332 @@ StarRating.propTypes = {
   max: PropTypes.number,
 }
 
+// Image Viewer Modal Component
+function ImageViewerModal({ images, initialIndex, onClose }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+  
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+  }
+  
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
+  }
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') onClose()
+    if (e.key === 'ArrowLeft') goToPrevious()
+    if (e.key === 'ArrowRight') goToNext()
+  }
+  
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+  
+  if (!images || images.length === 0) return null
+  
+  return (
+    <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">
+              {currentIndex + 1} / {images.length}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+          >
+            <span className="material-symbols-outlined text-white">close</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Image */}
+      <div className="relative w-full h-full flex items-center justify-center p-4 pt-20 pb-24">
+        <img
+          src={images[currentIndex]}
+          alt={`Ảnh ${currentIndex + 1}`}
+          className="max-w-full max-h-full object-contain"
+        />
+        
+        {/* Navigation Arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={goToPrevious}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 transition-colors text-white"
+            >
+              <span className="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button
+              onClick={goToNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 transition-colors text-white"
+            >
+              <span className="material-symbols-outlined">chevron_right</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail Strip */}
+      {images.length > 1 && (
+        <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/50 to-transparent p-4">
+          <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2">
+            {images.map((image, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentIndex(index)}
+                className={`flex-shrink-0 w-16 h-16 rounded-sm overflow-hidden border-2 transition-all ${
+                  index === currentIndex 
+                    ? 'border-white shadow-lg' 
+                    : 'border-transparent opacity-60 hover:opacity-80'
+                }`}
+              >
+                <img
+                  src={image}
+                  alt={`Thumbnail ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+ImageViewerModal.propTypes = {
+  images: PropTypes.arrayOf(PropTypes.string).isRequired,
+  initialIndex: PropTypes.number.isRequired,
+  onClose: PropTypes.func.isRequired,
+}
+
+// Facebook-style Image Gallery Component
+function ImageGallery({ images, title, postStatus }) {
+  const [showViewer, setShowViewer] = useState(false)
+  const [viewerIndex, setViewerIndex] = useState(0)
+  
+  const openViewer = (index) => {
+    setViewerIndex(index)
+    setShowViewer(true)
+  }
+  
+  if (!images || images.length === 0) {
+    return (
+      <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+        <div className="relative aspect-[16/9] bg-surface-secondary flex items-center justify-center">
+          <span
+            className="material-symbols-outlined text-content-tertiary"
+            style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
+          >
+            directions_bike
+          </span>
+        </div>
+        {postStatus === 'APPROVED' && (
+          <div className="absolute top-3 left-3">
+            <Badge variant="verified">
+              <span
+                className="material-symbols-outlined text-[0.7rem]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >verified</span>
+              Đã duyệt
+            </Badge>
+          </div>
+        )}
+      </div>
+    )
+  }
+  
+  if (images.length === 1) {
+    return (
+      <>
+        <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+          <div className="relative aspect-[16/9] bg-surface-secondary cursor-pointer group" onClick={() => openViewer(0)}>
+            <img
+              src={images[0]}
+              alt={title}
+              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-4xl opacity-0 group-hover:opacity-100 transition-opacity">
+                zoom_in
+              </span>
+            </div>
+          </div>
+          {postStatus === 'APPROVED' && (
+            <div className="absolute top-3 left-3">
+              <Badge variant="verified">
+                <span
+                  className="material-symbols-outlined text-[0.7rem]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >verified</span>
+                Đã duyệt
+              </Badge>
+            </div>
+          )}
+        </div>
+        {showViewer && (
+          <ImageViewerModal
+            images={images}
+            initialIndex={viewerIndex}
+            onClose={() => setShowViewer(false)}
+          />
+        )}
+      </>
+    )
+  }
+  
+  if (images.length === 2) {
+    return (
+      <>
+        <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+          <div className="grid grid-cols-2 gap-1">
+            {images.map((image, index) => (
+              <div
+                key={index}
+                className="relative aspect-[4/3] bg-surface-secondary cursor-pointer group"
+                onClick={() => openViewer(index)}
+              >
+                <img
+                  src={image}
+                  alt={`${title} - Ảnh ${index + 1}`}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    zoom_in
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {postStatus === 'APPROVED' && (
+            <div className="absolute top-3 left-3">
+              <Badge variant="verified">
+                <span
+                  className="material-symbols-outlined text-[0.7rem]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >verified</span>
+                Đã duyệt
+              </Badge>
+            </div>
+          )}
+        </div>
+        {showViewer && (
+          <ImageViewerModal
+            images={images}
+            initialIndex={viewerIndex}
+            onClose={() => setShowViewer(false)}
+          />
+        )}
+      </>
+    )
+  }
+  
+  // 3+ images: Facebook-style layout
+  return (
+    <>
+      <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+        <div className="grid grid-cols-2 gap-1 h-96">
+          {/* Main large image */}
+          <div
+            className="relative bg-surface-secondary cursor-pointer group"
+            onClick={() => openViewer(0)}
+          >
+            <img
+              src={images[0]}
+              alt={`${title} - Ảnh chính`}
+              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-4xl opacity-0 group-hover:opacity-100 transition-opacity">
+                zoom_in
+              </span>
+            </div>
+          </div>
+          
+          {/* Right side thumbnails */}
+          <div className="grid grid-rows-2 gap-1">
+            {images.slice(1, 3).map((image, index) => (
+              <div
+                key={index + 1}
+                className="relative bg-surface-secondary cursor-pointer group"
+                onClick={() => openViewer(index + 1)}
+              >
+                <img
+                  src={image}
+                  alt={`${title} - Ảnh ${index + 2}`}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    zoom_in
+                  </span>
+                </div>
+                
+                {/* Show "+X more" overlay on last visible image if there are more */}
+                {index === 1 && images.length > 3 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <span className="material-symbols-outlined text-3xl mb-1 block">photo_library</span>
+                      <span className="text-lg font-bold">+{images.length - 3}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Image count badge */}
+        <div className="absolute bottom-3 right-3">
+          <Badge variant="subtle">
+            <span className="material-symbols-outlined text-[0.75rem]">photo_library</span>
+            {images.length} ảnh
+          </Badge>
+        </div>
+        
+        {/* Approved badge */}
+        {postStatus === 'APPROVED' && (
+          <div className="absolute top-3 left-3">
+            <Badge variant="verified">
+              <span
+                className="material-symbols-outlined text-[0.7rem]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >verified</span>
+              Đã duyệt
+            </Badge>
+          </div>
+        )}
+      </div>
+      
+      {showViewer && (
+        <ImageViewerModal
+          images={images}
+          initialIndex={viewerIndex}
+          onClose={() => setShowViewer(false)}
+        />
+      )}
+    </>
+  )
+}
+
+ImageGallery.propTypes = {
+  images: PropTypes.arrayOf(PropTypes.string),
+  title: PropTypes.string.isRequired,
+  postStatus: PropTypes.string,
+}
+
 function OfferModal({ bike, onClose }) {
   const [offerPrice, setOfferPrice] = useState('')
   const [note, setNote] = useState('')
@@ -325,42 +651,12 @@ export default function BikeDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ── Left column ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Image area */}
-          <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden">
-            <div className="relative aspect-[16/9] bg-surface-secondary flex items-center justify-center">
-              {bike.images && bike.images.length > 0 ? (
-                <img
-                  src={bike.images[0]}
-                  alt={bike.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span
-                  className="material-symbols-outlined text-content-tertiary"
-                  style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
-                >
-                  directions_bike
-                </span>
-              )}
-              <div className="absolute bottom-3 right-3">
-                <Badge variant="subtle">
-                  <span className="material-symbols-outlined text-[0.75rem]">photo_library</span>
-                  {bike.images?.length || 0} ảnh
-                </Badge>
-              </div>
-              {bike.postStatus === 'APPROVED' && (
-                <div className="absolute top-3 left-3">
-                  <Badge variant="verified">
-                    <span
-                      className="material-symbols-outlined text-[0.7rem]"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >verified</span>
-                    Đã duyệt
-                  </Badge>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Facebook-style Image Gallery */}
+          <ImageGallery 
+            images={bike.images} 
+            title={bike.title}
+            postStatus={bike.postStatus}
+          />
 
           {/* Title (mobile) */}
           <div className="lg:hidden">

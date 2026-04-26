@@ -19,6 +19,7 @@ const STATUS_LABELS = {
   CANCELLED: { text: 'Đã hủy', color: 'bg-content-tertiary/20 text-content-secondary' },
 };
 
+<<<<<<< HEAD
 // ─── CÔNG CỤ CHUẨN HÓA VÀ ĐỒNG BỘ ──────────────────────────────
 const getCleanSyncKey = (title) => {
   if (!title) return '';
@@ -38,6 +39,10 @@ const resolveOrderStatus = (serverStatus, localStatus, defaultStatus) =>
 
 function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, onUpdateStatus }) {
   const isBuyer = order.role === 'BUYER';
+=======
+function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, simulateStatusUpdate }) {
+  const isBuyer = order.orderType === 'PURCHASE';
+>>>>>>> b225123722a3ae6d145942ed24c95940ed37e433
   
   return (
     <div className="bg-white rounded-sm border border-border-light shadow-card p-5 relative overflow-hidden transition-all hover:shadow-md">
@@ -155,7 +160,11 @@ function OrderCard({ order, openReturnModal, openReviewModal, openDisputeModal, 
 }
 
 export default function OrdersPage() {
+<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState('BUYER');
+=======
+  const [activeTab, setActiveTab] = useState('USER'); // USER for both buying and selling
+>>>>>>> b225123722a3ae6d145942ed24c95940ed37e433
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -172,8 +181,29 @@ export default function OrdersPage() {
       // 1. LẤY ĐƠN MUA
       let paymentData = [];
       try {
+<<<<<<< HEAD
         const fallbackRes = await api.get('/v1/payments/history?page=0&size=100');
         paymentData = fallbackRes.data?.content || fallbackRes.data || [];
+=======
+        setLoading(true);
+        const response = await ordersService.getPaymentHistory(0, 50);
+        
+        // Map payment data to order format
+        const mappedOrders = response.content?.map(payment => ({
+          id: payment.orderId,
+          bikeId: payment.bikePostId,
+          bikeTitle: payment.bikeTitle || 'Xe đạp',
+          price: payment.amount,
+          status: payment.status === 'SUCCESS' ? 'PAID_WAITING_DELIVERY' : 'PENDING_PAYMENT',
+          counterpartName: payment.sellerName || 'Người bán',
+          deliveryAddress: '',
+          createdAt: new Date(payment.createdAt).toLocaleDateString('vi-VN'),
+          orderType: 'PURCHASE' // This user is the buyer in this transaction
+        })) || [];
+        
+        setOrders(mappedOrders);
+        setError(null);
+>>>>>>> b225123722a3ae6d145942ed24c95940ed37e433
       } catch (err) {
         console.error("Lỗi lấy đơn mua:", err);
       }
@@ -269,9 +299,13 @@ export default function OrdersPage() {
   }, []);
 
   const filteredOrders = useMemo(() => {
+<<<<<<< HEAD
     return orders
       .filter(o => o.role === activeTab)
       .sort((a, b) => (b.sortAt || 0) - (a.sortAt || 0));
+=======
+    return orders.filter(o => o.orderType === 'PURCHASE').sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+>>>>>>> b225123722a3ae6d145942ed24c95940ed37e433
   }, [orders, activeTab]);
 
   const handleUpdateStatus = async (orderObj, newStatus) => {
@@ -327,6 +361,7 @@ export default function OrdersPage() {
 
       <div className="flex gap-10 border-b border-border-light mb-8">
          <button 
+<<<<<<< HEAD
            onClick={() => setActiveTab('BUYER')} 
            className={cn("pb-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-all", activeTab === 'BUYER' ? "border-[#ff6b35] text-[#ff6b35]" : "border-transparent text-content-tertiary hover:text-content-primary")}
          >
@@ -337,6 +372,12 @@ export default function OrdersPage() {
            className={cn("pb-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-all", activeTab === 'SELLER' ? "border-[#ff6b35] text-[#ff6b35]" : "border-transparent text-content-tertiary hover:text-content-primary")}
          >
            Đơn bán ({orders.filter(o => o.role === 'SELLER').length})
+=======
+           onClick={() => setActiveTab('USER')} 
+           className={cn("pb-3 text-sm font-bold uppercase tracking-wide border-b-2 transition-colors", activeTab === 'USER' ? "border-orange text-orange" : "border-transparent text-content-secondary hover:text-content-primary")}
+         >
+           Đơn hàng của tôi
+>>>>>>> b225123722a3ae6d145942ed24c95940ed37e433
          </button>
       </div>
 

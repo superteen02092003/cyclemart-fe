@@ -107,13 +107,12 @@ export default function AdminUsers() {
       label: 'Loại',
       render: (value) => (
         <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${
-          value === 'SELLER' ? 'bg-navy/10 text-content-primary' : 
+          value === 'USER' ? 'bg-success/10 text-success' : 
           value === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
           value === 'INSPECTOR' ? 'bg-amber-100 text-amber-700' :
           'bg-success/10 text-success'
         }`}>
-          {value === 'BUYER' ? 'Người mua' : 
-           value === 'SELLER' ? 'Người bán' : 
+          {value === 'USER' ? 'Người dùng' : 
            value === 'ADMIN' ? 'Quản trị viên' : 
            value === 'INSPECTOR' ? 'Kiểm định viên' : value}
         </span>
@@ -162,8 +161,7 @@ export default function AdminUsers() {
             className="px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50 bg-white"
           >
             <option value="all">Tất cả</option>
-            <option value="buyer">Người mua</option>
-            <option value="seller">Người bán</option>
+            <option value="user">Người dùng</option>
             <option value="admin">Quản trị viên</option>
             <option value="inspector">Kiểm định viên</option>
           </select>
