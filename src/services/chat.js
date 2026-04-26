@@ -28,6 +28,15 @@ export const chatService = {
     }
   },
 
+  markRoomAsRead: async (roomId) => {
+    try {
+      const response = await api.patch(`/v1/chats/rooms/${roomId}/read`)
+      return response.data
+    } catch (error) {
+      throw error.response?.data || { message: 'Không thể đánh dấu đã đọc' }
+    }
+  },
+
   sendMessage: async (roomId, content) => {
     try {
       const response = await api.post('/v1/chats/messages', { roomId, content })
