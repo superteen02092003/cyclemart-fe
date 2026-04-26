@@ -238,6 +238,21 @@ export default function ChatPage() {
     setMessagesByRoom((prev) => {
       const existing = prev[roomId] || []
       if (existing.some((item) => String(item.id) === String(message.id))) return prev
+
+      // Replace optimistic local message with confirmed server message to avoid duplicate bubbles.
+      const optimisticIndex = existing.findIndex(
+        (item) =>
+          String(item.senderId) === String(message.senderId) &&
+          String(item.id).startsWith('local-') &&
+          item.text === message.text
+      )
+
+      if (optimisticIndex >= 0 && !String(message.id).startsWith('local-')) {
+        const nextMessages = [...existing]
+        nextMessages[optimisticIndex] = message
+        return { ...prev, [roomId]: nextMessages }
+      }
+
       return { ...prev, [roomId]: [...existing, message] }
     })
 
