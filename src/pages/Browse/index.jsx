@@ -102,7 +102,9 @@ export default function BrowsePage() {
 
         if (authService.isAuthenticated()) {
           const wishlistData = await wishlistService.getMyWishlist(0, 100)
-          const ids = (wishlistData?.content || []).map((item) => item.postId)
+          const rawItems = Array.isArray(wishlistData?.content) ? wishlistData.content : []
+          const activeItems = await wishlistService.cleanupUnavailableItems(rawItems)
+          const ids = activeItems.map((item) => item.postId)
           setWishlistedIds(ids)
         } else {
           setWishlistedIds([])

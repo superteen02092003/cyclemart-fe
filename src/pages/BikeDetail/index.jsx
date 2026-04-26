@@ -656,50 +656,6 @@ export default function BikeDetailPage() {
     }
   }
 
-  const handleSubmitRating = async () => {
-    if (!sellerId) {
-      setRatingError('Không tìm thấy người bán để gửi đánh giá.')
-      return
-    }
-    if (!myRating) {
-      setRatingError('Vui lòng chọn số sao đánh giá.')
-      return
-    }
-
-    try {
-      setSubmittingRating(true)
-      setRatingError('')
-
-      const payload = {
-        sellerId,
-        score: myRating,
-        comment: myComment,
-      }
-
-      await sellerRatingService.createOrUpdateRating(payload.sellerId, payload.score, payload.comment)
-
-      setMyRating(0)
-      setMyComment('')
-
-      const ratingsResponse = await sellerRatingService.getSellerRatings(sellerId, 0, 5)
-      const ratingsData = ratingsResponse?.data || ratingsResponse || {}
-      const ratings = ratingsData?.ratings?.content || ratingsData?.content || ratingsData?.ratings || []
-      setSellerRatings(Array.isArray(ratings) ? ratings : [])
-
-      const infoResponse = await sellerRatingService.getSellerInfo(sellerId)
-      setSellerInfo(infoResponse?.data || infoResponse || null)
-
-      alert('Đánh giá thành công!')
-    } catch (err) {
-      console.error('Lỗi khi gửi đánh giá:', err)
-      const message = err?.response?.data?.errors?.sellerId || err?.response?.data?.message || 'Gửi đánh giá thất bại!'
-      setRatingError(message)
-      alert(message)
-    } finally {
-      setSubmittingRating(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -766,7 +722,7 @@ export default function BikeDetailPage() {
                 </Badge>
               )}
             </div>
-            
+
             <div className="flex flex-col items-start gap-1">
               <p className="text-2xl font-black text-[#ff6b35]">{formatPrice(bike.price)}</p>
               {bike.isVerified && (
@@ -859,6 +815,7 @@ export default function BikeDetailPage() {
           </div>
 
           {/* Reviews List */}
+          {/* Reviews */}
           <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
             <h2 className="text-base font-bold text-content-primary mb-4">
               Đánh giá người bán
@@ -913,10 +870,10 @@ export default function BikeDetailPage() {
         {/* ── Right column (sticky) ─────────────────────────────────────── */}
         <div className="space-y-4">
           <div className="sticky top-24 space-y-4">
-            
+
             {/* Price card */}
             <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
-              
+
               {/* Desktop Title & Badge - ĐÃ CẬP NHẬT TEM KIỂM ĐỊNH */}
               <div className="hidden lg:flex items-start justify-between gap-2 mb-3 flex-wrap">
                 <h1 className="text-lg font-bold text-content-primary leading-snug flex-1">
@@ -1200,7 +1157,7 @@ export default function BikeDetailPage() {
             </div>
 
             <div className="p-4 border-t border-border-light bg-gray-50 flex justify-end">
-              <button 
+              <button
                 onClick={() => setShowReport(false)}
                 className="px-8 py-2.5 bg-navy text-white text-sm font-bold rounded-sm hover:bg-navy-light transition-colors shadow-sm"
               >
