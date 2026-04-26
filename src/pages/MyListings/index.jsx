@@ -280,6 +280,9 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
 function InspectionHistory() {
   const [inspections, setInspections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 🔥 MỚI: State để lưu thông tin đơn kiểm định đang xem chi tiết
+  const [selectedDetail, setSelectedDetail] = useState(null);
 
   useEffect(() => {
     const fetchMyInspections = async () => {
@@ -318,14 +321,14 @@ function InspectionHistory() {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {inspections.map(ins => (
-          <div key={ins.id} className="bg-white p-5 rounded-sm border border-border-light shadow-sm relative overflow-hidden">
+          <div key={ins.id} className="bg-white p-5 rounded-sm border border-border-light shadow-sm relative overflow-hidden flex flex-col">
             <div className={cn(
               "absolute top-0 left-0 w-1 h-full",
               ins.status === 'PASSED' ? "bg-green-500" : 
               ins.status === 'FAILED' ? "bg-error" : "bg-warning"
             )} />
             
-            <div className="pl-3">
+            <div className="pl-3 flex-1">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-bold text-navy line-clamp-1">{ins.postTitle}</h3>
                 <span className={cn(
@@ -349,17 +352,83 @@ function InspectionHistory() {
                   <span className="material-symbols-outlined text-[1rem]">engineering</span>
                   Inspector: <span className="font-medium text-navy">{ins.inspectorName || 'Đang chờ phân công...'}</span>
                 </p>
-                {ins.resultNote && (
-                  <div className="mt-3 p-3 bg-surface-secondary rounded-sm border border-border-light">
-                    <p className="text-xs font-bold text-navy mb-1">Ghi chú kết quả:</p>
-                    <p className="text-sm italic">{ins.resultNote}</p>
-                  </div>
-                )}
               </div>
+            </div>
+
+            {/* 🔥 MỚI: Nút Xem lại thông tin đăng ký */}
+            <div className="pl-3 mt-4 pt-3 border-t border-border-light">
+               <button
+                  onClick={() => setSelectedDetail(ins)}
+                  className="text-[#1e3a5f] hover:text-[#ff6b35] flex items-center gap-1 text-sm font-semibold transition-colors"
+               >
+                  <span className="material-symbols-outlined text-[1.1rem]">visibility</span>
+                  Xem lại thông tin đã điền
+               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* 🔥 MỚI: Modal hiển thị chi tiết cho Seller */}
+      {selectedDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-sm w-full max-w-md p-6 shadow-xl">
+            <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
+              <h3 className="text-lg font-bold text-[#1e3a5f]">Thông tin đăng ký của bạn</h3>
+              <button onClick={() => setSelectedDetail(null)} className="material-symbols-outlined text-gray-500 hover:text-red-500 transition-colors">close</button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Bài đăng</label>
+                <p className="text-sm font-medium text-[#1e3a5f]">{selectedDetail.postTitle}</p>
+              </div>
+
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Địa điểm kiểm định</label>
+                <p className="text-sm font-medium italic mt-0.5">
+                  <span className="material-symbols-outlined text-sm inline-block align-middle mr-1 text-[#ff6b35]">location_on</span>
+                  {selectedDetail.address || 'Không có địa chỉ cụ thể'}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Thời gian mong muốn</label>
+                <p className="text-sm font-medium">
+                  {selectedDetail.scheduledDateTime 
+                    ? new Date(selectedDetail.scheduledDateTime).toLocaleString('vi-VN') 
+                    : 'Chưa chọn thời gian'}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Ghi chú của bạn</label>
+                <div className="mt-1 p-3 bg-gray-50 rounded-sm border border-gray-200 text-sm italic text-gray-600">
+                  {/* Hỗ trợ cả sellerNote hoặc note đề phòng sai lệch biến */}
+                  {selectedDetail.sellerNote || selectedDetail.note || 'Không có ghi chú.'}
+                </div>
+              </div>
+
+              {/* Nếu Inspector có ghi chú kết quả thì hiển thị luôn ở đây */}
+              {selectedDetail.resultNote && (
+                <div>
+                  <label className="text-[0.7rem] text-[#ff6b35] uppercase font-bold tracking-wider">Phản hồi từ Inspector</label>
+                  <div className="mt-1 p-3 bg-orange-50 rounded-sm border border-orange-100 text-sm text-gray-800">
+                    {selectedDetail.resultNote}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setSelectedDetail(null)}
+              className="w-full mt-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-sm hover:bg-gray-200 transition-colors"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

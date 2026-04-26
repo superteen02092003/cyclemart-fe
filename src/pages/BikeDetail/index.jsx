@@ -12,6 +12,10 @@ import { chatService } from '@/services/chat'
 import { LoginRequiredModal } from '@/components/modals'
 import { wishlistService } from '@/services/wishlist'
 
+// 🔥 Import thêm cho tính năng kiểm định
+import { inspectionService } from '@/services/inspection'
+import { cn } from '@/utils/cn'
+
 function StarRating({ rating, max = 5 }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -495,6 +499,12 @@ export default function BikeDetailPage() {
   const [submittingRating, setSubmittingRating] = useState(false)
   const [ratingError, setRatingError] = useState('')
 
+  // 🔥 MỚI: State cho biên bản kiểm định
+  const [showReport, setShowReport] = useState(false)
+  const [reportData, setReportData] = useState(null)
+  const [criteria, setCriteria] = useState([])
+  const [isLoadingReport, setIsLoadingReport] = useState(false)
+
   const currentUser = authService.getCurrentUser()
   const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub
   const sellerId = bike?.userId ?? bike?.sellerId ?? bike?.ownerId ?? bike?.user?.id
@@ -511,8 +521,27 @@ export default function BikeDetailPage() {
       try {
         setLoading(true)
         const data = await bikePostService.getById(id)
-        setBike(data?.result || data?.data || data)
+        const bikeData = data?.result || data?.data || data
+        setBike(bikeData)
         setError(null)
+
+        // 🔥 NẾU XE ĐÃ KIỂM ĐỊNH -> LẤY BIÊN BẢN VÀ TIÊU CHÍ
+        if (bikeData?.isVerified) {
+          setIsLoadingReport(true)
+          try {
+            const [report, allCriteria] = await Promise.all([
+              inspectionService.getLatestPassed(bikeData.id),
+              inspectionService.getActiveCriteria()
+            ])
+            setReportData(report)
+            setCriteria(allCriteria)
+          } catch (err) {
+            console.error("Không thể tải biên bản kiểm định:", err)
+          } finally {
+            setIsLoadingReport(false)
+          }
+        }
+
       } catch (err) {
         setError(err.message || 'Lỗi khi tải dữ liệu xe')
         setBike(null)
@@ -702,6 +731,9 @@ export default function BikeDetailPage() {
     )
   }
 
+  // Chuyển đổi dữ liệu checklist từ chuỗi JSON (ví dụ: "[1, 3]") sang mảng ID
+  const passedCriteriaIds = reportData?.checklistData ? JSON.parse(reportData.checklistData) : []
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
@@ -723,10 +755,30 @@ export default function BikeDetailPage() {
             postStatus={bike.postStatus}
           />
 
-          {/* Title (mobile) */}
-          <div className="lg:hidden">
-            <h1 className="text-xl font-bold text-content-primary mb-2">{bike.title}</h1>
-            <p className="text-2xl font-black text-content-primary">{formatPrice(bike.price)}</p>
+          {/* Title & Price (Mobile View) - CÓ TEM VÀ NÚT BIÊN BẢN */}
+          <div className="lg:hidden mb-4">
+            <div className="flex items-start gap-2 mb-2 flex-wrap">
+              <h1 className="text-xl font-bold text-content-primary">{bike.title}</h1>
+              {bike.isVerified && (
+                <Badge variant="verified" className="py-1 px-2 shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-[0.8rem] mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  Đã kiểm định
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex flex-col items-start gap-1">
+              <p className="text-2xl font-black text-[#ff6b35]">{formatPrice(bike.price)}</p>
+              {bike.isVerified && (
+                <button
+                  onClick={() => setShowReport(true)}
+                  className="flex items-center gap-1.5 text-navy hover:text-[#ff6b35] text-sm font-bold transition-colors group mt-1"
+                >
+                  <span className="material-symbols-outlined text-[1.1rem] group-hover:scale-110 transition-transform">fact_check</span>
+                  <span className="underline decoration-dotted underline-offset-4">Xem biên bản kiểm định</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Description */}
@@ -777,8 +829,8 @@ export default function BikeDetailPage() {
                     color: i < myRating ? '#f59e0b' : '#d1d5db',
                   }}
                 >
-        star
-      </span>
+                  star
+                </span>
               ))}
             </div>
 
@@ -805,9 +857,9 @@ export default function BikeDetailPage() {
               <p className="text-error text-xs mt-2">{ratingError}</p>
             )}
           </div>
-          {/* Reviews */}
-          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
 
+          {/* Reviews List */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
             <h2 className="text-base font-bold text-content-primary mb-4">
               Đánh giá người bán
               {sellerRatings.length > 0 && (
@@ -861,14 +913,35 @@ export default function BikeDetailPage() {
         {/* ── Right column (sticky) ─────────────────────────────────────── */}
         <div className="space-y-4">
           <div className="sticky top-24 space-y-4">
+            
             {/* Price card */}
             <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
-              <h1 className="hidden lg:block text-lg font-bold text-content-primary mb-3 leading-snug">
-                {bike.title}
-              </h1>
+              
+              {/* Desktop Title & Badge - ĐÃ CẬP NHẬT TEM KIỂM ĐỊNH */}
+              <div className="hidden lg:flex items-start justify-between gap-2 mb-3 flex-wrap">
+                <h1 className="text-lg font-bold text-content-primary leading-snug flex-1">
+                  {bike.title}
+                </h1>
+                {bike.isVerified && (
+                  <Badge variant="verified" className="shrink-0 mt-0.5 py-1 px-2">
+                    <span className="material-symbols-outlined text-[0.8rem] mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                    Đã kiểm định
+                  </Badge>
+                )}
+              </div>
 
-              <div className="flex items-end gap-2 mb-1">
-                <p className="text-3xl font-black text-content-primary">{formatPrice(bike.price)}</p>
+              {/* Price & View Report Button - ĐÃ CẬP NHẬT BIÊN BẢN */}
+              <div className="flex flex-col items-start gap-1 mb-4">
+                <p className="text-3xl font-black text-[#ff6b35]">{formatPrice(bike.price)}</p>
+                {bike.isVerified && (
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="flex items-center gap-1.5 text-navy hover:text-[#ff6b35] text-sm font-bold transition-colors group mt-1"
+                  >
+                    <span className="material-symbols-outlined text-[1.1rem] group-hover:scale-110 transition-transform">fact_check</span>
+                    <span className="underline decoration-dotted underline-offset-4">Xem biên bản kiểm định</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 mb-4">
@@ -1058,6 +1131,85 @@ export default function BikeDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 🔥 MODAL BÁO CÁO KIỂM ĐỊNH */}
+      {showReport && reportData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-border-light bg-surface-secondary/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                  <span className="material-symbols-outlined text-[1.4rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-navy">Biên bản kiểm định xe</h2>
+                  <p className="text-xs text-content-secondary mt-0.5">Xác nhận bởi CycleMart vào {new Date(reportData.createdAt).toLocaleDateString('vi-VN')}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowReport(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-content-tertiary">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              {/* Checklist Section */}
+              <div>
+                <h3 className="text-sm font-bold text-navy uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[1.1rem] text-[#ff6b35]">checklist</span>
+                  Tình trạng các bộ phận
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {criteria.map((item) => {
+                    const isPassed = passedCriteriaIds.includes(item.id);
+                    return (
+                      <div key={item.id} className={cn(
+                        "flex items-center justify-between p-3 rounded-sm border",
+                        isPassed ? "bg-green-50/50 border-green-100" : "bg-gray-50 border-gray-100"
+                      )}>
+                        <span className="text-sm font-medium text-content-primary">{item.name}</span>
+                        {isPassed ? (
+                          <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
+                            <span className="material-symbols-outlined text-[1.1rem]">check_circle</span> Đạt
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-gray-400 text-xs font-medium">
+                            <span className="material-symbols-outlined text-[1.1rem]">info</span> Cần lưu ý
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Inspector's Note */}
+              <div className="bg-[#1e3a5f]/5 border border-[#1e3a5f]/10 p-5 rounded-sm relative">
+                 <span className="material-symbols-outlined absolute -top-3 -left-1 text-[#1e3a5f]/20 text-4xl">format_quote</span>
+                 <h3 className="text-sm font-bold text-navy flex items-center gap-2 mb-3">
+                  <span className="material-symbols-outlined text-[1.1rem] text-[#1e3a5f]">comment</span>
+                  Đánh giá chi tiết từ Inspector
+                </h3>
+                <p className="text-sm text-content-primary leading-relaxed italic relative z-10">
+                  "{reportData.resultNote || 'Chuyên gia không có ghi chú bổ sung cho bài đăng này.'}"
+                </p>
+              </div>
+
+              <div className="p-4 bg-surface-secondary rounded-sm text-[0.7rem] text-content-secondary leading-relaxed">
+                <strong>Lưu ý:</strong> Biên bản kiểm định này dựa trên tình trạng quan sát được tại thời điểm kiểm tra. CycleMart khuyến khích người mua nên trao đổi kỹ và có thể xem xe trực tiếp để có trải nghiệm chính xác nhất trước khi thanh toán.
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border-light bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setShowReport(false)}
+                className="px-8 py-2.5 bg-navy text-white text-sm font-bold rounded-sm hover:bg-navy-light transition-colors shadow-sm"
+              >
+                Đóng biên bản
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Offer modal */}
       {!isOwnPost && showOfferModal && (

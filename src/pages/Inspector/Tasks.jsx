@@ -21,12 +21,12 @@ export default function InspectorTasks() {
   // Form & Criteria states
   const [resultNote, setResultNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [criteria, setCriteria] = useState([]); // 🔥 Danh sách tiêu chí động
-  const [checklist, setChecklist] = useState({}); // 🔥 Object lưu state các ô tick { id: true/false }
+  const [criteria, setCriteria] = useState([]); 
+  const [checklist, setChecklist] = useState({}); 
 
   useEffect(() => {
     fetchTasks();
-    fetchCriteria(); // Load tiêu chí khi vào trang
+    fetchCriteria(); 
   }, []);
 
   const fetchTasks = async () => {
@@ -48,7 +48,6 @@ export default function InspectorTasks() {
       const data = await inspectionService.getActiveCriteria();
       setCriteria(data);
     } catch (error) {
-      // Nếu Backend chưa có API này, dùng danh sách tạm để không lỗi UI
       setCriteria([
         { id: 1, name: 'Khung xe (Nứt, gãy, sơn lại)' },
         { id: 2, name: 'Hệ thống phanh (Má phanh, cáp)' },
@@ -62,11 +61,11 @@ export default function InspectorTasks() {
     setSelectedTask(task);
     setResultNote(task.resultNote || '');
     
-    // 🔥 ĐỌC DỮ LIỆU ĐÃ TICK TỪ DB
+    // Đọc dữ liệu đã tick từ DB
     let parsedChecklist = {};
     if (task.checklistData) {
       try {
-        const checkedIds = JSON.parse(task.checklistData); // VD: [1, 3]
+        const checkedIds = JSON.parse(task.checklistData);
         if (Array.isArray(checkedIds)) {
           checkedIds.forEach(id => parsedChecklist[id] = true);
         }
@@ -93,22 +92,24 @@ export default function InspectorTasks() {
     setPostDetails(null);
   };
 
-  const handleUpdateResult = async (status) => {
+  const handleUpdateResult = async () => {
     if (!selectedTask) return;
-    if (status === 'FAILED' && !resultNote.trim()) {
-      alert('Vui lòng nhập lý do đánh rớt vào ô ghi chú!');
+    
+    if (!resultNote.trim()) {
+      alert('Vui lòng nhập ghi chú biên bản kiểm định để người mua có thể xem chi tiết!');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 🔥 CHUYỂN CÁC Ô ĐÃ TICK THÀNH MẢNG JSON TRƯỚC KHI GỬI
+      // Chuyển các ô đã tick thành mảng JSON
       const checkedIds = Object.keys(checklist).filter(id => checklist[id]).map(Number);
       const checklistDataStr = JSON.stringify(checkedIds);
 
-      await inspectionService.updateResult(selectedTask.id, status, resultNote, checklistDataStr);
+      // Gửi ngầm định trạng thái PASSED để Backend bật isVerified = true, nhưng logic thực tế là "Đã hoàn tất kiểm định"
+      await inspectionService.updateResult(selectedTask.id, 'PASSED', resultNote, checklistDataStr);
       
-      alert(`Đã cập nhật kết quả: ${status === 'PASSED' ? 'ĐẠT' : 'KHÔNG ĐẠT'}`);
+      alert(`Đã lưu biên bản kiểm định thành công!`);
       closeModal();
       fetchTasks();
     } catch (error) {
@@ -140,8 +141,7 @@ export default function InspectorTasks() {
       <div className="flex gap-1 border-b border-border-light">
         {[
           { id: 'ASSIGNED', label: 'Cần xử lý', icon: 'pending_actions' },
-          { id: 'PASSED', label: 'Đã đạt', icon: 'verified' },
-          { id: 'FAILED', label: 'Bị rớt', icon: 'cancel' },
+          { id: 'PASSED', label: 'Đã hoàn tất', icon: 'verified_user' },
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === tab.id ? "border-[#175d5d] text-[#175d5d] bg-white" : "border-transparent text-content-secondary hover:text-content-primary hover:bg-white/50")}>
             <span className="material-symbols-outlined text-[1.1rem]">{tab.icon}</span>
@@ -165,12 +165,12 @@ export default function InspectorTasks() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredTasks.map((task) => (
             <div key={task.id} className="bg-white rounded-sm border border-border-light shadow-card p-5 hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className={cn("absolute top-0 left-0 w-1 h-full", task.status === 'PASSED' ? "bg-green-600" : task.status === 'FAILED' ? "bg-error" : "bg-warning")} />
+              <div className={cn("absolute top-0 left-0 w-1 h-full", task.status === 'PASSED' ? "bg-[#10b981]" : "bg-warning")} />
               <div className="pl-2">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-bold text-navy text-lg line-clamp-1" title={task.postTitle}>{task.postTitle}</h3>
-                  <span className={cn("text-[0.7rem] font-bold px-2 py-1 rounded-sm uppercase tracking-wider ml-2 flex-shrink-0", task.status === 'PASSED' ? "bg-green-100 text-green-700" : task.status === 'FAILED' ? "bg-error/10 text-error" : "bg-warning/10 text-warning-content")}>
-                    {task.status}
+                  <span className={cn("text-[0.7rem] font-bold px-2 py-1 rounded-sm uppercase tracking-wider ml-2 flex-shrink-0", task.status === 'PASSED' ? "bg-green-100 text-green-700" : "bg-warning/10 text-warning-content")}>
+                    {task.status === 'PASSED' ? 'Đã hoàn tất' : 'Chờ xử lý'}
                   </span>
                 </div>
                 <div className="space-y-2.5 text-sm text-content-secondary mb-5">
@@ -192,7 +192,7 @@ export default function InspectorTasks() {
                 </div>
                 <button onClick={() => openModal(task)} className="w-full flex justify-center items-center gap-2 py-2.5 bg-navy text-white text-sm font-semibold rounded-sm hover:bg-navy-light transition-colors">
                   <span className="material-symbols-outlined text-[1.1rem]">assignment</span>
-                  {activeTab === 'ASSIGNED' ? 'Tiến hành kiểm định' : 'Xem lại hồ sơ'}
+                  {activeTab === 'ASSIGNED' ? 'Tiến hành kiểm định' : 'Xem biên bản'}
                 </button>
               </div>
             </div>
@@ -281,7 +281,7 @@ export default function InspectorTasks() {
                       <div><span className="text-content-secondary">Thời gian:</span> <span className="font-bold text-warning-content">{selectedTask.scheduledDateTime ? new Date(selectedTask.scheduledDateTime).toLocaleString('vi-VN') : 'N/A'}</span></div>
                       <div><span className="text-content-secondary">Khách hàng:</span> <span className="font-medium">{selectedTask.sellerName}</span></div>
                       <div className="col-span-2"><span className="text-content-secondary">Địa điểm:</span> <span className="font-medium">{selectedTask.address}</span></div>
-                      <div className="col-span-2"><span className="text-content-secondary">Ghi chú hẹn:</span> <span className="italic text-content-primary">{selectedTask.note || 'Không có ghi chú'}</span></div>
+                      <div className="col-span-2"><span className="text-content-secondary">Ghi chú hẹn:</span> <span className="italic text-content-primary">{selectedTask.note || selectedTask.sellerNote || 'Không có ghi chú'}</span></div>
                     </div>
                   </div>
                 </div>
@@ -291,17 +291,18 @@ export default function InspectorTasks() {
                   <div className="bg-white p-5 rounded-sm shadow-sm border border-border-light h-full flex flex-col sticky top-0">
                     <h3 className="font-bold text-navy flex items-center gap-2 mb-4 pb-2 border-b border-border-light">
                       <span className="material-symbols-outlined text-[#175d5d]">fact_check</span>
-                      Các hạng mục kiểm tra
+                      Biên bản kiểm định
                     </h3>
                     
-                    {/* 🔥 RENDER TIÊU CHÍ ĐỘNG TỪ STATE */}
+                    <p className="text-xs text-content-secondary mb-3 italic">Tích vào các mục đạt yêu cầu. Các mục không được tích sẽ hiển thị là cần sửa chữa cho người mua.</p>
+
                     <div className="space-y-3 mb-6">
                       {criteria.map((item) => (
                         <label key={item.id} className={cn("flex items-center gap-3 p-3 border rounded-sm cursor-pointer transition-colors", checklist[item.id] ? "bg-green-50 border-green-200" : "bg-surface-secondary border-border-light hover:bg-white")}>
                           <input 
                             type="checkbox" 
                             className="w-5 h-5 rounded border-gray-300 text-[#175d5d] focus:ring-[#175d5d]"
-                            checked={!!checklist[item.id]} // Ép kiểu bool để không lỗi warning
+                            checked={!!checklist[item.id]} 
                             onChange={(e) => setChecklist({...checklist, [item.id]: e.target.checked})}
                             disabled={selectedTask.status !== 'ASSIGNED' && selectedTask.status !== 'INSPECTING'}
                           />
@@ -312,11 +313,11 @@ export default function InspectorTasks() {
 
                     {/* Ghi chú biên bản */}
                     <div className="mt-auto">
-                      <label className="block text-sm font-bold text-navy mb-2">Ghi chú biên bản kiểm định <span className="text-error">*</span></label>
+                      <label className="block text-sm font-bold text-navy mb-2">Ghi chú chi tiết cho người mua <span className="text-error">*</span></label>
                       <textarea
                         value={resultNote}
                         onChange={(e) => setResultNote(e.target.value)}
-                        placeholder="Ghi rõ tình trạng thực tế của xe so với tin đăng..."
+                        placeholder="Ghi rõ tình trạng thực tế của xe so với tin đăng để công khai cho người mua xem..."
                         className="w-full border-border-light rounded-sm p-3 text-sm focus:border-[#175d5d] focus:ring-1 focus:ring-[#175d5d] resize-none h-32"
                         disabled={selectedTask.status !== 'ASSIGNED' && selectedTask.status !== 'INSPECTING'}
                       />
@@ -331,15 +332,10 @@ export default function InspectorTasks() {
             <div className="p-4 border-t border-border-light bg-white flex flex-wrap items-center gap-3 justify-end flex-shrink-0">
               <button onClick={closeModal} className="px-5 py-2.5 text-sm font-semibold text-content-secondary border border-border-light rounded-sm hover:bg-surface-secondary transition-colors" disabled={isSubmitting}>Đóng</button>
               {(selectedTask.status === 'ASSIGNED' || selectedTask.status === 'INSPECTING') && (
-                <>
-                  <button onClick={() => handleUpdateResult('FAILED')} className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-error rounded-sm hover:bg-red-600 transition-colors" disabled={isSubmitting}>
-                    <span className="material-symbols-outlined text-[1.1rem]">cancel</span> Đánh rớt (Không đạt)
-                  </button>
-                  <button onClick={() => handleUpdateResult('PASSED')} className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#10b981] rounded-sm hover:bg-[#059669] transition-colors" disabled={isSubmitting}>
-                    {isSubmitting ? <span className="material-symbols-outlined text-[1.1rem] animate-spin">refresh</span> : <span className="material-symbols-outlined text-[1.1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>}
-                    ĐẠT KIỂM ĐỊNH
-                  </button>
-                </>
+                <button onClick={handleUpdateResult} className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#10b981] rounded-sm hover:bg-[#059669] transition-colors" disabled={isSubmitting}>
+                  {isSubmitting ? <span className="material-symbols-outlined text-[1.1rem] animate-spin">refresh</span> : <span className="material-symbols-outlined text-[1.1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>}
+                  XÁC NHẬN ĐÃ KIỂM ĐỊNH
+                </button>
               )}
             </div>
 

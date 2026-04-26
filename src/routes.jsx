@@ -39,7 +39,7 @@ import AdminFinance from '@/pages/Admin/Finance'
 import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
 import AdminInspections from "@/pages/Admin/Inspections.jsx";
 
-// 🔥 DÒNG QUAN TRỌNG: Import trang quản lý hạng mục kiểm định
+// Hạng mục kiểm định
 import InspectionCriteria from '@/pages/Admin/InspectionCriteria'
 
 // Inspection / Inspector Pages
@@ -101,7 +101,6 @@ export const router = createBrowserRouter([
       { path: 'statistics', element: <AdminStatistics /> },
       { path: 'priority-packages', element: <AdminPriorityPackages /> },
       { path: 'inspections', element: <AdminInspections /> },
-
       { path: 'inspection-criteria', element: <InspectionCriteria /> }
     ],
   },
@@ -111,6 +110,7 @@ export const router = createBrowserRouter([
     path: '/inspector',
     element: <InspectorLayout />,
     children: [
+      { index: true, element: <InspectorTasks /> }, // Thêm dòng này để mặc định vào trang Tasks
       { path: 'tasks', element: <InspectorTasks /> },
     ],
   },
