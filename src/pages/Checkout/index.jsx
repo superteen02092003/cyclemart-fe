@@ -168,6 +168,12 @@ export default function CheckoutPage() {
 
     setIsProcessing(true);
     try {
+      // Kiểm tra: Chỉ cho phép mua trực tiếp nếu post đã được kiểm định
+      if (!bike.isInspected) {
+        setError('Bài đăng chưa được kiểm định. Vui lòng yêu cầu kiểm định trước khi mua.');
+        return;
+      }
+
       const fullAddress = `${street.trim()}, ${ward}, ${district}, ${city}`;
       
       const payload = {
@@ -375,16 +381,22 @@ export default function CheckoutPage() {
             <button
               type="submit"
               form="checkout-form"
-              disabled={isProcessing}
+              disabled={isProcessing || !bike?.isInspected}
               className={cn(
                 "w-full py-4 rounded-sm font-bold text-white transition-all flex items-center justify-center gap-2",
-                isProcessing ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
+                isProcessing || !bike?.isInspected ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
               )}
+              title={!bike?.isInspected ? "Bài đăng chưa được kiểm định" : ""}
             >
               {isProcessing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ĐANG XỬ LÝ...
+                </>
+              ) : !bike?.isInspected ? (
+                <>
+                  <span className="material-symbols-outlined">lock</span>
+                  CHƯA CÓ KIỂM ĐỊNH
                 </>
               ) : (
                 <>
@@ -393,6 +405,15 @@ export default function CheckoutPage() {
                 </>
               )}
             </button>
+
+            {!bike?.isInspected && (
+              <div className="mt-3 p-3 bg-warning/10 rounded-sm flex items-start gap-3 border border-warning/20">
+                <span className="material-symbols-outlined text-warning text-[1.2rem]">warning</span>
+                <p className="text-[11px] text-warning leading-relaxed">
+                  <strong>⚠️ Bài đăng chưa được kiểm định.</strong> Hệ thống không chịu trách nhiệm đối với các sự việc xảy ra khi giao dịch xe chưa qua kiểm định. Tuy nhiên, bạn có thể nhắn tin trực tiếp với người bán để trao đổi buôn bán.
+                </p>
+              </div>
+            )}
 
             <div className="mt-4 p-3 bg-navy/5 rounded-sm flex items-start gap-3 border border-navy/10">
                <span className="material-symbols-outlined text-navy text-[1.2rem]">verified_user</span>
