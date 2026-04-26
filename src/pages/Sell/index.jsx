@@ -7,6 +7,7 @@ import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
 import { useAuth } from '@/hooks/useAuth'
+import { LoginPromptModal } from '@/components/shared/LoginPromptModal'
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -111,27 +112,39 @@ export default function SellPage() {
   const editId = searchParams.get('editId')
   const isEditing = Boolean(editId)
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/login?redirect=' + encodeURIComponent('/sell'));
-      return;
-    }
-  }, [isAuthenticated, isLoading, navigate]);
-
+  // All hooks must be at the top level
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [selectedImages, setSelectedImages] = useState([])
+  const [formData, setFormData] = useState({
+    title: '',
+    categoryId: '',
+    brand: '',
+    model: '',
+    year: '',
+    status: '',
+    frameMaterial: '',
+    frameSize: '',
+    brakeType: '',
+    groupset: '',
+    description: '',
+    price: '',
+    allowNegotiation: false,
+    city: 'HO_CHI_MINH',
+    district: '',
+  })
 
   useEffect(() => {
-    loadCategories()
-    if (isEditing && editId) {
-      loadPostData(editId)
+    if (!isLoading && !isAuthenticated) {
+      setShowLoginPrompt(true)
+    } else if (isAuthenticated) {
+      setShowLoginPrompt(false)
     }
-  }, [isEditing, editId])
+  }, [isAuthenticated, isLoading])
 
   const loadCategories = async () => {
     try {
@@ -182,25 +195,36 @@ export default function SellPage() {
     }
   }
 
-  const [formData, setFormData] = useState({
-    title: '',
-    categoryId: '',
-    brand: '',
-    model: '',
-    year: '',
-    status: '',
-    frameMaterial: '',
-    frameSize: '',
-    brakeType: '',
-    groupset: '',
-    description: '',
-    price: '',
-    allowNegotiation: false,
-    city: 'HO_CHI_MINH',
-    district: '',
-  })
+  useEffect(() => {
+    loadCategories()
+    if (isEditing && editId) {
+      loadPostData(editId)
+    }
+  }, [isEditing, editId])
 
   const totalSteps = STEPS.length;
+  if (!isLoading && !isAuthenticated) {
+    return (
+      <LoginPromptModal
+        title="Cần đăng nhập để bán xe"
+        description="Bạn cần có tài khoản để đăng tin bán xe trên CycleMart. Đăng ký miễn phí chỉ mất vài phút!"
+        icon="lock_person"
+        iconColor="orange"
+      />
+    )
+  }
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-surface-primary flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange mx-auto mb-4"></div>
+          <p className="text-content-secondary">Đang kiểm tra đăng nhập...</p>
+        </div>
+      </div>
+    )
+  }
 
   const getInputClass = (fieldName, isRequired = false) => {
     if (!isRequired) return inputClass
