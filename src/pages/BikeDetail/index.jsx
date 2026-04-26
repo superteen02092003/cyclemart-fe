@@ -986,23 +986,41 @@ export default function BikeDetailPage() {
                 <>
                   <button
                     onClick={handleBuyNow}
-                    className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors"
-                    style={{ backgroundColor: '#ff6b35' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+                    disabled={!bike?.isInspected}
+                    className={`w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors ${
+                      !bike?.isInspected 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-[#ff6b35] hover:bg-[#ff7849]'
+                    }`}
+                    style={bike?.isInspected ? { backgroundColor: '#ff6b35' } : {}}
+                    onMouseEnter={(e) => bike?.isInspected && (e.currentTarget.style.backgroundColor = '#ff7849')}
+                    onMouseLeave={(e) => bike?.isInspected && (e.currentTarget.style.backgroundColor = '#ff6b35')}
+                    title={!bike?.isInspected ? "Bài đăng chưa được kiểm định" : ""}
                   >
-                    Mua ngay
+                    {!bike?.isInspected ? '🔒 Chưa có kiểm định' : 'Mua ngay'}
                   </button>
 
                   <Button
                     variant="outline"
                     fullWidth
                     onClick={handleOfferClick}
-                    className="mb-4"
+                    disabled={!bike?.isInspected}
+                    className={`mb-4 ${!bike?.isInspected ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={!bike?.isInspected ? "Bài đăng chưa được kiểm định" : ""}
                   >
                     <span className="material-symbols-outlined text-[1rem]">gavel</span>
-                    Đặt giá
+                    {!bike?.isInspected ? 'Chưa có kiểm định' : 'Đặt giá'}
                   </Button>
+
+                  {!bike?.isInspected && (
+                    <div className="p-3 bg-warning/10 rounded-sm border border-warning/20 flex items-start gap-2 mb-4">
+                      <span className="material-symbols-outlined text-warning text-[1.2rem] flex-shrink-0">warning</span>
+                      <div className="text-xs text-warning leading-relaxed">
+                        <p className="font-semibold mb-1">⚠️ Bài đăng chưa được kiểm định</p>
+                        <p>Hệ thống không chịu trách nhiệm đối với các sự việc xảy ra khi giao dịch xe chưa qua kiểm định. Tuy nhiên, bạn có thể nhắn tin trực tiếp với người bán để trao đổi buôn bán.</p>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

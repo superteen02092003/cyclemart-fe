@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Client } from '@stomp/stompjs'
 import { cn } from '@/utils/cn'
@@ -39,15 +39,15 @@ export function NotificationBell() {
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications])
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const data = await notificationService.getMyNotifications()
       const normalized = Array.isArray(data) ? data.map(normalizeNotification) : []
       setNotifications(normalized)
     } catch {
-      setNotifications([])
+      // keep current notifications on transient errors to avoid losing unread badge state
     }
-  }
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -61,7 +61,7 @@ export function NotificationBell() {
 
   useEffect(() => {
     loadNotifications()
-  }, [])
+  }, [loadNotifications])
 
   const handleOpen = async () => {
     const nextOpen = !isOpen
@@ -108,30 +108,8 @@ export function NotificationBell() {
       notificationSubscriptionRef.current?.unsubscribe?.()
       notificationSubscriptionRef.current = client.subscribe('/user/queue/notifications/messages', (frame) => {
         try {
-          const payload = JSON.parse(frame.body)
-          // Backend stores a UserNotification row, refetch to keep UI in sync with DB id/read state.
-          const normalizedIncoming = {
-            id: payload.messageId ?? `live-${Date.now()}`,
-            type: payload.type || 'CHAT_MESSAGE',
-            title: 'Tin nhắn mới',
-            content: payload.content || '',
-            actionUrl: payload.roomId ? `/chat?roomId=${payload.roomId}` : '',
-            time: getTimeLabel(payload.createdAt),
-            read: false,
-          }
-
-          setNotifications((prev) => {
-            const alreadyHasSimilar = prev.some(
-              (item) =>
-                item.type === 'CHAT_MESSAGE' &&
-                item.content === normalizedIncoming.content &&
-                item.actionUrl === normalizedIncoming.actionUrl &&
-                !item.read
-            )
-            if (alreadyHasSimilar) return prev
-            return [normalizedIncoming, ...prev]
-          })
-
+          JSON.parse(frame.body)
+          // Always reload from API so unread badge uses real notification rows/ids.
           loadNotifications()
         } catch {
           // ignore malformed realtime notification payload
@@ -153,7 +131,7 @@ export function NotificationBell() {
       }
       stompRef.current = null
     }
-  }, [])
+  }, [loadNotifications])
 
   const getTypeStyles = (type) => {
     if (type === 'CHAT_MESSAGE') return 'bg-navy/20 text-navy'
@@ -176,9 +154,6 @@ export function NotificationBell() {
         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-tertiary transition-colors relative"
       >
         <span className="material-symbols-outlined text-content-primary">notifications</span>
-        {unreadCount > 0 && (
-          <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-error rounded-full border-2 border-white"></span>
-        )}
       </button>
 
       {isOpen && (
