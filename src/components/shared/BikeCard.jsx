@@ -27,12 +27,10 @@ export function BikeCard({
   const handleWishlistClick = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    
     if (!isAuthenticated) {
       setShowLoginModal(true)
       return
     }
-    
     if (onWishlistToggle) onWishlistToggle(bike.id)
   }
 
@@ -43,8 +41,7 @@ export function BikeCard({
       <Link to={`/bike/${bike.id}`} className="block">
         <article
           className={cn(
-            'group bg-white rounded-lg overflow-hidden cursor-pointer',
-            'shadow-card hover:shadow-card-hover transition-shadow duration-200',
+            'group bg-white rounded-lg overflow-hidden cursor-pointer shadow-card hover:shadow-card-hover transition-shadow duration-200',
             className
           )}
         >
@@ -57,42 +54,21 @@ export function BikeCard({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-surface-secondary">
-                <span
-                  className="material-symbols-outlined text-content-tertiary"
-                  style={{ fontSize: '3.5rem', fontVariationSettings: "'FILL' 0" }}
-                >
+                <span className="material-symbols-outlined text-content-tertiary" style={{ fontSize: '3.5rem', fontVariationSettings: "'FILL' 0" }}>
                   directions_bike
                 </span>
               </div>
             )}
 
-            {/* Badges Container (Xếp dọc xuống) */}
             <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-              
-              {/* THÊM MỚI: Hiển thị Tem Ưu Tiên */}
-              {bike.activePriority && (
-                <Badge variant={bike.activePriority.priorityLevel.toLowerCase()}>
-                  <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    diamond
-                  </span>
-                  {bike.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' :
-                   bike.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
-                </Badge>
-              )}
-
-              {/* Đã kiểm định */}
               {bike.isVerified && (
                 <Badge variant="verified">
-                  <span
-                    className="material-symbols-outlined text-[0.7rem]"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >verified</span>
+                  <span className="material-symbols-outlined text-[0.7rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
                   Đã kiểm định
                 </Badge>
               )}
             </div>
 
-            {/* Wishlist */}
             <button
               onClick={handleWishlistClick}
               className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center group/fav"
@@ -108,12 +84,9 @@ export function BikeCard({
             </button>
           </div>
 
-          {/* Content */}
           <div className="p-4">
             <div className="mb-1">
-              <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2">
-                {bike.title}
-              </h3>
+              <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2">{bike.title}</h3>
             </div>
 
             <div className="flex items-center justify-between gap-2 mb-1">
@@ -150,12 +123,7 @@ export function BikeCard({
         </article>
       </Link>
       
-      {/* Login Required Modal */}
-      <LoginRequiredModal
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        action="thêm vào yêu thích"
-      />
+      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} action="thêm vào yêu thích" />
     </>
   )
 }

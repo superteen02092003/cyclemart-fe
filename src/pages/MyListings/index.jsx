@@ -1,14 +1,14 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import InspectionModal from '@/components/inspection/InspectionModal'
-import SubscribeModal from '@/components/seller/SubscribeModal' // THÊM MỚI: Import Modal mua gói
+import SubscribeModal from '@/components/seller/SubscribeModal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
-import api from '@/services/api' // Đảm bảo đã import api
+import api from '@/services/api'
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -17,7 +17,7 @@ const STATUS_TABS = [
   { value: 'ACTIVE', label: 'Đang bán' },
   { value: 'SOLD', label: 'Đã bán' },
   { value: 'REJECTED', label: 'Bị từ chối' },
-  { value: 'INSPECTIONS', label: 'Dịch vụ Kiểm định' }, // 🔥 THÊM TAB NÀY
+  { value: 'INSPECTIONS', label: 'Dịch vụ Kiểm định' },
 ]
 
 const STATUS_CONFIG = {
@@ -66,14 +66,22 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
             </Link>
             
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              {/* HIỂN THỊ TEM ƯU TIÊN VÀ HẠN SỬ DỤNG (HSD) */}
               {listing.activePriority && (
-                <Badge variant={listing.activePriority.priorityLevel.toLowerCase()}>
-                  <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    diamond
-                  </span>
-                  {listing.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' :
-                   listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
-                </Badge>
+                <div className="flex flex-col items-end gap-0.5">
+                  <Badge variant={listing.activePriority.priorityLevel?.toLowerCase()}>
+                    <span className="material-symbols-outlined text-[0.8rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      diamond
+                    </span>
+                    {listing.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' :
+                     listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
+                  </Badge>
+                  {listing.activePriority.endDate && (
+                    <span className="text-[0.65rem] text-content-secondary font-medium mt-0.5">
+                      HSD: {new Date(listing.activePriority.endDate).toLocaleDateString('vi-VN')}
+                    </span>
+                  )}
+                </div>
               )}
 
               {/* Nhãn Đã kiểm định */}
@@ -86,7 +94,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                 </Badge>
               )}
 
-              {/* 🔥 THÊM MỚI: Tem Không đạt kiểm định (Chỉ hiện trong MyListings) */}
+              {/* Tem Không đạt kiểm định */}
               {!listing.isVerified && listing.inspectionStatus === 'FAILED' && (
                 <Badge className="bg-error/10 text-error border border-error/20">
                   <span className="material-symbols-outlined text-[0.8rem]">
@@ -182,14 +190,6 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
                 Chỉnh sửa
               </Button>
             </Link>
-            
-            <button
-              onClick={() => onAction('hide', listing.id)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-content-secondary border border-border-light rounded-sm hover:bg-surface-secondary transition-colors"
-            >
-              <span className="material-symbols-outlined text-[0.9rem]">visibility_off</span>
-              Ẩn tin
-            </button>
 
             {listing.activePriority ? (
               <button
@@ -389,11 +389,6 @@ export default function MyListingsPage() {
         prev.map((l) => (l.id === id ? { ...l, status: 'PENDING_REVIEW' } : l))
       )
       showToast('Đã gửi tin để kiểm duyệt!')
-    } else if (action === 'hide') {
-      setListings((prev) =>
-        prev.map((l) => (l.id === id ? { ...l, status: 'DRAFT' } : l))
-      )
-      showToast('Đã ẩn tin đăng.')
     } else if (action === 'boost') {
       setBoostTarget(id)
     } else if (action === 'cancel') {
