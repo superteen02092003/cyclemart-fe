@@ -5,8 +5,11 @@ import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import { bikePostService } from '@/services/bikePost'
 import { categoryService } from '@/services/category'
+import { wishlistService } from '@/services/wishlist'
+import { authService } from '@/services/auth'
+import { sellerRatingService } from '@/services/sellerRating'
 
-function CategorySection({ category, bikes, loading }) {
+function CategorySection({ category, bikes, loading, sellerRatings, wishlistedIds, onWishlistToggle }) {
   if (loading) {
     return (
       <section className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
@@ -41,7 +44,14 @@ function CategorySection({ category, bikes, loading }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {bikes.slice(0, 4).map((bike) => (
-          <BikeCard key={bike.id} bike={bike} />
+          <BikeCard
+            key={bike.id}
+            bike={bike}
+            sellerRating={sellerRatings[bike.userId]}
+            isWishlisted={wishlistedIds.includes(bike.id)}
+            onWishlistToggle={onWishlistToggle}
+            isOwnPost={bike.isOwnPost}
+          />
         ))}
       </div>
 
@@ -59,25 +69,7 @@ function CategorySection({ category, bikes, loading }) {
 }
 
 // Component riêng cho featured grid
-function FeaturedGrid() {
-  const [bikes, setBikes] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        const params = { page: 0, size: 8 }
-        const data = await bikePostService.getAll(params)
-        setBikes(data.content || [])
-      } catch (error) {
-        console.error("Lỗi tải bài đăng nổi bật:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchFeatured()
-  }, [])
-
+function FeaturedGrid({ bikes, loading, sellerRatings, wishlistedIds, onWishlistToggle }) {
   if (loading) {
     return <div className="py-12 text-center text-content-secondary">Đang tải...</div>
   }
@@ -85,7 +77,14 @@ function FeaturedGrid() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {bikes.map((bike) => (
-        <BikeCard key={bike.id} bike={bike} />
+        <BikeCard
+          key={bike.id}
+          bike={bike}
+          sellerRating={sellerRatings[bike.userId]}
+          isWishlisted={wishlistedIds.includes(bike.id)}
+          onWishlistToggle={onWishlistToggle}
+          isOwnPost={bike.isOwnPost}
+        />
       ))}
     </div>
   )
@@ -93,8 +92,34 @@ function FeaturedGrid() {
 
 export function CategorySections() {
   const [categories, setCategories] = useState([])
+  const [featuredBikes, setFeaturedBikes] = useState([])
   const [categoryPosts, setCategoryPosts] = useState({})
   const [loading, setLoading] = useState(true)
+  const [wishlistedIds, setWishlistedIds] = useState([])
+  const [sellerRatings, setSellerRatings] = useState({})
+  const currentUser = authService.getCurrentUser()
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub ?? null
+
+  const handleWishlistToggle = async (postId) => {
+    if (!authService.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      return
+    }
+
+    const isWishlisted = wishlistedIds.includes(postId)
+    try {
+      if (isWishlisted) {
+        await wishlistService.removeFromWishlist(postId)
+        setWishlistedIds((prev) => prev.filter((id) => id !== postId))
+      } else {
+        await wishlistService.addToWishlist(postId)
+        setWishlistedIds((prev) => [...prev, postId])
+      }
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
+      alert(message)
+    }
+  }
 
   useEffect(() => {
     const loadCategoriesAndPosts = async () => {
@@ -107,6 +132,9 @@ export function CategorySections() {
         setCategories(activeCategories)
 
         // Load posts cho từng category
+        const featuredParams = { page: 0, size: 8 }
+        const featuredPromise = bikePostService.getAll(featuredParams)
+
         const postsPromises = activeCategories.map(async (category) => {
           try {
             const params = { 
@@ -117,7 +145,10 @@ export function CategorySections() {
             const data = await bikePostService.search(params)
             return {
               categoryId: category.id,
-              posts: data.content || []
+              posts: (data.content || []).map((bike) => ({
+                ...bike,
+                isOwnPost: currentUserId !== null && String(bike.userId) === String(currentUserId),
+              }))
             }
           } catch (error) {
             console.error(`Error loading posts for category ${category.id}:`, error)
@@ -128,7 +159,15 @@ export function CategorySections() {
           }
         })
 
-        const postsResults = await Promise.all(postsPromises)
+        const [featuredData, postsResults] = await Promise.all([
+          featuredPromise,
+          Promise.all(postsPromises)
+        ])
+        const nextFeaturedBikes = (featuredData.content || []).map((bike) => ({
+          ...bike,
+          isOwnPost: currentUserId !== null && String(bike.userId) === String(currentUserId),
+        }))
+        setFeaturedBikes(nextFeaturedBikes)
         
         // Convert array to object for easy lookup
         const postsMap = {}
@@ -137,6 +176,36 @@ export function CategorySections() {
         })
         
         setCategoryPosts(postsMap)
+
+        const allBikes = [...nextFeaturedBikes, ...postsResults.flatMap((result) => result.posts || [])]
+        const sellerIds = [...new Set(allBikes.map((bike) => bike.userId).filter(Boolean))]
+
+        const ratingResults = await Promise.all(
+          sellerIds.map(async (id) => {
+            try {
+              const res = await sellerRatingService.getSellerInfo(id)
+              const info = res?.result || res
+              return { id, info }
+            } catch {
+              return { id, info: null }
+            }
+          })
+        )
+
+        const ratingMap = {}
+        ratingResults.forEach(({ id, info }) => {
+          ratingMap[id] = info
+        })
+        setSellerRatings(ratingMap)
+
+        if (authService.isAuthenticated()) {
+          const wishlistData = await wishlistService.getMyWishlist(0, 100)
+          const rawItems = Array.isArray(wishlistData?.content) ? wishlistData.content : []
+          const activeItems = await wishlistService.cleanupUnavailableItems(rawItems)
+          setWishlistedIds(activeItems.map((item) => item.postId))
+        } else {
+          setWishlistedIds([])
+        }
       } catch (error) {
         console.error('Error loading categories and posts:', error)
       } finally {
@@ -174,7 +243,13 @@ export function CategorySections() {
           </Link>
         </div>
 
-        <FeaturedGrid />
+        <FeaturedGrid
+          bikes={featuredBikes}
+          loading={loading}
+          sellerRatings={sellerRatings}
+          wishlistedIds={wishlistedIds}
+          onWishlistToggle={handleWishlistToggle}
+        />
       </section>
 
       {/* Category sections */}
@@ -185,6 +260,9 @@ export function CategorySections() {
             category={category}
             bikes={categoryPosts[category.id] || []}
             loading={false}
+            sellerRatings={sellerRatings}
+            wishlistedIds={wishlistedIds}
+            onWishlistToggle={handleWishlistToggle}
           />
         ))
       ) : (

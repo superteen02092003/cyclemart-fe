@@ -21,6 +21,7 @@ export function BikeCard({
   featured = false,
   isWishlisted = false,
   onWishlistToggle,
+  isOwnPost = false,
 }) {
   const { isAuthenticated } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -83,21 +84,27 @@ export function BikeCard({
               )}
             </div>
 
-            <button
-              onClick={handleWishlistClick}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center group/fav"
-              aria-label={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
-            >
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[1.3rem] drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] transition-colors',
-                  isWishlisted ? 'text-red-500' : 'text-white group-hover/fav:text-red-400'
-                )}
-                style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
-              >
-                favorite
+            {isOwnPost ? (
+              <span className="absolute top-3 right-3 text-[0.7rem] font-semibold bg-navy text-white px-2 py-1 rounded-xs">
+                Bài của tôi
               </span>
-            </button>
+            ) : (
+              <button
+                onClick={handleWishlistClick}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center group/fav"
+                aria-label={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+              >
+                <span
+                  className={cn(
+                    'material-symbols-outlined text-[1.3rem] drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] transition-colors',
+                    isWishlisted ? 'text-red-500' : 'text-white group-hover/fav:text-red-400'
+                  )}
+                  style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
+                >
+                  favorite
+                </span>
+              </button>
+            )}
           </div>
 
           <div className="p-4">

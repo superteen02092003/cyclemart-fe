@@ -81,6 +81,8 @@ export default function BrowsePage() {
   const [sortBy, setSortBy] = useState('newest')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sellerRatings, setSellerRatings] = useState({})
+  const currentUser = authService.getCurrentUser()
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub ?? null
 
   // Gọi API mỗi khi filter thay đổi
   useEffect(() => {
@@ -363,6 +365,7 @@ export default function BrowsePage() {
                   sellerRating={sellerRatings[bike.userId]}
                   isWishlisted={wishlistedIds.includes(bike.id)}
                   onWishlistToggle={handleWishlistToggle}
+                  isOwnPost={currentUserId !== null && String(bike.userId) === String(currentUserId)}
                 />
               ))}
             </div>
