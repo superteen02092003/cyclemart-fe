@@ -1,117 +1,81 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/utils/cn'
-import { useAuth } from '@/hooks/useAuth' // Bổ sung import hook auth
-
-const ADMIN_MENU = [
-  { title: 'Tổng quan', path: '/admin', icon: 'dashboard' },
-  { title: 'Quản lý người dùng', path: '/admin/users', icon: 'group' },
-  { title: 'Kiểm duyệt tin đăng', path: '/admin/listings', icon: 'fact_check' },
-  { title: 'Kiểm định xe', path: '/admin/inspections', icon: 'verified' }, 
-  // 🔥 THÊM DÒNG NÀY: Mục Quản lý Hạng mục kiểm định
-  { title: 'Hạng mục kiểm định', path: '/admin/inspection-criteria', icon: 'checklist' }, 
-  { title: 'Báo cáo vi phạm', path: '/admin/reports', icon: 'report' },
-  { title: 'Quản lý tranh chấp', path: '/admin/disputes', icon: 'gavel' },
-  { title: 'Danh mục & thương hiệu', path: '/admin/categories', icon: 'label' },
-  { title: 'Giao dịch & phí dịch vụ', path: '/admin/transactions', icon: 'payments' },
-  { title: 'Thống kê & báo cáo', path: '/admin/statistics', icon: 'bar_chart' },
-  { title: 'Gói Ưu Tiên', path: '/admin/priority-packages', icon: 'workspace_premium' },
-]
+import { useAdminStats } from '@/contexts/AdminStatsContext'
 
 export function AdminSidebar() {
   const location = useLocation()
-  const navigate = useNavigate() // Khởi tạo điều hướng
-  const { logout } = useAuth() // Lấy hàm logout từ Context/Hook
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { stats } = useAdminStats()
 
-  // Hàm xử lý khi bấm đăng xuất
-  const handleLogout = () => {
-    if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi trang quản trị?')) {
-      logout() // Xóa token & thông tin user ở LocalStorage
-      navigate('/login') // Đẩy về trang đăng nhập
+  const menuItems = [
+    { label: 'Tổng quan', icon: 'dashboard', href: '/admin', exact: true },
+    { label: 'Quản lý người dùng', icon: 'people', href: '/admin/users' },
+    { label: 'Kiểm duyệt tin đăng', icon: 'pending_actions', href: '/admin/listings', badge: stats.pending },
+    { label: 'Kiểm định xe', icon: 'verified', href: '/admin/inspections', badge: stats.inspections },
+    { label: 'Hạng mục kiểm định', icon: 'checklist', href: '/admin/inspection-criteria' },
+    { label: 'Báo cáo vi phạm', icon: 'report', href: '/admin/reports' },
+    { label: 'Quản lý danh mục', icon: 'category', href: '/admin/categories' },
+    { label: 'Quản lý thanh toán', icon: 'payments', href: '/admin/transactions' },
+    { label: 'Thống kê & báo cáo', icon: 'analytics', href: '/admin/statistics' },
+    { label: 'Gói ưu tiên', icon: 'workspace_premium', href: '/admin/priority-packages' }
+  ]
+
+  const isActive = (item) => {
+    if (item.exact) {
+      return location.pathname === item.href
     }
+    return location.pathname.startsWith(item.href)
   }
 
   return (
-    <aside
-      className={cn(
-        'sticky top-0 h-screen flex flex-col transition-all duration-300 overflow-hidden',
-        isCollapsed ? 'w-20' : 'w-64'
-      )}
-      style={{ background: 'linear-gradient(180deg, #0A1628 0%, #1e3a5f 100%)' }}
-    >
-      {/* Header */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 flex-shrink-0">
-        {!isCollapsed && (
-          <Link to="/admin" className="flex items-center gap-2 min-w-0">
-            <span
-              className="material-symbols-outlined text-green-container text-[1.4rem]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              directions_bike
-            </span>
-            <span className="font-bold text-sm text-white truncate">CycleMart</span>
-          </Link>
-        )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 hover:bg-white/10 rounded-sm transition-colors flex-shrink-0 ml-auto text-white/70 hover:text-white"
-          title={isCollapsed ? 'Mở rộng' : 'Thu gọn'}
-        >
-          <span className="material-symbols-outlined text-[1.2rem]">
-            {isCollapsed ? 'chevron_right' : 'chevron_left'}
+    <div className="w-64 bg-navy text-white min-h-screen relative flex flex-col">
+      {/* Logo */}
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-orange text-[1.6rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+            directions_bike
           </span>
-        </button>
+          <span className="text-lg font-bold">CycleMart</span>
+        </div>
+        <p className="text-xs text-white/60 mt-1">Admin Dashboard</p>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-        {ADMIN_MENU.map((item) => {
-          const isActive = location.pathname === item.path
-          return (
+      {/* Navigation Menu */}
+      <nav className="p-4 flex-1">
+        <div className="space-y-1">
+          {menuItems.map((item) => (
             <Link
-              key={item.path}
-              to={item.path}
+              key={item.href}
+              to={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-sm transition-all duration-200 whitespace-nowrap',
-                isActive
-                  ? 'bg-green-container text-navy font-semibold shadow-md'
-                  : 'text-white/75 hover:bg-white/10 hover:text-white'
+                'flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-colors relative',
+                isActive(item)
+                  ? 'bg-orange text-white'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
               )}
-              title={isCollapsed ? item.title : ''}
             >
-              <span
-                className="material-symbols-outlined text-[1.2rem] flex-shrink-0"
-                style={{ fontVariationSettings: `'FILL' ${isActive ? 1 : 0}` }}
-              >
+              <span className="material-symbols-outlined text-[1.1rem]">
                 {item.icon}
               </span>
-              {!isCollapsed && <span className="text-sm">{item.title}</span>}
+              <span className="flex-1">{item.label}</span>
+              
+              {/* Badge for pending items */}
+              {item.badge && item.badge > 0 && (
+                <div className="w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </div>
+              )}
             </Link>
-          )
-        })}
+          ))}
+        </div>
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-white/10 p-3 flex-shrink-0">
-        {!isCollapsed ? (
-          <button 
-            onClick={handleLogout} // GẮN SỰ KIỆN Ở ĐÂY
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-error hover:bg-white/10 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[1.2rem] flex-shrink-0">logout</span>
-            Đăng xuất
-          </button>
-        ) : (
-          <button
-            onClick={handleLogout} 
-            className="w-full flex items-center justify-center p-2 hover:bg-white/10 rounded-sm transition-colors text-error"
-            title="Đăng xuất"
-          >
-            <span className="material-symbols-outlined text-[1.2rem]">logout</span>
-          </button>
-        )}
+      <div className="p-4 border-t border-white/10 mt-auto">
+        <div className="text-xs text-white/60 text-center">
+          <p>CycleMart Admin v1.0</p>
+          <p className="mt-1">© 2024 All rights reserved</p>
+        </div>
       </div>
-    </aside>
+    </div>
   )
 }
