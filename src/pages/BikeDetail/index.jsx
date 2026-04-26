@@ -9,6 +9,7 @@ import { bikePostService } from '@/services/bikePost'
 import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
+import { wishlistService } from '@/services/wishlist'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -152,6 +153,7 @@ export default function BikeDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
 
   const [sellerInfo, setSellerInfo] = useState(null)
@@ -220,6 +222,24 @@ export default function BikeDetailPage() {
     fetchSellerInfo()
   }, [sellerId])
 
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      if (!bike?.id || isOwnPost || !authService.isAuthenticated()) {
+        setIsWishlisted(false)
+        return
+      }
+
+      try {
+        const response = await wishlistService.checkInWishlist(bike.id)
+        setIsWishlisted(Boolean(response?.isInWishlist))
+      } catch (err) {
+        console.error('Lỗi khi kiểm tra wishlist:', err)
+      }
+    }
+
+    checkWishlistStatus()
+  }, [bike?.id, isOwnPost])
+
   const handleBuyNow = () => {
     navigate(`/checkout/${bike.id}`)
   }
@@ -233,6 +253,32 @@ export default function BikeDetailPage() {
     } catch (err) {
       console.error('Không tạo được room chat:', err)
       navigate(`/chat?bikePostId=${bike.id}`)
+    }
+  }
+
+  const handleWishlistToggle = async () => {
+    if (!bike?.id || wishlistLoading) return
+
+    if (!authService.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      navigate(ROUTES.LOGIN)
+      return
+    }
+
+    try {
+      setWishlistLoading(true)
+      if (isWishlisted) {
+        await wishlistService.removeFromWishlist(bike.id)
+        setIsWishlisted(false)
+      } else {
+        await wishlistService.addToWishlist(bike.id)
+        setIsWishlisted(true)
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
+      alert(message)
+    } finally {
+      setWishlistLoading(false)
     }
   }
 
@@ -574,12 +620,13 @@ export default function BikeDetailPage() {
 
               {isOwnPost ? null : (
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={handleWishlistToggle}
+                  disabled={wishlistLoading}
                   className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border text-sm font-semibold transition-colors ${
                     isWishlisted
                       ? 'border-red-300 text-red-500 bg-red-50'
                       : 'border-border-light text-content-secondary hover:border-red-300 hover:text-red-500 hover:bg-red-50'
-                  }`}
+                  } ${wishlistLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className="material-symbols-outlined text-[1rem]"
