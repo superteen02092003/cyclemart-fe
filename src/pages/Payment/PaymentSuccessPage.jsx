@@ -16,6 +16,9 @@ export default function PaymentSuccessPage() {
         // Gọi API mới để lấy dữ liệu thực tế từ DB
         const res = await api.get(`/v1/payments/order/${orderId}`)
         setPayment(res.data)
+        
+        // Trigger event để TopNavBar cập nhật points
+        window.dispatchEvent(new Event('pointsUpdated'))
       } catch (e) {
         console.error("Lỗi khi lấy chi tiết thanh toán:", e)
       } finally {
@@ -72,6 +75,16 @@ export default function PaymentSuccessPage() {
               {isService ? 'Thanh toán dịch vụ tin đăng' : 'Thanh toán đơn mua xe'}
             </span>
           </div>
+
+          {payment?.pointsEarned > 0 && (
+            <div className="flex justify-between text-sm pt-3 border-t border-border-light mt-3">
+              <span className="text-content-secondary">Điểm thưởng:</span>
+              <span className="font-bold text-orange flex items-center gap-1">
+                <span className="material-symbols-outlined text-[1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>stars</span>
+                +{payment.pointsEarned} điểm
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-3">

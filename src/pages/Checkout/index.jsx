@@ -109,6 +109,7 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentResponse, setPaymentResponse] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showDisputeWarning, setShowDisputeWarning] = useState(false);
 
   // Redirect nếu chưa login
   useEffect(() => {
@@ -166,7 +167,15 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Hiển thị modal cảnh báo tranh chấp
+    setShowDisputeWarning(true);
+  };
+
+  // Hàm thực hiện thanh toán sau khi đồng ý cảnh báo
+  const proceedWithPayment = async () => {
+    setShowDisputeWarning(false);
     setIsProcessing(true);
+    
     try {
       // Kiểm tra: Chỉ cho phép mua trực tiếp nếu post đã được kiểm định
       if (!bike.isInspected) {
@@ -424,6 +433,63 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* MODAL CẢNH BÁO TRANH CHẤP */}
+      {showDisputeWarning && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-error p-4 text-white flex items-center gap-3">
+              <span className="material-symbols-outlined text-[2rem]">warning</span>
+              <h3 className="font-bold text-lg">⚠️ Cảnh báo quan trọng</h3>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="bg-warning/10 border-l-4 border-warning p-4 rounded">
+                <p className="text-sm text-content-primary leading-relaxed font-medium">
+                  Hệ thống <strong className="text-error">KHÔNG giải quyết</strong> các vấn đề tranh chấp nếu đơn hàng không bị lỗi từ phía nền tảng.
+                </p>
+              </div>
+
+              <div className="space-y-2 text-sm text-content-secondary">
+                <p className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[1rem] text-error mt-0.5">close</span>
+                  <span>Không hoàn tiền nếu người mua cố ý khiếu nại sai</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[1rem] text-error mt-0.5">close</span>
+                  <span>Không hoàn tiền nếu người mua thay đổi ý định</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[1rem] text-error mt-0.5">close</span>
+                  <span>Không hoàn tiền nếu tranh chấp không có bằng chứng rõ ràng</span>
+                </p>
+              </div>
+
+              <div className="bg-navy/5 border border-navy/20 p-4 rounded">
+                <p className="text-xs text-content-primary leading-relaxed">
+                  <strong className="text-navy">💡 Khuyến nghị:</strong> Vui lòng kiểm tra kỹ thông tin xe, liên hệ người bán và yêu cầu kiểm định trước khi thanh toán để đảm bảo an toàn.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowDisputeWarning(false)}
+                  className="flex-1 py-3 bg-surface-secondary hover:bg-surface-tertiary text-content-primary font-bold rounded-lg transition-colors border border-border-light"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={proceedWithPayment}
+                  className="flex-1 py-3 bg-error hover:bg-error/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[1.1rem]">check_circle</span>
+                  Tôi đã hiểu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL THANH TOÁN DỰ PHÒNG GIỮ NGUYÊN NHƯ FILE CŨ */}
       {showQRModal && paymentResponse && (
