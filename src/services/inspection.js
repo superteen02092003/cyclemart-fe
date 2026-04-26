@@ -54,5 +54,9 @@ export const inspectionService = {
   getLatestPassed: async (postId) => {
     const response = await api.get(`/v1/inspections/post/${postId}/latest-passed`)
     return response.data
+  },
+  getInspectorTasksByAdmin: async (inspectorId, params) => {
+    const response = await api.get(`/v1/inspections/admin/inspector/${inspectorId}/tasks`, { params })
+    return response.data
   }
 }
