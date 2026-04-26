@@ -83,18 +83,14 @@ export default function BrowsePage() {
       setLoading(true)
       try {
         const params = {
-          keyword: searchQuery || null,
-          minPrice: minPrice ? parseFloat(minPrice) * 1000000 : null,
-          maxPrice: maxPrice ? parseFloat(maxPrice) * 1000000 : null,
-          brand: selectedBrands.length > 0 ? selectedBrands[0] : null,
-          city: location || null,
+          minPrice: minPrice ? parseFloat(minPrice) * 1000000 : undefined,
+          maxPrice: maxPrice ? parseFloat(maxPrice) * 1000000 : undefined,
+          city: location || undefined,
           page: 0,
           size: 20,
-          sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'createdAt',
-          direction: sortBy === 'price_asc' ? 'asc' : 'desc'
         }
-        const data = await bikePostService.search(params)
-        setBikes(data.content || [])
+        const data = await bikePostService.getAll(params)
+        setBikes(data.content || data || [])
       } catch (error) {
         console.error("Lỗi khi tìm kiếm xe:", error)
       } finally {

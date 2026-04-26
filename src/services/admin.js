@@ -2,16 +2,16 @@ import api from './api'
 
 export const adminService = {
   // === QUẢN LÝ BÀI ĐĂNG ===
-  getAllPosts: async (params) => {
-    const response = await api.get('/v1/admin/posts', { params })
-    return response.data 
+  getAllPosts: async () => {
+    const response = await api.get('/v1/posts/admin/pending')
+    return { content: response.data }
   },
   approvePost: async (id) => {
-    const response = await api.put(`/v1/admin/posts/${id}/approve`)
+    const response = await api.post(`/v1/posts/${id}/approve`)
     return response.data
   },
   rejectPost: async (id, reason) => {
-    const response = await api.put(`/v1/admin/posts/${id}/reject`, null, { params: { reason } })
+    const response = await api.post(`/v1/posts/${id}/reject`, { reason })
     return response.data
   },
 

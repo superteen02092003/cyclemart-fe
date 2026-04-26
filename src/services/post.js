@@ -1,50 +1,57 @@
 import api from './api'
 
+const CONDITION_TO_BIKE_STATUS = {
+  'like-new': 'LIKE_NEW',
+  'excellent': 'LIKE_NEW',
+  'good': 'GOOD',
+  'fair': 'USED',
+  'needs-repair': 'NEED_REPAIR',
+  'new': 'NEW',
+  'LIKE_NEW': 'LIKE_NEW',
+  'GOOD': 'GOOD',
+  'USED': 'USED',
+  'NEED_REPAIR': 'NEED_REPAIR',
+  'NEW': 'NEW',
+}
+
+function buildPostFormData(postData) {
+  const formData = new FormData()
+
+  Object.keys(postData).forEach(key => {
+    if (key === 'images') {
+      if (postData.images && postData.images.length > 0) {
+        postData.images.forEach(image => formData.append('images', image))
+      }
+    } else if (key === 'condition') {
+      const bikeStatus = CONDITION_TO_BIKE_STATUS[postData.condition] || 'USED'
+      formData.append('status', bikeStatus)
+    } else {
+      const val = postData[key]
+      if (val !== undefined && val !== null && val !== '') {
+        formData.append(key, val)
+      }
+    }
+  })
+
+  return formData
+}
+
 export const postService = {
   create: async (postData) => {
     try {
-      const formData = new FormData()
-      
-      // Lặp qua tất cả các trường dữ liệu được truyền vào
-      Object.keys(postData).forEach(key => {
-        if (key === 'images') {
-          // Xử lý riêng mảng hình ảnh
-          if (postData.images && postData.images.length > 0) {
-            postData.images.forEach((image) => {
-              formData.append('images', image)
-            })
-          }
-        } else {
-          // QUAN TRỌNG: Chỉ append nếu giá trị khác undefined và null
-          // Giúp tránh lỗi chuỗi "undefined" gửi xuống Backend
-          if (postData[key] !== undefined && postData[key] !== null && postData[key] !== '') {
-            formData.append(key, postData[key])
-          }
-        }
-      })
-      
-      const response = await api.post('/v1/posts', formData)
+      const response = await api.post('/v1/posts', buildPostFormData(postData))
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi tạo bài đăng' }
     }
   },
 
-  getAll: async () => {
+  getAll: async (params = {}) => {
     try {
-      const response = await api.get('/v1/posts')
+      const response = await api.get('/v1/posts', { params })
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi tải danh sách bài đăng' }
-    }
-  },
-
-  getPostsByUserId: async (userId) => {
-    try {
-      const response = await api.get(`/v1/posts/user/${userId}`)
-      return response.data
-    } catch (error) {
-      throw error.response?.data || { message: 'Lỗi khi tải bài đăng của người dùng' }
     }
   },
 
@@ -68,24 +75,7 @@ export const postService = {
 
   update: async (id, postData) => {
     try {
-      const formData = new FormData()
-      
-      // Update cũng cần gửi dạng form-data giống hệt lúc Create
-      Object.keys(postData).forEach(key => {
-        if (key === 'images') {
-          if (postData.images && postData.images.length > 0) {
-            postData.images.forEach((image) => {
-              formData.append('images', image)
-            })
-          }
-        } else {
-          if (postData[key] !== undefined && postData[key] !== null && postData[key] !== '') {
-            formData.append(key, postData[key])
-          }
-        }
-      })
-
-      const response = await api.put(`/v1/posts/${id}`, formData)
+      const response = await api.put(`/v1/posts/${id}`, buildPostFormData(postData))
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi cập nhật bài đăng' }
@@ -108,5 +98,5 @@ export const postService = {
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi hủy yêu cầu' }
     }
-  }
+  },
 }
