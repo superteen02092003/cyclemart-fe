@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { ROUTES } from '@/constants/routes'
@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 // Airbnb login: white card, rounded inputs, warm near-black text
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { login, isLoading } = useAuth()
   const { toast, showToast, hideToast } = useToast()
   
@@ -66,20 +67,29 @@ export default function LoginPage() {
       // Hiển thị toast thành công
       showToast('Đăng nhập thành công!', 'success')
       
+      // Kiểm tra redirect parameter
+      const redirectUrl = searchParams.get('redirect')
+      
       // Phân luồng chuyển hướng dựa trên Role
       setTimeout(() => {
-        const userStr = localStorage.getItem('user')
-        if (userStr) {
-          const userObj = JSON.parse(userStr)
-          if (userObj.role === 'ADMIN') {
-            navigate('/admin') // Chuyển hướng Admin
-          } else if (userObj.role === 'INSPECTOR') {
-            navigate('/inspector/tasks') // Hoặc '/inspector' nếu có dashboard
-          } else {
-            navigate(ROUTES.HOME) // Chuyển hướng User thường
-          }
+        if (redirectUrl) {
+          // Nếu có redirect URL, chuyển hướng về đó
+          navigate(redirectUrl)
         } else {
-          navigate(ROUTES.HOME) // Fallback an toàn
+          // Chuyển hướng theo role như cũ
+          const userStr = localStorage.getItem('user')
+          if (userStr) {
+            const userObj = JSON.parse(userStr)
+            if (userObj.role === 'ADMIN') {
+              navigate('/admin') // Chuyển hướng Admin
+            } else if (userObj.role === 'INSPECTOR') {
+              navigate('/inspector/tasks') // Hoặc '/inspector' nếu có dashboard
+            } else {
+              navigate(ROUTES.HOME) // Chuyển hướng User thường
+            }
+          } else {
+            navigate(ROUTES.HOME) // Fallback an toàn
+          }
         }
       }, 1000)
       

@@ -6,6 +6,7 @@ import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
+import { useAuth } from '@/hooks/useAuth'
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -106,8 +107,18 @@ function ProgressBar({ currentStep, steps }) {
 export default function SellPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { isAuthenticated, isLoading } = useAuth()
   const editId = searchParams.get('editId')
   const isEditing = Boolean(editId)
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login?redirect=' + encodeURIComponent('/sell'));
+      return;
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
   const [currentStep, setCurrentStep] = useState(1)
   const [draftSaved, setDraftSaved] = useState(false)
   const [submitted, setSubmitted] = useState(false)

@@ -1,9 +1,21 @@
 // File: src/pages/Inspection/index.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
 import InspectionModal from '@/components/inspection/InspectionModal'
 
 export default function InspectionPage() {
+  const navigate = useNavigate()
+  const { isAuthenticated, isLoading } = useAuth()
   const [open, setOpen] = useState(true)
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login?redirect=' + encodeURIComponent('/inspection'));
+      return;
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   return (
     <>

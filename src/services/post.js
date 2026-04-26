@@ -91,6 +91,7 @@ export const postService = {
     try {
       const formData = new FormData()
       
+      // Required fields
       formData.append('title', postData.title)
       formData.append('description', postData.description)
       formData.append('price', postData.price)
@@ -98,15 +99,18 @@ export const postService = {
       formData.append('city', postData.city)
       formData.append('district', postData.district)
       formData.append('brand', postData.brand)
-      formData.append('model', postData.model)
-      formData.append('year', postData.year)
-      formData.append('frameMaterial', postData.frameMaterial)
-      formData.append('frameSize', postData.frameSize)
-      formData.append('brakeType', postData.brakeType)
-      formData.append('groupset', postData.groupset)
-      formData.append('mileage', postData.mileage)
       formData.append('categoryId', postData.categoryId)
-      formData.append('allowNegotiation', postData.allowNegotiation)
+      
+      // Optional fields - only append if they have values
+      if (postData.model) formData.append('model', postData.model)
+      if (postData.year) formData.append('year', postData.year)
+      if (postData.frameMaterial) formData.append('frameMaterial', postData.frameMaterial)
+      if (postData.frameSize) formData.append('frameSize', postData.frameSize)
+      if (postData.brakeType) formData.append('brakeType', postData.brakeType)
+      if (postData.groupset) formData.append('groupset', postData.groupset)
+      if (postData.mileage) formData.append('mileage', postData.mileage)
+      
+      formData.append('allowNegotiation', postData.allowNegotiation || false)
       
       formData.append('requestInspection', postData.requestInspection || false)
       if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)

@@ -9,10 +9,18 @@ import api from '@/services/api';
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [bike, setBike] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/login?redirect=' + encodeURIComponent(`/checkout/${id}`));
+      return;
+    }
+  }, [isAuthenticated, isLoading, navigate, id]);
 
   const platformFee = 0;
   const shippingFee = 200000;

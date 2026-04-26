@@ -9,6 +9,7 @@ import { bikePostService } from '@/services/bikePost'
 import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
+import { LoginRequiredModal } from '@/components/modals'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -479,6 +480,8 @@ export default function BikeDetailPage() {
   const [error, setError] = useState(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [loginAction, setLoginAction] = useState('')
 
   const [sellerInfo, setSellerInfo] = useState(null)
   const [sellerRatings, setSellerRatings] = useState([])
@@ -547,7 +550,23 @@ export default function BikeDetailPage() {
   }, [sellerId])
 
   const handleBuyNow = () => {
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      setLoginAction('mua hàng')
+      setShowLoginModal(true)
+      return
+    }
     navigate(`/checkout/${bike.id}`)
+  }
+
+  const handleOfferClick = () => {
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      setLoginAction('đặt giá')
+      setShowLoginModal(true)
+      return
+    }
+    setShowOfferModal(true)
   }
 
   const handleMessageSeller = async () => {
@@ -859,7 +878,7 @@ export default function BikeDetailPage() {
                   <Button
                     variant="outline"
                     fullWidth
-                    onClick={() => setShowOfferModal(true)}
+                    onClick={handleOfferClick}
                     className="mb-4"
                   >
                     <span className="material-symbols-outlined text-[1rem]">gavel</span>
@@ -979,6 +998,13 @@ export default function BikeDetailPage() {
       {!isOwnPost && showOfferModal && (
         <OfferModal bike={bike} onClose={() => setShowOfferModal(false)} />
       )}
+
+      {/* Login Required Modal */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action={loginAction}
+      />
     </div>
   )
 }

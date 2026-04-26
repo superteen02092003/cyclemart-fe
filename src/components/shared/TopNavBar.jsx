@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
-import { Button } from '@/components/ui/Button'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { cn } from '@/utils/cn'
