@@ -12,7 +12,11 @@ function ConversationItem({ conv, isActive, onClick }) {
       onClick={onClick}
       className={cn(
         'w-full flex items-start gap-3 px-4 py-3.5 text-left transition-colors border-b border-border-light last:border-0',
-        isActive ? 'bg-surface-secondary' : 'hover:bg-surface-secondary/50'
+        isActive
+          ? 'bg-surface-secondary'
+          : conv.unreadCount > 0
+            ? 'bg-orange-50/40 hover:bg-orange-50/60'
+            : 'hover:bg-surface-secondary/50'
       )}
     >
       <div
@@ -29,6 +33,7 @@ function ConversationItem({ conv, isActive, onClick }) {
             onClick={(e) => e.stopPropagation()}
             className={cn(
               'text-sm font-semibold truncate transition-all duration-200',
+              conv.unreadCount > 0 && !isActive ? 'text-content-primary' : '',
               conv.otherUserProfilePath
                 ? 'text-content-primary hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4'
                 : 'text-content-primary pointer-events-none'
@@ -39,7 +44,9 @@ function ConversationItem({ conv, isActive, onClick }) {
           <span className="text-xs text-content-secondary flex-shrink-0">{conv.lastMessageTime}</span>
         </div>
         <p className="text-xs text-content-secondary truncate">{conv.bikeTitle}</p>
-        <p className="text-xs text-content-secondary truncate mt-0.5">{conv.lastMessage}</p>
+        <p className={cn('text-xs truncate mt-0.5', conv.unreadCount > 0 && !isActive ? 'text-content-primary font-semibold' : 'text-content-secondary')}>
+          {conv.lastMessage}
+        </p>
       </div>
 
       {conv.unreadCount > 0 ? (
@@ -76,7 +83,9 @@ function MessageBubble({ msg, isMe }) {
           'max-w-[75%] rounded-sm px-4 py-2.5',
           isMe
             ? 'text-white rounded-br-none'
-            : 'bg-white border border-border-light text-content-primary rounded-bl-none shadow-sm'
+            : msg.isRead === false
+              ? 'bg-orange-50 border border-orange-200 text-content-primary rounded-bl-none shadow-sm'
+              : 'bg-white border border-border-light text-content-primary rounded-bl-none shadow-sm'
         )}
         style={isMe ? { backgroundColor: '#1e3a5f' } : {}}
       >
@@ -97,6 +106,7 @@ MessageBubble.propTypes = {
     offerPrice: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     senderId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    isRead: PropTypes.bool,
   }).isRequired,
   isMe: PropTypes.bool.isRequired,
 }
@@ -115,6 +125,8 @@ const normalizeMessage = (msg, fallbackText = '') => ({
   time: getTimeLabel(msg.createdAt ?? msg.created_at ?? msg.sentAt ?? msg.timestamp),
   type: msg.type,
   offerPrice: msg.offerPrice,
+  isRead: msg.isRead,
+  createdAt: msg.createdAt ?? msg.created_at ?? msg.sentAt ?? msg.timestamp,
 })
 
 const normalizeRoom = (room, currentUserId) => {
@@ -138,7 +150,8 @@ const normalizeRoom = (room, currentUserId) => {
     otherUserProfilePath: otherUser.id ? `/profile?userId=${otherUser.id}` : '',
     lastMessage: room.lastMessage || 'Chưa có tin nhắn',
     lastMessageTime: getTimeLabel(room.lastMessageAt || room.updatedAt || room.createdAt),
-    unreadCount: 0,
+    unreadCount: Number(room.unreadCount || 0),
+    hasUnreadMessages: Boolean(room.hasUnreadMessages || Number(room.unreadCount || 0) > 0),
     buyerId: room.buyerId,
     sellerId: room.sellerId,
   }
@@ -157,10 +170,13 @@ export default function ChatPage() {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [error, setError] = useState('')
   const [connecting, setConnecting] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const messagesEndRef = useRef(null)
   const stompRef = useRef(null)
   const subscriptionRef = useRef(null)
+  const userQueueSubscriptionRef = useRef(null)
+  const userNotificationSubscriptionRef = useRef(null)
 
   const currentUser = authService.getCurrentUser()
   const currentUserId = currentUser?.id || currentUser?.userId || currentUser?.sub || null
@@ -175,6 +191,40 @@ export default function ChatPage() {
 
   const activeMessages = messagesByRoom[activeRoomId] || []
 
+  const showNewMessageNotification = useCallback((messagePayload, roomMeta) => {
+    const senderName = messagePayload?.senderName || roomMeta?.otherUserName || 'Người dùng'
+    const content = messagePayload?.content || messagePayload?.text || 'Bạn có tin nhắn mới'
+    setNotice(`${senderName}: ${content}`)
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification(`Tin nhắn mới từ ${senderName}`, { body: content })
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            new Notification(`Tin nhắn mới từ ${senderName}`, { body: content })
+          }
+        })
+      }
+    }
+  }, [])
+
+  const markRoomAsRead = useCallback(async (roomId) => {
+    if (!roomId) return
+    try {
+      await chatService.markRoomAsRead(roomId)
+      setRooms((prev) => prev.map((room) => (String(room.id) === String(roomId) ? { ...room, unreadCount: 0, hasUnreadMessages: false } : room)))
+      setMessagesByRoom((prev) => ({
+        ...prev,
+        [roomId]: (prev[roomId] || []).map((msg) =>
+          String(msg.senderId) === String(currentUserId) ? msg : { ...msg, isRead: true }
+        ),
+      }))
+    } catch {
+      // ignore mark as read errors
+    }
+  }, [currentUserId])
+
   const filteredRooms = useMemo(
     () => rooms.filter((room) =>
       room.otherUserName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -188,17 +238,50 @@ export default function ChatPage() {
     setMessagesByRoom((prev) => {
       const existing = prev[roomId] || []
       if (existing.some((item) => String(item.id) === String(message.id))) return prev
+
+      // Replace optimistic local message with confirmed server message to avoid duplicate bubbles.
+      const optimisticIndex = existing.findIndex(
+        (item) =>
+          String(item.senderId) === String(message.senderId) &&
+          String(item.id).startsWith('local-') &&
+          item.text === message.text
+      )
+
+      if (optimisticIndex >= 0 && !String(message.id).startsWith('local-')) {
+        const nextMessages = [...existing]
+        nextMessages[optimisticIndex] = message
+        return { ...prev, [roomId]: nextMessages }
+      }
+
       return { ...prev, [roomId]: [...existing, message] }
     })
 
-    setRooms((prev) =>
-      prev.map((room) =>
-        String(room.id) === String(roomId)
-          ? { ...room, lastMessage: message.text, lastMessageTime: message.time }
-          : room
-      )
-    )
-  }, [])
+    const roomMeta = rooms.find((room) => String(room.id) === String(roomId))
+    const isIncoming = String(message.senderId) !== String(currentUserId)
+    const isActiveRoom = String(activeRoomId) === String(roomId)
+
+    setRooms((prev) => {
+      const next = prev.map((room) => {
+        if (String(room.id) !== String(roomId)) return room
+        const unreadCount = isIncoming && !isActiveRoom ? Number(room.unreadCount || 0) + 1 : 0
+        return {
+          ...room,
+          lastMessage: message.text,
+          lastMessageTime: message.time,
+          unreadCount,
+          hasUnreadMessages: unreadCount > 0,
+        }
+      })
+      const idx = next.findIndex((room) => String(room.id) === String(roomId))
+      if (idx <= 0) return next
+      const [updatedRoom] = next.splice(idx, 1)
+      return [updatedRoom, ...next]
+    })
+
+    if (isIncoming && !isActiveRoom) {
+      showNewMessageNotification(rawMessage, roomMeta)
+    }
+  }, [activeRoomId, currentUserId, rooms, showNewMessageNotification])
 
   const mergeMessageDedup = useCallback((roomId, message, fallbackText) => {
     const normalized = normalizeMessage(message, fallbackText)
@@ -213,7 +296,11 @@ export default function ChatPage() {
 
   const disconnectSocket = useCallback(() => {
     subscriptionRef.current?.unsubscribe?.()
+    userQueueSubscriptionRef.current?.unsubscribe?.()
+    userNotificationSubscriptionRef.current?.unsubscribe?.()
     subscriptionRef.current = null
+    userQueueSubscriptionRef.current = null
+    userNotificationSubscriptionRef.current = null
     if (stompRef.current?.active) {
       stompRef.current.deactivate()
     }
@@ -222,7 +309,7 @@ export default function ChatPage() {
   }, [])
 
   const connectSocket = useCallback(() => {
-    if (!currentUserId || !isAuthenticated || !activeRoomId) return
+    if (!currentUserId || !isAuthenticated) return
     if (stompRef.current?.active || stompRef.current?.connected) return
 
     const client = new Client({
@@ -235,10 +322,32 @@ export default function ChatPage() {
 
     client.onConnect = () => {
       subscriptionRef.current?.unsubscribe?.()
-      subscriptionRef.current = client.subscribe(`/topic/chats/${activeRoomId}`, (frame) => {
+      if (activeRoomId) {
+        subscriptionRef.current = client.subscribe(`/topic/chats/${activeRoomId}`, (frame) => {
+          try {
+            const payload = JSON.parse(frame.body)
+            upsertMessage(activeRoomId, payload)
+          } catch {
+            // ignore malformed payload
+          }
+        })
+      }
+
+      userQueueSubscriptionRef.current?.unsubscribe?.()
+      userQueueSubscriptionRef.current = client.subscribe('/user/queue/chats', (frame) => {
         try {
           const payload = JSON.parse(frame.body)
-          upsertMessage(activeRoomId, payload)
+          if (payload?.roomId) upsertMessage(payload.roomId, payload)
+        } catch {
+          // ignore malformed payload
+        }
+      })
+
+      userNotificationSubscriptionRef.current?.unsubscribe?.()
+      userNotificationSubscriptionRef.current = client.subscribe('/user/queue/notifications/messages', (frame) => {
+        try {
+          const payload = JSON.parse(frame.body)
+          if (payload?.roomId) upsertMessage(payload.roomId, payload)
         } catch {
           // ignore malformed payload
         }
@@ -317,7 +426,6 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!isAuthenticated) return
-    if (!activeRoomId) return
     connectSocket()
   }, [activeRoomId, connectSocket, isAuthenticated])
 
@@ -345,6 +453,12 @@ export default function ChatPage() {
       })
     }
   }, [activeRoomId, upsertMessage])
+
+  useEffect(() => {
+    if (!notice) return
+    const timeout = setTimeout(() => setNotice(''), 3500)
+    return () => clearTimeout(timeout)
+  }, [notice])
 
 
   useEffect(() => {
@@ -384,7 +498,8 @@ export default function ChatPage() {
   const handleSelectRoom = (roomId) => {
     setActiveRoomId(roomId)
     setMobileView('chat')
-    setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, unreadCount: 0 } : room)))
+    setRooms((prev) => prev.map((room) => (room.id === roomId ? { ...room, unreadCount: 0, hasUnreadMessages: false } : room)))
+    markRoomAsRead(roomId)
   }
 
   const handleSend = async (e) => {
@@ -416,6 +531,11 @@ export default function ChatPage() {
       setError(err?.message || 'Không gửi được tin nhắn')
     }
   }
+
+  useEffect(() => {
+    if (!activeRoomId) return
+    markRoomAsRead(activeRoomId)
+  }, [activeRoomId, markRoomAsRead, activeMessages.length])
 
   return (
     <div className="max-w-7xl mx-auto px-0 sm:px-6 lg:px-8 py-0 sm:py-8">
@@ -542,6 +662,11 @@ export default function ChatPage() {
         </div>
       </div>
       {error ? <div className="mt-3 text-sm text-error">{error}</div> : null}
+      {notice ? (
+        <div className="fixed bottom-4 right-4 bg-navy text-white text-sm px-4 py-2 rounded-sm shadow-lg z-50 max-w-xs truncate">
+          {notice}
+        </div>
+      ) : null}
     </div>
   )
 }
