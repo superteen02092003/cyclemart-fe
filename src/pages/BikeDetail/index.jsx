@@ -10,6 +10,7 @@ import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
 import { LoginRequiredModal } from '@/components/modals'
+import { wishlistService } from '@/services/wishlist'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -38,33 +39,33 @@ StarRating.propTypes = {
 // Image Viewer Modal Component
 function ImageViewerModal({ images, initialIndex, onClose }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
-  
+
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
   }
-  
+
   const goToNext = () => {
     setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
   }
-  
+
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowLeft') goToPrevious()
     if (e.key === 'ArrowRight') goToNext()
   }
-  
+
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
-    
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'unset'
     }
   }, [])
-  
+
   if (!images || images.length === 0) return null
-  
+
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">
       {/* Header */}
@@ -91,7 +92,7 @@ function ImageViewerModal({ images, initialIndex, onClose }) {
           alt={`Ảnh ${currentIndex + 1}`}
           className="max-w-full max-h-full object-contain"
         />
-        
+
         {/* Navigation Arrows */}
         {images.length > 1 && (
           <>
@@ -149,12 +150,12 @@ ImageViewerModal.propTypes = {
 function ImageGallery({ images, title, postStatus }) {
   const [showViewer, setShowViewer] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(0)
-  
+
   const openViewer = (index) => {
     setViewerIndex(index)
     setShowViewer(true)
   }
-  
+
   if (!images || images.length === 0) {
     return (
       <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
@@ -180,7 +181,7 @@ function ImageGallery({ images, title, postStatus }) {
       </div>
     )
   }
-  
+
   if (images.length === 1) {
     return (
       <>
@@ -219,7 +220,7 @@ function ImageGallery({ images, title, postStatus }) {
       </>
     )
   }
-  
+
   if (images.length === 2) {
     return (
       <>
@@ -266,7 +267,7 @@ function ImageGallery({ images, title, postStatus }) {
       </>
     )
   }
-  
+
   // 3+ images: Facebook-style layout
   return (
     <>
@@ -288,7 +289,7 @@ function ImageGallery({ images, title, postStatus }) {
               </span>
             </div>
           </div>
-          
+
           {/* Right side thumbnails */}
           <div className="grid grid-rows-2 gap-1">
             {images.slice(1, 3).map((image, index) => (
@@ -307,7 +308,7 @@ function ImageGallery({ images, title, postStatus }) {
                     zoom_in
                   </span>
                 </div>
-                
+
                 {/* Show "+X more" overlay on last visible image if there are more */}
                 {index === 1 && images.length > 3 && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -321,7 +322,7 @@ function ImageGallery({ images, title, postStatus }) {
             ))}
           </div>
         </div>
-        
+
         {/* Image count badge */}
         <div className="absolute bottom-3 right-3">
           <Badge variant="subtle">
@@ -329,7 +330,7 @@ function ImageGallery({ images, title, postStatus }) {
             {images.length} ảnh
           </Badge>
         </div>
-        
+
         {/* Approved badge */}
         {postStatus === 'APPROVED' && (
           <div className="absolute top-3 left-3">
@@ -343,7 +344,7 @@ function ImageGallery({ images, title, postStatus }) {
           </div>
         )}
       </div>
-      
+
       {showViewer && (
         <ImageViewerModal
           images={images}
@@ -479,6 +480,7 @@ export default function BikeDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [wishlistLoading, setWishlistLoading] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginAction, setLoginAction] = useState('')
@@ -549,6 +551,24 @@ export default function BikeDetailPage() {
     fetchSellerInfo()
   }, [sellerId])
 
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      if (!bike?.id || isOwnPost || !authService.isAuthenticated()) {
+        setIsWishlisted(false)
+        return
+      }
+
+      try {
+        const response = await wishlistService.checkInWishlist(bike.id)
+        setIsWishlisted(Boolean(response?.isInWishlist))
+      } catch (err) {
+        console.error('Lỗi khi kiểm tra wishlist:', err)
+      }
+    }
+
+    checkWishlistStatus()
+  }, [bike?.id, isOwnPost])
+
   const handleBuyNow = () => {
     const currentUser = authService.getCurrentUser()
     if (!currentUser) {
@@ -578,6 +598,32 @@ export default function BikeDetailPage() {
     } catch (err) {
       console.error('Không tạo được room chat:', err)
       navigate(`/chat?bikePostId=${bike.id}`)
+    }
+  }
+
+  const handleWishlistToggle = async () => {
+    if (!bike?.id || wishlistLoading) return
+
+    if (!authService.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      navigate(ROUTES.LOGIN)
+      return
+    }
+
+    try {
+      setWishlistLoading(true)
+      if (isWishlisted) {
+        await wishlistService.removeFromWishlist(bike.id)
+        setIsWishlisted(false)
+      } else {
+        await wishlistService.addToWishlist(bike.id)
+        setIsWishlisted(true)
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
+      alert(message)
+    } finally {
+      setWishlistLoading(false)
     }
   }
 
@@ -671,8 +717,8 @@ export default function BikeDetailPage() {
         {/* ── Left column ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
           {/* Facebook-style Image Gallery */}
-          <ImageGallery 
-            images={bike.images} 
+          <ImageGallery
+            images={bike.images}
             title={bike.title}
             postStatus={bike.postStatus}
           />
@@ -889,12 +935,13 @@ export default function BikeDetailPage() {
 
               {isOwnPost ? null : (
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={handleWishlistToggle}
+                  disabled={wishlistLoading}
                   className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-sm border text-sm font-semibold transition-colors ${
                     isWishlisted
                       ? 'border-red-300 text-red-500 bg-red-50'
                       : 'border-border-light text-content-secondary hover:border-red-300 hover:text-red-500 hover:bg-red-50'
-                  }`}
+                  } ${wishlistLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   <span
                     className="material-symbols-outlined text-[1rem]"
