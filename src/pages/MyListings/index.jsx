@@ -214,25 +214,35 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
             )}
 
             {listing.isVerified ? (
-              <button
-                disabled
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-90"
-                style={{ backgroundColor: '#10b981' }}
-              >
-                <span className="material-symbols-outlined text-[0.9rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                Xe đã kiểm định
-              </button>
-            ) : (
-              <button
-                onClick={() => onInspect(listing)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
-                style={{ backgroundColor: '#ff6b35' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-              >
-                <span className="material-symbols-outlined text-[0.9rem]">verified</span>
-                Đăng ký kiểm định
-              </button>
+  <button 
+    disabled 
+    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-90" 
+    style={{ backgroundColor: '#10b981' }}
+  >
+    <span className="material-symbols-outlined text-[0.9rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+    Xe đã kiểm định
+  </button>
+) : listing.isRequestedInspection ? (
+  // KHÓA NÚT KHI ĐÃ ĐĂNG KÝ (Tương tự gói ưu tiên)
+  <button 
+    disabled 
+    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-80" 
+    style={{ backgroundColor: '#64748b' }}
+  >
+    <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
+    Đã đăng ký kiểm định
+  </button>
+) : (
+  <button
+    onClick={() => onInspect(listing)}
+    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
+    style={{ backgroundColor: '#ff6b35' }}
+    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e05a2b')}
+    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
+  >
+    <span className="material-symbols-outlined text-[0.9rem]">verified</span>
+    Đăng ký kiểm định
+  </button>
             )}
           </>
         )}
