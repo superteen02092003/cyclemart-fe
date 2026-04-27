@@ -11,14 +11,15 @@ import ReviewModal from '@/components/orders/ReviewModal';
 import { useOrderUpdates, useDisputeUpdates } from '@/hooks/useWebSocket';
 
 const STATUS_LABELS = {
-  PENDING_PAYMENT:       { text: 'Chờ thanh toán',    color: 'bg-navy/10 text-navy border border-navy/20' },
-  PAID_WAITING_DELIVERY: { text: 'Chờ giao hàng',      color: 'bg-orange/10 text-orange border border-orange/20' },
-  IN_DELIVERY:           { text: 'Đang vận chuyển',    color: 'bg-blue-500/10 text-blue-600 border border-blue-500/20' },
-  DELIVERED:             { text: 'Đã nhận hàng',       color: 'bg-green/10 text-green border border-green/20' },
-  RETURN_REQUESTED:      { text: 'Yêu cầu hoàn trả',  color: 'bg-error/10 text-error border border-error/20' },
-  DISPUTE_SYSTEM:        { text: 'Đang tranh chấp',    color: 'bg-error/10 text-error border border-error/20' },
-  COMPLETED:             { text: 'Hoàn tất',           color: 'bg-gray-100 text-gray-600 border border-gray-200' },
-  CANCELLED:             { text: 'Đã hủy',             color: 'bg-content-tertiary/20 text-content-secondary' },
+  PENDING_PAYMENT:             { text: 'Chờ thanh toán',         color: 'bg-navy/10 text-navy border border-navy/20' },
+  PENDING_SELLER_CONFIRMATION: { text: 'Chờ seller xác nhận',    color: 'bg-amber-100 text-amber-700 border border-amber-300' },
+  PAID_WAITING_DELIVERY:       { text: 'Chờ giao hàng',          color: 'bg-orange/10 text-orange border border-orange/20' },
+  IN_DELIVERY:                 { text: 'Đang vận chuyển',        color: 'bg-blue-500/10 text-blue-600 border border-blue-500/20' },
+  DELIVERED:                   { text: 'Đã nhận hàng',           color: 'bg-green/10 text-green border border-green/20' },
+  RETURN_REQUESTED:            { text: 'Yêu cầu hoàn trả',      color: 'bg-error/10 text-error border border-error/20' },
+  DISPUTE_SYSTEM:              { text: 'Đang tranh chấp',        color: 'bg-error/10 text-error border border-error/20' },
+  COMPLETED:                   { text: 'Hoàn tất',               color: 'bg-gray-100 text-gray-600 border border-gray-200' },
+  CANCELLED:                   { text: 'Đã hủy',                 color: 'bg-content-tertiary/20 text-content-secondary' },
 };
 
 const DISPUTE_STATUS_LABELS = {
@@ -116,6 +117,8 @@ function SellerDisputePanel({ dispute, onAction }) {
 function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeModal, openReviewModal }) {
   const isBuyer = order.role === 'BUYER';
   const [actionLoading, setActionLoading] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectInput, setShowRejectInput] = useState(false);
 
   const handleAction = async (actionFn, label) => {
     if (!window.confirm(`Xác nhận: ${label}?`)) return;
@@ -198,6 +201,80 @@ function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeMod
       )}
 
       <div className="mt-5 flex justify-end flex-wrap gap-3 pt-4 border-t border-border-light">
+
+        {/* COD - Buyer đang chờ seller xác nhận */}
+        {order.orderStatus === 'PENDING_SELLER_CONFIRMATION' && isBuyer && (
+          <div className="w-full p-3 bg-amber-50 border border-amber-200 rounded-sm flex items-center gap-2 text-sm text-amber-800">
+            <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <span>Đang chờ seller xác nhận đơn COD... Seller có <strong>1 phút</strong> để phản hồi.</span>
+          </div>
+        )}
+
+        {/* COD - Seller nhận request, cần xác nhận hoặc từ chối */}
+        {order.orderStatus === 'PENDING_SELLER_CONFIRMATION' && !isBuyer && (
+          <div className="w-full space-y-3">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-sm text-sm text-amber-800">
+              <p className="font-bold mb-1 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[1rem]">notifications_active</span>
+                Có đơn hàng COD mới cần xác nhận!
+              </p>
+              <p className="text-xs">Người mua: <strong>{order.buyerName}</strong> — Giao đến: <strong>{order.address || 'TP. Hồ Chí Minh'}</strong></p>
+              <p className="text-xs mt-1 text-amber-600">Bạn cần phản hồi trong vòng <strong>1 phút</strong>, nếu không đơn sẽ tự động bị hủy.</p>
+            </div>
+
+            {showRejectInput ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Lý do từ chối (bắt buộc)..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-border-light rounded-sm focus:border-error outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowRejectInput(false)}
+                    className="flex-1 py-2 text-xs font-bold border border-border-light text-content-secondary hover:bg-surface-secondary rounded-sm"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    disabled={actionLoading || !rejectReason.trim()}
+                    onClick={() => handleAction(
+                      () => ordersService.sellerRejectOrder(order.paymentId, rejectReason),
+                      'Từ chối đơn hàng này'
+                    )}
+                    className="flex-1 py-2 text-xs font-bold bg-error text-white hover:bg-error/90 rounded-sm disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  disabled={actionLoading}
+                  onClick={() => setShowRejectInput(true)}
+                  className="flex-1 py-2.5 text-xs font-bold border border-error text-error hover:bg-error/5 rounded-sm transition-colors disabled:opacity-50"
+                >
+                  Từ chối
+                </button>
+                <button
+                  disabled={actionLoading}
+                  onClick={() => handleAction(
+                    () => ordersService.sellerConfirmOrder(order.paymentId),
+                    'Xác nhận nhận đơn hàng COD này'
+                  )}
+                  className="flex-1 py-2.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[1rem]">check_circle</span>
+                  {actionLoading ? 'Đang xử lý...' : 'Xác nhận giao hàng'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {order.orderStatus === 'PENDING_PAYMENT' && isBuyer && order.paymentUrl && (
           <a href={order.paymentUrl} target="_blank" rel="noopener noreferrer"
             className="py-2.5 px-6 bg-[#ff6b35] hover:bg-[#ff7849] text-white text-xs font-bold rounded-sm transition-colors">
@@ -260,14 +337,21 @@ function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeMod
                 Yêu cầu tranh chấp
               </button>
             )}
-            <button
-              disabled={actionLoading}
-              onClick={() => openReviewModal(order)}
-              className="py-2.5 px-6 bg-green hover:bg-green/90 text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1 disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[1rem]">verified</span>
-              Hoàn thành & Đánh giá
-            </button>
+            {order.hasRated ? (
+              <span className="py-2 px-4 text-xs font-medium text-green bg-green/10 rounded-sm border border-green/20 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[1rem]">verified</span>
+                Đã đánh giá
+              </span>
+            ) : (
+              <button
+                disabled={actionLoading}
+                onClick={() => openReviewModal(order)}
+                className="py-2.5 px-6 bg-green hover:bg-green/90 text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[1rem]">verified</span>
+                Hoàn thành & Đánh giá
+              </button>
+            )}
           </>
         )}
 
@@ -338,6 +422,7 @@ export default function OrdersPage() {
     deliveredAt: payment.deliveredAt || null,
     autoReleaseAt: payment.autoReleaseAt || null,
     adminNote: payment.adminNote || null,
+    hasRated: payment.hasRated || false,
   }), []);
 
   const fetchOrders = useCallback(async () => {
@@ -350,7 +435,7 @@ export default function OrdersPage() {
       ]);
 
       const buyerOrders = buyerRes.status === 'fulfilled'
-        ? (buyerRes.value.content || []).filter(p => p.type === 'ORDER_PAYMENT').map(p => mapPayment(p, 'BUYER'))
+        ? (buyerRes.value.content || []).filter(p => p.type === 'ORDER_PAYMENT' || p.type === 'DIRECT_PAYMENT').map(p => mapPayment(p, 'BUYER'))
         : [];
       const sellerOrders = sellerRes.status === 'fulfilled'
         ? (sellerRes.value.content || []).map(p => mapPayment(p, 'SELLER'))

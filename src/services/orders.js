@@ -44,6 +44,20 @@ export const ordersService = {
     })
     return response.data
   },
+
+  // Seller xác nhận đơn COD
+  sellerConfirmOrder: async (paymentId) => {
+    const response = await api.post(`/v1/payments/${paymentId}/seller-confirm`)
+    return response.data
+  },
+
+  // Seller từ chối đơn COD
+  sellerRejectOrder: async (paymentId, reason) => {
+    const response = await api.post(`/v1/payments/${paymentId}/seller-reject`, null, {
+      params: { reason },
+    })
+    return response.data
+  },
 }
 
 export const disputeService = {

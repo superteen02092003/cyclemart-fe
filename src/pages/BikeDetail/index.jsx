@@ -834,49 +834,6 @@ export default function BikeDetailPage() {
             </div>
           </div>
 
-          {/* Add Review */}
-          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
-            <h3 className="text-sm font-semibold text-content-primary mb-3">
-              Đánh giá của bạn
-            </h3>
-
-            <div className="flex items-center gap-1 mb-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span
-                  key={i}
-                  onClick={() => setMyRating(i + 1)}
-                  className="material-symbols-outlined cursor-pointer"
-                  style={{
-                    fontVariationSettings: i < myRating ? "'FILL' 1" : "'FILL' 0",
-                    color: i < myRating ? '#f59e0b' : '#d1d5db',
-                  }}
-                >
-                  star
-                </span>
-              ))}
-            </div>
-
-            <textarea
-              rows={3}
-              placeholder="Nhận xét của bạn..."
-              value={myComment}
-              onChange={(e) => setMyComment(e.target.value)}
-              className="w-full px-3 py-2 border border-border-light rounded-sm text-sm mb-3"
-            />
-
-            <Button
-              disabled={!myRating || submittingRating}
-              onClick={handleSubmitRating}
-              fullWidth
-            >
-              {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
-            </Button>
-
-            {ratingError && (
-              <p className="text-error text-xs mt-2">{ratingError}</p>
-            )}
-          </div>
-
           {/* Reviews List */}
           <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
             <h2 className="text-base font-bold text-content-primary mb-4">
