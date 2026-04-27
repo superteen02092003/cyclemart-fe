@@ -1,20 +1,17 @@
 import { HeroSection } from './HeroSection'
 import { CategoryFilterBar } from './CategoryFilterBar'
-import { FeaturedListings } from './FeaturedListings'
+import { CategorySections } from './CategorySections'
 import { TrustSection } from './TrustSection'
 import { VerifiedListings } from './VerifiedListings'
 import { HowItWorks } from './HowItWorks'
 import { SellerCTA } from './SellerCTA'
-import { useState } from 'react'
 
 export default function HomePage() {
-  const [selectedCategory, setSelectedCategory] = useState('all')
-
   return (
     <>
       <HeroSection />
-      <CategoryFilterBar onCategoryChange={setSelectedCategory} />
-      <FeaturedListings selectedCategory={selectedCategory} />
+      <CategoryFilterBar />
+      <CategorySections />
       <TrustSection />
       <VerifiedListings />
       <HowItWorks />

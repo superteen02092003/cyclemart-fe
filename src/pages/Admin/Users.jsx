@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { adminService } from '@/services/admin'
+import { inspectionService } from '@/services/inspection' // 🔥 Thêm service kiểm định
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -9,6 +10,11 @@ export default function AdminUsers() {
   
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false)
+  
+  // 🔥 MỚI: State cho Modal xem tiến độ Inspector
+  const [isTasksModalOpen, setIsTasksModalOpen] = useState(false)
+  const [inspectorTasks, setInspectorTasks] = useState([])
+  const [loadingTasks, setLoadingTasks] = useState(false)
   
   const [userLogs, setUserLogs] = useState([])
   const [loadingLogs, setLoadingLogs] = useState(false)
@@ -62,6 +68,22 @@ export default function AdminUsers() {
     }
   }
 
+  // 🔥 MỚI: Hàm xử lý mở Modal xem tiến độ của Inspector
+  const handleViewInspectorTasks = async (user) => {
+    setSelectedUser(user)
+    setIsTasksModalOpen(true)
+    try {
+      setLoadingTasks(true)
+      const data = await inspectionService.getInspectorTasksByAdmin(user.id, { page: 0, size: 50 })
+      setInspectorTasks(data?.content || [])
+    } catch (error) {
+      console.error('Lỗi khi tải danh sách công việc:', error)
+      alert('Không thể tải tiến độ công việc của Kiểm định viên này.')
+    } finally {
+      setLoadingTasks(false)
+    }
+  }
+
   const handleToggleBanStatus = async (user) => {
     if (user.status === 'BANNED') {
       if (window.confirm(`Bạn có chắc chắn muốn MỞ KHÓA cho tài khoản ${user.email}?`)) {
@@ -107,13 +129,12 @@ export default function AdminUsers() {
       label: 'Loại',
       render: (value) => (
         <span className={`inline-block px-3 py-1 rounded-sm text-xs font-medium ${
-          value === 'SELLER' ? 'bg-navy/10 text-content-primary' : 
+          value === 'USER' ? 'bg-success/10 text-success' : 
           value === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
           value === 'INSPECTOR' ? 'bg-amber-100 text-amber-700' :
           'bg-success/10 text-success'
         }`}>
-          {value === 'BUYER' ? 'Người mua' : 
-           value === 'SELLER' ? 'Người bán' : 
+          {value === 'USER' ? 'Người dùng' : 
            value === 'ADMIN' ? 'Quản trị viên' : 
            value === 'INSPECTOR' ? 'Kiểm định viên' : value}
         </span>
@@ -162,8 +183,7 @@ export default function AdminUsers() {
             className="px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50 bg-white"
           >
             <option value="all">Tất cả</option>
-            <option value="buyer">Người mua</option>
-            <option value="seller">Người bán</option>
+            <option value="user">Người dùng</option>
             <option value="admin">Quản trị viên</option>
             <option value="inspector">Kiểm định viên</option>
           </select>
@@ -203,6 +223,16 @@ export default function AdminUsers() {
           >
             Xem Log
           </button>,
+          // 🔥 MỚI: Chỉ hiển thị nút "Tiến độ CV" nếu role là INSPECTOR
+          user.role === 'INSPECTOR' ? (
+            <button
+              key="tasks"
+              onClick={() => handleViewInspectorTasks(user)}
+              className="px-3 py-2 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded-sm transition-colors"
+            >
+              Tiến độ CV
+            </button>
+          ) : null,
           <button
             key="ban"
             onClick={() => handleToggleBanStatus(user)}
@@ -214,10 +244,11 @@ export default function AdminUsers() {
           >
             {user.status === 'BANNED' ? 'Mở khóa' : 'Khóa TK'}
           </button>,
-        ]}
+        ].filter(Boolean)} // Lọc bỏ các giá trị null (trong trường hợp không phải INSPECTOR)
         className="bg-surface"
       />
 
+      {/* Modal Chi tiết người dùng */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
@@ -256,6 +287,7 @@ export default function AdminUsers() {
         )}
       </Modal>
 
+      {/* Modal Lịch sử hoạt động (Log) */}
       <Modal
         isOpen={isLogModalOpen}
         onClose={() => setIsLogModalOpen(false)}
@@ -292,6 +324,67 @@ export default function AdminUsers() {
                     <td className="py-3 px-4 text-sm text-content-secondary">
                       {log.productId ? `Sản phẩm #${log.productId}` : ''} 
                       {log.sellerId ? ` Shop #${log.sellerId}` : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Modal>
+
+      {/* 🔥 MỚI: Modal Tiến độ công việc của Inspector */}
+      <Modal
+        isOpen={isTasksModalOpen}
+        onClose={() => setIsTasksModalOpen(false)}
+        title={`Công việc của Inspector: ${selectedUser?.fullName || selectedUser?.email}`}
+        size="xl"
+      >
+        {loadingTasks ? (
+          <div className="py-10 text-center text-content-secondary">Đang trích xuất danh sách công việc...</div>
+        ) : inspectorTasks.length === 0 ? (
+          <div className="py-10 text-center text-content-secondary">Kiểm định viên này chưa được phân công hoặc chưa có công việc nào.</div>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto pr-2">
+            <div className="mb-4 flex gap-4 text-sm text-content-secondary bg-surface-secondary p-3 rounded-sm border">
+              <div>Tổng cộng: <strong>{inspectorTasks.length}</strong> việc</div>
+              <div>Đã hoàn thành: <strong>{inspectorTasks.filter(t => t.status === 'PASSED').length}</strong> việc</div>
+              <div>Đang chờ xử lý: <strong className="text-warning-content">{inspectorTasks.filter(t => t.status === 'ASSIGNED' || t.status === 'INSPECTING').length}</strong> việc</div>
+            </div>
+
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-secondary text-content-secondary text-xs uppercase border-b border-border-light">
+                  <th className="py-3 px-3 font-semibold">Tên xe / Bài đăng</th>
+                  <th className="py-3 px-3 font-semibold text-center">Trạng thái</th>
+                  <th className="py-3 px-3 font-semibold">Hẹn lúc</th>
+                  <th className="py-3 px-3 font-semibold">Nhận xét của Inspector</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inspectorTasks.map((task) => (
+                  <tr key={task.id} className="border-b border-border-light hover:bg-surface-secondary/50">
+                    <td className="py-3 px-3 text-sm font-medium text-navy">
+                      <span className="line-clamp-2" title={task.postTitle}>{task.postTitle}</span>
+                      <span className="text-xs text-content-secondary font-normal mt-1 block">Khách: {task.sellerName}</span>
+                    </td>
+                    <td className="py-3 px-3 text-sm text-center whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-bold rounded-sm uppercase tracking-wider ${
+                        task.status === 'PASSED' ? 'bg-green-100 text-green-700' :
+                        task.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                        'bg-warning/10 text-warning-content'
+                      }`}>
+                        {task.status === 'PASSED' ? 'Hoàn thành' : 
+                         task.status === 'FAILED' ? 'Bị rớt' : 'Chờ xử lý'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-sm text-content-secondary whitespace-nowrap">
+                      {task.scheduledDateTime ? new Date(task.scheduledDateTime).toLocaleString('vi-VN') : 'Chưa có giờ'}
+                    </td>
+                    <td className="py-3 px-3 text-sm text-content-secondary">
+                      <span className="line-clamp-2 italic" title={task.resultNote || 'Chưa có ghi chú'}>
+                        {task.resultNote || '-'}
+                      </span>
                     </td>
                   </tr>
                 ))}

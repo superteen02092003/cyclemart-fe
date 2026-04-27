@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
-import { Button } from '@/components/ui/Button'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { cn } from '@/utils/cn'
+import { authService } from '@/services/auth'
+import api from '@/services/api'
 
 const NAV_LINKS = [
   { label: 'Mua xe', href: ROUTES.BROWSE },
@@ -17,6 +18,49 @@ const NAV_LINKS = [
 export function TopNavBar() {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userPoints, setUserPoints] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const currentUser = authService.getCurrentUser()
+
+  // Fetch user points
+  useEffect(() => {
+    const fetchUserPoints = async () => {
+      if (!currentUser) {
+        setUserPoints(0)
+        return
+      }
+      
+      try {
+        const response = await api.get('/auth/me')
+        const points = response.data?.point || 0
+        console.log('Fetched points:', points) // Debug log
+        setUserPoints(points)
+      } catch (error) {
+        console.error('Failed to fetch user points:', error)
+      }
+    }
+
+    fetchUserPoints()
+
+    // Listen for custom event to refresh points
+    const handlePointsUpdate = () => {
+      console.log('Points update event triggered') // Debug log
+      setRefreshKey(prev => prev + 1)
+      fetchUserPoints()
+    }
+    window.addEventListener('pointsUpdated', handlePointsUpdate)
+    
+    // Also listen for storage events
+    const handleStorageChange = () => {
+      fetchUserPoints()
+    }
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('pointsUpdated', handlePointsUpdate)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [currentUser, refreshKey])
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-border-light">
@@ -58,6 +102,17 @@ export function TopNavBar() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {currentUser && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-orange/10 rounded-full border border-orange/20">
+                <span className="material-symbols-outlined text-orange text-[1rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  stars
+                </span>
+                <span className="text-sm font-bold text-orange">
+                  {userPoints.toLocaleString()}
+                </span>
+                <span className="text-xs text-orange/70">điểm</span>
+              </div>
+            )}
             <NotificationBell />
             <UserMenu />
           </div>

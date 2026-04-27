@@ -1,71 +1,57 @@
 import api from './api'
 
+const CONDITION_TO_BIKE_STATUS = {
+  'like-new': 'LIKE_NEW',
+  'excellent': 'LIKE_NEW',
+  'good': 'GOOD',
+  'fair': 'USED',
+  'needs-repair': 'NEED_REPAIR',
+  'new': 'NEW',
+  'LIKE_NEW': 'LIKE_NEW',
+  'GOOD': 'GOOD',
+  'USED': 'USED',
+  'NEED_REPAIR': 'NEED_REPAIR',
+  'NEW': 'NEW',
+}
+
+function buildPostFormData(postData) {
+  const formData = new FormData()
+
+  Object.keys(postData).forEach(key => {
+    if (key === 'images') {
+      if (postData.images && postData.images.length > 0) {
+        postData.images.forEach(image => formData.append('images', image))
+      }
+    } else if (key === 'condition') {
+      const bikeStatus = CONDITION_TO_BIKE_STATUS[postData.condition] || 'USED'
+      formData.append('status', bikeStatus)
+    } else {
+      const val = postData[key]
+      if (val !== undefined && val !== null && val !== '') {
+        formData.append(key, val)
+      }
+    }
+  })
+
+  return formData
+}
+
 export const postService = {
   create: async (postData) => {
     try {
-      // If postData is already FormData, use it directly
-      if (postData instanceof FormData) {
-        const response = await api.post('/v1/posts', postData)
-        return response.data
-      }
-      
-      // Otherwise, create FormData from object (legacy support)
-      const formData = new FormData()
-      
-      // Required fields
-      if (postData.title) formData.append('title', postData.title)
-      if (postData.description) formData.append('description', postData.description)
-      if (postData.price) formData.append('price', postData.price)
-      if (postData.status) formData.append('status', postData.status)
-      if (postData.city) formData.append('city', postData.city)
-      if (postData.district) formData.append('district', postData.district)
-      if (postData.brand) formData.append('brand', postData.brand)
-      if (postData.categoryId) formData.append('categoryId', postData.categoryId)
-      
-      // Optional fields
-      if (postData.model) formData.append('model', postData.model)
-      if (postData.year) formData.append('year', postData.year)
-      if (postData.frameMaterial) formData.append('frameMaterial', postData.frameMaterial)
-      if (postData.frameSize) formData.append('frameSize', postData.frameSize)
-      if (postData.brakeType) formData.append('brakeType', postData.brakeType)
-      if (postData.groupset) formData.append('groupset', postData.groupset)
-      if (postData.mileage) formData.append('mileage', postData.mileage)
-      
-      formData.append('allowNegotiation', postData.allowNegotiation || false)
-      
-      formData.append('requestInspection', postData.requestInspection || false)
-      if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)
-      if (postData.inspectionScheduledDate) formData.append('inspectionScheduledDate', postData.inspectionScheduledDate)
-      if (postData.inspectionNote) formData.append('inspectionNote', postData.inspectionNote)
-      
-      if (postData.images && postData.images.length > 0) {
-        postData.images.forEach((image) => {
-          formData.append('images', image)
-        })
-      }
-      
-      const response = await api.post('/v1/posts', formData)
+      const response = await api.post('/v1/posts', buildPostFormData(postData))
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi tạo bài đăng' }
     }
   },
 
-  getAll: async () => {
+  getAll: async (params = {}) => {
     try {
-      const response = await api.get('/v1/posts')
+      const response = await api.get('/v1/posts', { params })
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi tải danh sách bài đăng' }
-    }
-  },
-
-  getPostsByUserId: async (userId) => {
-    try {
-      const response = await api.get(`/v1/posts/user/${userId}`)
-      return response.data
-    } catch (error) {
-      throw error.response?.data || { message: 'Lỗi khi tải bài đăng của người dùng' }
     }
   },
 
@@ -89,37 +75,7 @@ export const postService = {
 
   update: async (id, postData) => {
     try {
-      const formData = new FormData()
-      
-      formData.append('title', postData.title)
-      formData.append('description', postData.description)
-      formData.append('price', postData.price)
-      formData.append('status', postData.status)
-      formData.append('city', postData.city)
-      formData.append('district', postData.district)
-      formData.append('brand', postData.brand)
-      formData.append('model', postData.model)
-      formData.append('year', postData.year)
-      formData.append('frameMaterial', postData.frameMaterial)
-      formData.append('frameSize', postData.frameSize)
-      formData.append('brakeType', postData.brakeType)
-      formData.append('groupset', postData.groupset)
-      formData.append('mileage', postData.mileage)
-      formData.append('categoryId', postData.categoryId)
-      formData.append('allowNegotiation', postData.allowNegotiation)
-      
-      formData.append('requestInspection', postData.requestInspection || false)
-      if (postData.inspectionAddress) formData.append('inspectionAddress', postData.inspectionAddress)
-      if (postData.inspectionScheduledDate) formData.append('inspectionScheduledDate', postData.inspectionScheduledDate)
-      if (postData.inspectionNote) formData.append('inspectionNote', postData.inspectionNote)
-      
-      if (postData.images && postData.images.length > 0) {
-        postData.images.forEach((image) => {
-          formData.append('images', image)
-        })
-      }
-      
-      const response = await api.put(`/v1/posts/${id}`, formData)
+      const response = await api.put(`/v1/posts/${id}`, buildPostFormData(postData))
       return response.data
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi cập nhật bài đăng' }
@@ -142,5 +98,5 @@ export const postService = {
     } catch (error) {
       throw error.response?.data || { message: 'Lỗi khi hủy yêu cầu' }
     }
-  }
+  },
 }

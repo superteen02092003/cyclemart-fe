@@ -9,7 +9,10 @@ import { bikePostService } from '@/services/bikePost'
 import { sellerRatingService } from '@/services/sellerRating'
 import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
+import { LoginRequiredModal } from '@/components/modals'
 import { wishlistService } from '@/services/wishlist'
+import { inspectionService } from '@/services/inspection'
+import { cn } from '@/utils/cn'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -33,6 +36,331 @@ function StarRating({ rating, max = 5 }) {
 StarRating.propTypes = {
   rating: PropTypes.number,
   max: PropTypes.number,
+}
+
+// Image Viewer Modal Component
+function ImageViewerModal({ images, initialIndex, onClose }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+  }
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') onClose()
+    if (e.key === 'ArrowLeft') goToPrevious()
+    if (e.key === 'ArrowRight') goToNext()
+  }
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+
+  if (!images || images.length === 0) return null
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center">
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">
+              {currentIndex + 1} / {images.length}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+          >
+            <span className="material-symbols-outlined text-white">close</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Image */}
+      <div className="relative w-full h-full flex items-center justify-center p-4 pt-20 pb-24">
+        <img
+          src={images[currentIndex]}
+          alt={`Ảnh ${currentIndex + 1}`}
+          className="max-w-full max-h-full object-contain"
+        />
+
+        {/* Navigation Arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={goToPrevious}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 transition-colors text-white"
+            >
+              <span className="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button
+              onClick={goToNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 transition-colors text-white"
+            >
+              <span className="material-symbols-outlined">chevron_right</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail Strip */}
+      {images.length > 1 && (
+        <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/50 to-transparent p-4">
+          <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2">
+            {images.map((image, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentIndex(index)}
+                className={`flex-shrink-0 w-16 h-16 rounded-sm overflow-hidden border-2 transition-all ${
+                  index === currentIndex 
+                    ? 'border-white shadow-lg' 
+                    : 'border-transparent opacity-60 hover:opacity-80'
+                }`}
+              >
+                <img
+                  src={image}
+                  alt={`Thumbnail ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+ImageViewerModal.propTypes = {
+  images: PropTypes.arrayOf(PropTypes.string).isRequired,
+  initialIndex: PropTypes.number.isRequired,
+  onClose: PropTypes.func.isRequired,
+}
+
+// Facebook-style Image Gallery Component
+function ImageGallery({ images, title, postStatus }) {
+  const [showViewer, setShowViewer] = useState(false)
+  const [viewerIndex, setViewerIndex] = useState(0)
+
+  const openViewer = (index) => {
+    setViewerIndex(index)
+    setShowViewer(true)
+  }
+
+  if (!images || images.length === 0) {
+    return (
+      <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+        <div className="relative aspect-[16/9] bg-surface-secondary flex items-center justify-center">
+          <span
+            className="material-symbols-outlined text-content-tertiary"
+            style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
+          >
+            directions_bike
+          </span>
+        </div>
+        {postStatus === 'APPROVED' && (
+          <div className="absolute top-3 left-3">
+            <Badge variant="verified">
+              <span
+                className="material-symbols-outlined text-[0.7rem]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >verified</span>
+              Đã duyệt
+            </Badge>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (images.length === 1) {
+    return (
+      <>
+        <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+          <div className="relative aspect-[16/9] bg-surface-secondary cursor-pointer group" onClick={() => openViewer(0)}>
+            <img
+              src={images[0]}
+              alt={title}
+              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-4xl opacity-0 group-hover:opacity-100 transition-opacity">
+                zoom_in
+              </span>
+            </div>
+          </div>
+          {postStatus === 'APPROVED' && (
+            <div className="absolute top-3 left-3">
+              <Badge variant="verified">
+                <span
+                  className="material-symbols-outlined text-[0.7rem]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >verified</span>
+                Đã duyệt
+              </Badge>
+            </div>
+          )}
+        </div>
+        {showViewer && (
+          <ImageViewerModal
+            images={images}
+            initialIndex={viewerIndex}
+            onClose={() => setShowViewer(false)}
+          />
+        )}
+      </>
+    )
+  }
+
+  if (images.length === 2) {
+    return (
+      <>
+        <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+          <div className="grid grid-cols-2 gap-1">
+            {images.map((image, index) => (
+              <div
+                key={index}
+                className="relative aspect-[4/3] bg-surface-secondary cursor-pointer group"
+                onClick={() => openViewer(index)}
+              >
+                <img
+                  src={image}
+                  alt={`${title} - Ảnh ${index + 1}`}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    zoom_in
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {postStatus === 'APPROVED' && (
+            <div className="absolute top-3 left-3">
+              <Badge variant="verified">
+                <span
+                  className="material-symbols-outlined text-[0.7rem]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >verified</span>
+                Đã duyệt
+              </Badge>
+            </div>
+          )}
+        </div>
+        {showViewer && (
+          <ImageViewerModal
+            images={images}
+            initialIndex={viewerIndex}
+            onClose={() => setShowViewer(false)}
+          />
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
+        <div className="grid grid-cols-2 gap-1 h-96">
+          {/* Main large image */}
+          <div
+            className="relative bg-surface-secondary cursor-pointer group"
+            onClick={() => openViewer(0)}
+          >
+            <img
+              src={images[0]}
+              alt={`${title} - Ảnh chính`}
+              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-4xl opacity-0 group-hover:opacity-100 transition-opacity">
+                zoom_in
+              </span>
+            </div>
+          </div>
+
+          {/* Right side thumbnails */}
+          <div className="grid grid-rows-2 gap-1">
+            {images.slice(1, 3).map((image, index) => (
+              <div
+                key={index + 1}
+                className="relative bg-surface-secondary cursor-pointer group"
+                onClick={() => openViewer(index + 1)}
+              >
+                <img
+                  src={image}
+                  alt={`${title} - Ảnh ${index + 2}`}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                  <span className="material-symbols-outlined text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity">
+                    zoom_in
+                  </span>
+                </div>
+
+                {/* Show "+X more" overlay on last visible image if there are more */}
+                {index === 1 && images.length > 3 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <span className="material-symbols-outlined text-3xl mb-1 block">photo_library</span>
+                      <span className="text-lg font-bold">+{images.length - 3}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Image count badge */}
+        <div className="absolute bottom-3 right-3">
+          <Badge variant="subtle">
+            <span className="material-symbols-outlined text-[0.75rem]">photo_library</span>
+            {images.length} ảnh
+          </Badge>
+        </div>
+
+        {/* Approved badge */}
+        {postStatus === 'APPROVED' && (
+          <div className="absolute top-3 left-3">
+            <Badge variant="verified">
+              <span
+                className="material-symbols-outlined text-[0.7rem]"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >verified</span>
+              Đã duyệt
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {showViewer && (
+        <ImageViewerModal
+          images={images}
+          initialIndex={viewerIndex}
+          onClose={() => setShowViewer(false)}
+        />
+      )}
+    </>
+  )
+}
+
+ImageGallery.propTypes = {
+  images: PropTypes.arrayOf(PropTypes.string),
+  title: PropTypes.string.isRequired,
+  postStatus: PropTypes.string,
 }
 
 function OfferModal({ bike, onClose }) {
@@ -70,7 +398,6 @@ function OfferModal({ bike, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="bg-white rounded-sm shadow-card-hover w-full max-w-md">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
           <h3 className="text-base font-bold text-content-primary">Đặt giá đề xuất</h3>
           <button
@@ -82,13 +409,11 @@ function OfferModal({ bike, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Reference price */}
           <div className="bg-surface-secondary rounded-sm px-4 py-3">
             <p className="text-xs text-content-secondary mb-0.5">Giá niêm yết</p>
             <p className="text-base font-bold text-content-primary">{formatPrice(bike.price)}</p>
           </div>
 
-          {/* Offer price input */}
           <div>
             <label className="block text-sm font-medium text-content-primary mb-1.5">
               Giá đề xuất của bạn (₫) <span className="text-error">*</span>
@@ -104,7 +429,6 @@ function OfferModal({ bike, onClose }) {
             />
           </div>
 
-          {/* Note */}
           <div>
             <label className="block text-sm font-medium text-content-primary mb-1.5">
               Ghi chú (không bắt buộc)
@@ -155,6 +479,11 @@ export default function BikeDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [loginAction, setLoginAction] = useState('')
+
+  // 🔥 MỚI: State cho Cảnh báo trước khi Checkout
+  const [showCheckoutWarning, setShowCheckoutWarning] = useState(false)
 
   const [sellerInfo, setSellerInfo] = useState(null)
   const [sellerRatings, setSellerRatings] = useState([])
@@ -165,6 +494,12 @@ export default function BikeDetailPage() {
   const [myComment, setMyComment] = useState('')
   const [submittingRating, setSubmittingRating] = useState(false)
   const [ratingError, setRatingError] = useState('')
+
+  // State cho biên bản kiểm định
+  const [showReport, setShowReport] = useState(false)
+  const [reportData, setReportData] = useState(null)
+  const [criteria, setCriteria] = useState([])
+  const [, setIsLoadingReport] = useState(false)
 
   const currentUser = authService.getCurrentUser()
   const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub
@@ -182,8 +517,27 @@ export default function BikeDetailPage() {
       try {
         setLoading(true)
         const data = await bikePostService.getById(id)
-        setBike(data?.result || data?.data || data)
+        const bikeData = data?.result || data?.data || data
+        setBike(bikeData)
         setError(null)
+
+        // NẾU XE ĐÃ KIỂM ĐỊNH -> LẤY BIÊN BẢN VÀ TIÊU CHÍ
+        if (bikeData?.isVerified) {
+          setIsLoadingReport(true)
+          try {
+            const [report, allCriteria] = await Promise.all([
+              inspectionService.getLatestPassed(bikeData.id),
+              inspectionService.getActiveCriteria()
+            ])
+            setReportData(report)
+            setCriteria(allCriteria)
+          } catch (err) {
+            console.error("Không thể tải biên bản kiểm định:", err)
+          } finally {
+            setIsLoadingReport(false)
+          }
+        }
+
       } catch (err) {
         setError(err.message || 'Lỗi khi tải dữ liệu xe')
         setBike(null)
@@ -240,8 +594,32 @@ export default function BikeDetailPage() {
     checkWishlistStatus()
   }, [bike?.id, isOwnPost])
 
+  // 🔥 ĐÃ SỬA: Hiển thị bảng cảnh báo thay vì vào checkout liền
   const handleBuyNow = () => {
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      setLoginAction('mua hàng')
+      setShowLoginModal(true)
+      return
+    }
+    // Mở bảng cảnh báo
+    setShowCheckoutWarning(true)
+  }
+
+  // Hàm chạy sau khi user xác nhận đồng ý quy định
+  const proceedToCheckout = () => {
+    setShowCheckoutWarning(false)
     navigate(`/checkout/${bike.id}`)
+  }
+
+  const handleOfferClick = () => {
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      setLoginAction('đặt giá')
+      setShowLoginModal(true)
+      return
+    }
+    setShowOfferModal(true)
   }
 
   const handleMessageSeller = async () => {
@@ -357,6 +735,8 @@ export default function BikeDetailPage() {
     )
   }
 
+  const passedCriteriaIds = reportData?.checklistData ? JSON.parse(reportData.checklistData) : []
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
@@ -371,47 +751,36 @@ export default function BikeDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ── Left column ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Image area */}
-          <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden">
-            <div className="relative aspect-[16/9] bg-surface-secondary flex items-center justify-center">
-              {bike.images && bike.images.length > 0 ? (
-                <img
-                  src={bike.images[0]}
-                  alt={bike.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span
-                  className="material-symbols-outlined text-content-tertiary"
-                  style={{ fontSize: '6rem', fontVariationSettings: "'FILL' 0" }}
-                >
-                  directions_bike
-                </span>
-              )}
-              <div className="absolute bottom-3 right-3">
-                <Badge variant="subtle">
-                  <span className="material-symbols-outlined text-[0.75rem]">photo_library</span>
-                  {bike.images?.length || 0} ảnh
+          <ImageGallery
+            images={bike.images}
+            title={bike.title}
+            postStatus={bike.postStatus}
+          />
+
+          {/* Title & Price (Mobile View) */}
+          <div className="lg:hidden mb-4">
+            <div className="flex items-start gap-2 mb-2 flex-wrap">
+              <h1 className="text-xl font-bold text-content-primary">{bike.title}</h1>
+              {bike.isVerified && (
+                <Badge variant="verified" className="py-1 px-2 shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-[0.8rem] mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  Đã kiểm định
                 </Badge>
-              </div>
-              {bike.postStatus === 'APPROVED' && (
-                <div className="absolute top-3 left-3">
-                  <Badge variant="verified">
-                    <span
-                      className="material-symbols-outlined text-[0.7rem]"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >verified</span>
-                    Đã duyệt
-                  </Badge>
-                </div>
               )}
             </div>
-          </div>
-
-          {/* Title (mobile) */}
-          <div className="lg:hidden">
-            <h1 className="text-xl font-bold text-content-primary mb-2">{bike.title}</h1>
-            <p className="text-2xl font-black text-content-primary">{formatPrice(bike.price)}</p>
+            
+            <div className="flex flex-col items-start gap-1">
+              <p className="text-2xl font-black text-[#ff6b35]">{formatPrice(bike.price)}</p>
+              {bike.isVerified && (
+                <button
+                  onClick={() => setShowReport(true)}
+                  className="flex items-center gap-1.5 text-navy hover:text-[#ff6b35] text-sm font-bold transition-colors group mt-1"
+                >
+                  <span className="material-symbols-outlined text-[1.1rem] group-hover:scale-110 transition-transform">fact_check</span>
+                  <span className="underline decoration-dotted underline-offset-4">Xem biên bản kiểm định</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Description */}
@@ -450,7 +819,6 @@ export default function BikeDetailPage() {
               Đánh giá của bạn
             </h3>
 
-            {/* Chọn sao */}
             <div className="flex items-center gap-1 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span
@@ -462,12 +830,11 @@ export default function BikeDetailPage() {
                     color: i < myRating ? '#f59e0b' : '#d1d5db',
                   }}
                 >
-        star
-      </span>
+                  star
+                </span>
               ))}
             </div>
 
-            {/* Comment */}
             <textarea
               rows={3}
               placeholder="Nhận xét của bạn..."
@@ -476,7 +843,6 @@ export default function BikeDetailPage() {
               className="w-full px-3 py-2 border border-border-light rounded-sm text-sm mb-3"
             />
 
-            {/* Submit */}
             <Button
               disabled={!myRating || submittingRating}
               onClick={handleSubmitRating}
@@ -485,14 +851,13 @@ export default function BikeDetailPage() {
               {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
             </Button>
 
-            {/* Error message */}
             {ratingError && (
               <p className="text-error text-xs mt-2">{ratingError}</p>
             )}
           </div>
-          {/* Reviews */}
-          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
 
+          {/* Reviews List */}
+          <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
             <h2 className="text-base font-bold text-content-primary mb-4">
               Đánh giá người bán
               {sellerRatings.length > 0 && (
@@ -546,14 +911,35 @@ export default function BikeDetailPage() {
         {/* ── Right column (sticky) ─────────────────────────────────────── */}
         <div className="space-y-4">
           <div className="sticky top-24 space-y-4">
+            
             {/* Price card */}
             <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
-              <h1 className="hidden lg:block text-lg font-bold text-content-primary mb-3 leading-snug">
-                {bike.title}
-              </h1>
+              
+              {/* Desktop Title & Badge */}
+              <div className="hidden lg:flex items-start justify-between gap-2 mb-3 flex-wrap">
+                <h1 className="text-lg font-bold text-content-primary leading-snug flex-1">
+                  {bike.title}
+                </h1>
+                {bike.isVerified && (
+                  <Badge variant="verified" className="shrink-0 mt-0.5 py-1 px-2">
+                    <span className="material-symbols-outlined text-[0.8rem] mr-1" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                    Đã kiểm định
+                  </Badge>
+                )}
+              </div>
 
-              <div className="flex items-end gap-2 mb-1">
-                <p className="text-3xl font-black text-content-primary">{formatPrice(bike.price)}</p>
+              {/* Price & View Report Button */}
+              <div className="flex flex-col items-start gap-1 mb-4">
+                <p className="text-3xl font-black text-[#ff6b35]">{formatPrice(bike.price)}</p>
+                {bike.isVerified && (
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="flex items-center gap-1.5 text-navy hover:text-[#ff6b35] text-sm font-bold transition-colors group mt-1"
+                  >
+                    <span className="material-symbols-outlined text-[1.1rem] group-hover:scale-110 transition-transform">fact_check</span>
+                    <span className="underline decoration-dotted underline-offset-4">Xem biên bản kiểm định</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 mb-4">
@@ -609,7 +995,7 @@ export default function BikeDetailPage() {
                   <Button
                     variant="outline"
                     fullWidth
-                    onClick={() => setShowOfferModal(true)}
+                    onClick={handleOfferClick}
                     className="mb-4"
                   >
                     <span className="material-symbols-outlined text-[1rem]">gavel</span>
@@ -643,7 +1029,7 @@ export default function BikeDetailPage() {
             <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
               <h3 className="text-sm font-bold text-content-primary mb-3">Người bán</h3>
               {loadingSellerInfo ? (
-                <p className="text-xs text-content-secondary">Đang tải thông tin...</p>
+                <p className="text-xs text-content-secondary">Đang tải thông biến...</p>
               ) : sellerInfo ? (
                 <>
                   <div className="flex items-start gap-3">
@@ -726,10 +1112,136 @@ export default function BikeDetailPage() {
         </div>
       </div>
 
+      {/* 🔥 MODAL CẢNH BÁO TRƯỚC KHI CHECKOUT */}
+      {showCheckoutWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-orange/10 rounded-full flex items-center justify-center text-[#ff6b35] mx-auto mb-4">
+                <span className="material-symbols-outlined text-[2rem]">warning</span>
+              </div>
+              <h3 className="text-lg font-bold text-navy mb-2">Lưu ý trước khi giao dịch</h3>
+              <p className="text-sm text-content-secondary leading-relaxed mb-4">
+                Nền tảng <strong>CycleMart</strong> chỉ hỗ trợ giải quyết tranh chấp (hoàn tiền, trả hàng) đối với những xe <strong>đã được kiểm định</strong> (có tem Đã kiểm định).
+              </p>
+
+              {/* Thông báo mạnh nếu xe chưa kiểm định */}
+              {!bike?.isVerified && (
+                <div className="bg-red-50 border border-red-100 p-3 rounded-sm text-sm text-red-600 font-medium mb-4 text-left shadow-sm">
+                  <span className="material-symbols-outlined text-[1rem] inline-block align-middle mr-1">info</span>
+                  Chiếc xe này chưa được kiểm định. Bạn vui lòng tự chịu rủi ro và kiểm tra kỹ thông tin trước khi xác nhận nhận xe nhé.
+                </div>
+              )}
+
+              <p className="text-sm font-semibold text-content-primary">Bạn có đồng ý tiếp tục mua xe không?</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-px bg-border-light border-t border-border-light">
+              <button
+                onClick={() => setShowCheckoutWarning(false)}
+                className="p-3.5 bg-white text-content-secondary font-semibold hover:bg-surface-secondary transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={proceedToCheckout}
+                className="p-3.5 bg-white text-[#ff6b35] font-bold hover:bg-orange/5 transition-colors"
+              >
+                Đồng ý tiếp tục
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BÁO CÁO KIỂM ĐỊNH */}
+      {showReport && reportData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-border-light bg-surface-secondary/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                  <span className="material-symbols-outlined text-[1.4rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-navy">Biên bản kiểm định xe</h2>
+                  <p className="text-xs text-content-secondary mt-0.5">Xác nhận bởi CycleMart vào {new Date(reportData.createdAt).toLocaleDateString('vi-VN')}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowReport(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-content-tertiary">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              <div>
+                <h3 className="text-sm font-bold text-navy uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[1.1rem] text-[#ff6b35]">checklist</span>
+                  Tình trạng các bộ phận
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {criteria.map((item) => {
+                    const isPassed = passedCriteriaIds.includes(item.id);
+                    return (
+                      <div key={item.id} className={cn(
+                        "flex items-center justify-between p-3 rounded-sm border",
+                        isPassed ? "bg-green-50/50 border-green-100" : "bg-gray-50 border-gray-100"
+                      )}>
+                        <span className="text-sm font-medium text-content-primary">{item.name}</span>
+                        {isPassed ? (
+                          <span className="flex items-center gap-1 text-green-600 text-xs font-bold">
+                            <span className="material-symbols-outlined text-[1.1rem]">check_circle</span> Đạt
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-gray-400 text-xs font-medium">
+                            <span className="material-symbols-outlined text-[1.1rem]">info</span> Cần lưu ý
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-[#1e3a5f]/5 border border-[#1e3a5f]/10 p-5 rounded-sm relative">
+                 <span className="material-symbols-outlined absolute -top-3 -left-1 text-[#1e3a5f]/20 text-4xl">format_quote</span>
+                 <h3 className="text-sm font-bold text-navy flex items-center gap-2 mb-3">
+                  <span className="material-symbols-outlined text-[1.1rem] text-[#1e3a5f]">comment</span>
+                  Đánh giá chi tiết từ Inspector
+                </h3>
+                <p className="text-sm text-content-primary leading-relaxed italic relative z-10">
+                  "{reportData.resultNote || 'Chuyên gia không có ghi chú bổ sung cho bài đăng này.'}"
+                </p>
+              </div>
+
+              <div className="p-4 bg-surface-secondary rounded-sm text-[0.7rem] text-content-secondary leading-relaxed">
+                <strong>Lưu ý:</strong> Biên bản kiểm định này dựa trên tình trạng quan sát được tại thời điểm kiểm tra. CycleMart khuyến khích người mua nên trao đổi kỹ và có thể xem xe trực tiếp để có trải nghiệm chính xác nhất trước khi thanh toán.
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border-light bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setShowReport(false)}
+                className="px-8 py-2.5 bg-navy text-white text-sm font-bold rounded-sm hover:bg-navy-light transition-colors shadow-sm"
+              >
+                Đóng biên bản
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Offer modal */}
       {!isOwnPost && showOfferModal && (
         <OfferModal bike={bike} onClose={() => setShowOfferModal(false)} />
       )}
+
+      {/* Login Required Modal */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action={loginAction}
+      />
     </div>
   )
 }

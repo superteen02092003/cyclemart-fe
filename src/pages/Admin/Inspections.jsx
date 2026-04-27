@@ -12,8 +12,11 @@ export default function AdminInspections() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
   const [selectedInspectorId, setSelectedInspectorId] = useState('')
+  
+  // State để quản lý Modal xem chi tiết
+  const [selectedDetail, setSelectedDetail] = useState(null)
 
-  // 🔥 MỚI: State cho phí kiểm định hệ thống
+  // State cho phí kiểm định hệ thống
   const [globalFee, setGlobalFee] = useState(0)
   const [isUpdatingFee, setIsUpdatingFee] = useState(false)
 
@@ -86,9 +89,8 @@ export default function AdminInspections() {
     { 
       key: 'scheduledDateTime', 
       label: 'Thời gian hẹn',
-      render: (val) => new Date(val).toLocaleString('vi-VN')
+      render: (val) => val ? new Date(val).toLocaleString('vi-VN') : 'Chưa xếp lịch'
     },
-    // Hiển thị giá mà khách đã đăng ký (giá tại thời điểm đó)
     {
       key: 'inspectionFee',
       label: 'Phí dịch vụ',
@@ -113,7 +115,7 @@ export default function AdminInspections() {
     <div className="p-8">
       <h1 className="text-3xl font-bold text-content-primary mb-6">Quản lý Kiểm định</h1>
       
-      {/* 🔥 MỚI: Thanh cấu hình giá linh hoạt */}
+      {/* Thanh cấu hình giá linh hoạt */}
       <div className="bg-white p-6 mb-8 rounded-sm shadow-sm border flex items-center justify-between">
         <div>
           <h3 className="text-lg font-bold text-[#1e3a5f]">Phí kiểm định hệ thống</h3>
@@ -143,24 +145,37 @@ export default function AdminInspections() {
         <Table
           columns={columns}
           data={inspections}
-          actions={(task) => [
-            task.status === 'PENDING' && (
-              <button 
-                key="assign"
-                onClick={() => { setSelectedTask(task); setIsAssignModalOpen(true); }}
-                className="px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-sm"
+          actions={(task) => (
+            <div className="flex gap-4 items-center">
+              {/* Nút Chi tiết */}
+              <button
+                onClick={() => setSelectedDetail(task)}
+                className="text-[#1e3a5f] hover:text-blue-700 flex items-center gap-1 text-sm font-medium transition-colors"
               >
-                Phân công
+                <span className="material-symbols-outlined text-[1.1rem]">info</span>
+                Chi tiết
               </button>
-            )
-          ]}
+
+              {/* Nút Phân công */}
+              {task.status === 'PENDING' && (
+                <button
+                  onClick={() => { setSelectedTask(task); setIsAssignModalOpen(true); }}
+                  className="text-[#ff6b35] hover:text-[#ff7849] flex items-center gap-1 text-sm font-medium transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[1.1rem]">person_add</span>
+                  Phân công
+                </button>
+              )}
+            </div>
+          )}
         />
       )}
 
+      {/* Modal Phân công Inspector */}
       <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Phân công Kiểm duyệt viên">
         <div className="space-y-4">
           <p><strong>Xe cần kiểm định:</strong> {selectedTask?.postTitle}</p>
-          <p className="text-red-600"><strong>Giờ hẹn:</strong> {new Date(selectedTask?.scheduledDateTime).toLocaleString('vi-VN')}</p>
+          <p className="text-red-600"><strong>Giờ hẹn:</strong> {selectedTask?.scheduledDateTime ? new Date(selectedTask.scheduledDateTime).toLocaleString('vi-VN') : 'Chưa có'}</p>
           
           <div>
             <label className="block text-sm font-medium mb-1">Chọn Inspector rảnh rỗi:</label>
@@ -176,11 +191,72 @@ export default function AdminInspections() {
             </select>
           </div>
           
-          <button onClick={handleAssign} className="w-full bg-[#ff6b35] text-white py-2 rounded-sm font-bold">
+          <button onClick={handleAssign} className="w-full bg-[#ff6b35] text-white py-2 rounded-sm font-bold hover:bg-[#ff7849]">
             Xác nhận Phân công
           </button>
         </div>
       </Modal>
+
+      {/* Modal Chi tiết đơn kiểm định */}
+      {selectedDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-sm w-full max-w-md p-6 shadow-xl">
+            <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-3">
+              <h3 className="text-lg font-bold text-[#1e3a5f]">Chi tiết đăng ký kiểm định</h3>
+              <button onClick={() => setSelectedDetail(null)} className="material-symbols-outlined text-gray-500 hover:text-red-500 transition-colors">close</button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Bài đăng</label>
+                <p className="text-sm font-medium text-[#1e3a5f]">{selectedDetail.postTitle}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Người bán</label>
+                  <p className="text-sm">{selectedDetail.sellerName}</p>
+                </div>
+                <div>
+                  <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Số điện thoại</label>
+                  <p className="text-sm font-medium">{selectedDetail.sellerPhone || 'Chưa cung cấp'}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Địa điểm kiểm định</label>
+                <p className="text-sm font-medium italic mt-0.5">
+                  <span className="material-symbols-outlined text-sm inline-block align-middle mr-1 text-[#ff6b35]">location_on</span>
+                  {selectedDetail.address || 'Không có địa chỉ cụ thể'}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Thời gian mong muốn</label>
+                <p className="text-sm font-medium">
+                  {selectedDetail.scheduledDateTime 
+                    ? new Date(selectedDetail.scheduledDateTime).toLocaleString('vi-VN') 
+                    : 'Chưa chọn thời gian'}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[0.7rem] text-gray-500 uppercase font-bold tracking-wider">Ghi chú từ người bán</label>
+                <div className="mt-1 p-3 bg-gray-50 rounded-sm border border-gray-200 text-sm italic text-gray-600">
+                  {selectedDetail.sellerNote || 'Không có ghi chú.'}
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setSelectedDetail(null)}
+              className="w-full mt-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-sm hover:bg-gray-200 transition-colors"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,188 +1,144 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
+import { adminService } from '@/services/admin'
+import { formatPrice } from '@/utils/formatPrice'
 
-const TRANSACTIONS_DATA = [
-  {
-    id: 'TXN001',
-    buyer: 'Nguyễn Văn A',
-    seller: 'Trần Thị B',
-    amount: '45000000',
-    fee: '1350000',
-    status: 'completed',
-    date: '2024-04-14',
-    paymentMethod: 'Thẻ tín dụng',
-  },
-  {
-    id: 'TXN002',
-    buyer: 'Lê Thị C',
-    seller: 'Phạm Văn D',
-    amount: '3500000',
-    fee: '105000',
-    status: 'completed',
-    date: '2024-04-13',
-    paymentMethod: 'Chuyển khoản ngân hàng',
-  },
-  {
-    id: 'TXN003',
-    buyer: 'Hoàng Văn E',
-    seller: 'Vũ Thị F',
-    amount: '32000000',
-    fee: '960000',
-    status: 'pending',
-    date: '2024-04-12',
-    paymentMethod: 'Ví điện tử',
-  },
-]
+const STATUS_CONFIG = {
+  SUCCESS:   { label: 'Hoàn tất',   color: 'bg-success/20 text-success' },
+  PENDING:   { label: 'Chờ xử lý', color: 'bg-warning/20 text-warning' },
+  FAILED:    { label: 'Thất bại',   color: 'bg-error/20 text-error' },
+  REFUNDED:  { label: 'Đã hoàn',    color: 'bg-blue-100 text-blue-700' },
+  CANCELLED: { label: 'Đã hủy',     color: 'bg-gray-100 text-gray-600' },
+}
+
+const TYPE_LABELS = {
+  ORDER_PAYMENT:     'Mua xe',
+  TOP_UP:            'Nạp điểm',
+  PRIORITY_PACKAGE:  'Gói ưu tiên',
+  INSPECTION_FEE:    'Phí kiểm định',
+}
 
 export default function AdminTransactions() {
-  const [transactions] = useState(TRANSACTIONS_DATA)
+  const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
+  const [stats, setStats] = useState(null)
 
-  const filteredTransactions = filterStatus === 'all' ? transactions : transactions.filter((t) => t.status === filterStatus)
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const [paymentsData, statsData] = await Promise.all([
+        adminService.getAllPayments({ page: 0, size: 100, sort: 'createdAt', direction: 'desc' }),
+        adminService.getPaymentStatistics().catch(() => null),
+      ])
+      setPayments(paymentsData.content || [])
+      setStats(statsData)
+    } catch (err) {
+      console.error('Lỗi tải giao dịch:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const totalAmount = filteredTransactions.reduce((sum, t) => sum + parseInt(t.amount), 0)
-  const totalFee = filteredTransactions.reduce((sum, t) => sum + parseInt(t.fee), 0)
+  useEffect(() => { fetchData() }, [])
+
+  const filtered = filterStatus === 'all'
+    ? payments
+    : payments.filter(p => (p.status || '').toLowerCase() === filterStatus)
+
+  const totalAmount = filtered
+    .filter(p => p.status === 'SUCCESS')
+    .reduce((s, p) => s + (p.amount || 0), 0)
 
   const columns = [
-    { key: 'id', label: 'Mã giao dịch', width: '120px' },
-    { key: 'buyer', label: 'Người mua', width: '150px' },
-    { key: 'seller', label: 'Người bán', width: '150px' },
+    { key: 'orderId', label: 'Mã giao dịch', width: '160px' },
+    { key: 'buyerName', label: 'Người mua' },
+    { key: 'sellerName', label: 'Người bán', render: (v) => v || '—' },
+    {
+      key: 'bikeTitle',
+      label: 'Sản phẩm',
+      render: (v, row) => v || TYPE_LABELS[row.type] || '—',
+    },
     {
       key: 'amount',
       label: 'Số tiền',
-      render: (value) => `₫${parseInt(value).toLocaleString('vi-VN')}`,
-      width: '140px',
+      render: (v) => formatPrice(v),
+      width: '130px',
     },
     {
-      key: 'fee',
-      label: 'Phí dịch vụ (3%)',
-      render: (value) => `₫${parseInt(value).toLocaleString('vi-VN')}`,
-      width: '140px',
+      key: 'type',
+      label: 'Loại',
+      render: (v) => (
+        <span className="text-xs font-medium text-content-secondary">
+          {TYPE_LABELS[v] || v || '—'}
+        </span>
+      ),
+      width: '120px',
     },
-    { key: 'paymentMethod', label: 'Phương thức thanh toán', width: '180px' },
     {
       key: 'status',
       label: 'Trạng thái',
-      render: (value) => (
-        <span
-          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-            value === 'completed'
-              ? 'bg-success/20 text-success'
-              : value === 'pending'
-                ? 'bg-warning/20 text-warning'
-                : 'bg-error/20 text-error'
-          }`}
-        >
-          {value === 'completed' ? 'Hoàn tất' : value === 'pending' ? 'Chờ xử lý' : 'Hủy'}
-        </span>
-      ),
+      render: (v) => {
+        const cfg = STATUS_CONFIG[v] || { label: v, color: 'bg-gray-100 text-gray-600' }
+        return (
+          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
+        )
+      },
+      width: '110px',
     },
-    { key: 'date', label: 'Ngày', width: '120px' },
+    {
+      key: 'createdAt',
+      label: 'Ngày',
+      render: (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '—',
+      width: '110px',
+    },
   ]
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-content-primary">Giao dịch & Phí dịch vụ</h1>
-        <p className="text-content-secondary mt-2">Quản lý và theo dõi giao dịch, phí dịch vụ</p>
-      </div>
-
-      {/* Filters */}
-      <div className="mb-6 flex gap-4">
-        <div>
-          <label className="text-sm font-medium text-content-primary block mb-2">Trạng thái</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
-          >
-            <option value="all">Tất cả</option>
-            <option value="completed">Hoàn tất</option>
-            <option value="pending">Chờ xử lý</option>
-            <option value="cancelled">Hủy</option>
-          </select>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-content-primary">Giao dịch & Thanh toán</h1>
+        <p className="text-content-secondary mt-1">Theo dõi tất cả giao dịch trên hệ thống</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-surface rounded-sm border border-border-light p-4">
-          <p className="text-sm text-content-secondary font-medium">Tổng giao dịch</p>
-          <p className="text-3xl font-bold text-content-primary mt-2">{filteredTransactions.length}</p>
-        </div>
-        <div className="bg-surface rounded-sm border border-border-light p-4">
-          <p className="text-sm text-content-secondary font-medium">Tổng giá trị</p>
-          <p className="text-2xl font-bold text-content-primary mt-2">₫{(totalAmount / 1e6).toFixed(0)}M</p>
-        </div>
-        <div className="bg-surface rounded-sm border border-border-light p-4">
-          <p className="text-sm text-content-secondary font-medium">Tổng phí dịch vụ</p>
-          <p className="text-2xl font-bold text-content-primary mt-2">₫{(totalFee / 1e6).toFixed(1)}M</p>
-        </div>
-        <div className="bg-surface rounded-sm border border-border-light p-4">
-          <p className="text-sm text-content-secondary font-medium">Hoàn tất hôm nay</p>
-          <p className="text-3xl font-bold text-success mt-2">{transactions.filter((t) => t.status === 'completed').length}</p>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Tổng giao dịch', value: payments.length },
+          { label: 'Thành công', value: payments.filter(p => p.status === 'SUCCESS').length, color: 'text-success' },
+          { label: 'Chờ xử lý', value: payments.filter(p => p.status === 'PENDING').length, color: 'text-warning' },
+          { label: 'Tổng giá trị', value: formatPrice(totalAmount), color: 'text-navy' },
+        ].map((s, i) => (
+          <div key={i} className="bg-white rounded-sm border border-border-light p-4 shadow-card">
+            <p className="text-xs text-content-secondary font-medium mb-1">{s.label}</p>
+            <p className={`text-2xl font-bold ${s.color || 'text-content-primary'}`}>{s.value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Fee Settings */}
-      <div className="mb-8 bg-surface rounded-sm border border-border-light p-6 shadow-card">
-        <h2 className="text-lg font-bold text-content-primary mb-4">Cài đặt phí dịch vụ</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[
-            { name: 'Phí giao dịch mặc định', value: '3%', description: 'Áp dụng cho tất cả các giao dịch' },
-            { name: 'Phí rút tiền', value: '0%', description: 'Phí khi người bán rút tiền' },
-            { name: 'Giảm phí VIP', value: '1.5%', description: 'Cho người bán VIP' },
-            { name: 'Chiết khấu mùa vụ', value: 'Không', description: 'Áp dụng theo từng kỳ' },
-          ].map((fee, idx) => (
-            <div key={idx} className="p-4 rounded-sm bg-surface-tertiary">
-              <p className="font-medium text-content-primary">{fee.name}</p>
-              <p className="text-2xl font-bold text-content-primary mt-2">{fee.value}</p>
-              <p className="text-xs text-content-secondary mt-1">{fee.description}</p>
-            </div>
-          ))}
-        </div>
+      {/* Filter */}
+      <div className="mb-4">
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-4 py-2 border border-border-light rounded-sm text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
+        >
+          <option value="all">Tất cả</option>
+          <option value="success">Thành công</option>
+          <option value="pending">Chờ xử lý</option>
+          <option value="failed">Thất bại</option>
+          <option value="refunded">Đã hoàn</option>
+          <option value="cancelled">Đã hủy</option>
+        </select>
       </div>
 
-      {/* Transactions Table */}
-      <Table
-        columns={columns}
-        data={filteredTransactions}
-        actions={(transaction) => [
-          <button
-            key="view"
-            className="px-3 py-2 text-sm font-medium text-content-primary hover:bg-navy/10 rounded-sm transition-colors"
-          >
-            Chi tiết
-          </button>,
-          transaction.status === 'pending' && (
-            <button
-              key="refund"
-              className="px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-sm transition-colors"
-            >
-              Hoàn tiền
-            </button>
-          ),
-        ]}
-        className="bg-surface"
-      />
-
-      {/* Revenue Report */}
-      <div className="mt-8 bg-surface rounded-sm border border-border-light p-6 shadow-card">
-        <h2 className="text-lg font-bold text-content-primary mb-4">Báo cáo doanh thu 30 ngày gần đây</h2>
-        <div className="h-64 flex items-end justify-around gap-2">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full bg-navy/50 rounded-t-lg" style={{ height: `${Math.random() * 100}%` }}></div>
-              <span className="text-xs text-content-secondary">{i + 1}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {loading ? (
+        <div className="text-center py-16 text-content-secondary">Đang tải...</div>
+      ) : (
+        <Table columns={columns} data={filtered} />
+      )}
     </div>
   )
 }
-
-
-
-
-

@@ -1,184 +1,238 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
+import { adminService } from '@/services/admin'
 import { formatPrice } from '@/utils/formatPrice'
 
-const DISPUTES_DATA = [
-  {
-    id: 'ORD-8910',
-    bikeTitle: 'Trek Emonda SL6 2023',
-    buyer: 'Nguyễn Văn A',
-    seller: 'Trần Thị B',
-    disputeReason: 'Người mua báo khung bị nứt nhẹ ở phuộc trước, khác với mô tả.',
-    sellerResponse: 'Xe lúc giao hoàn hảo, người mua tự làm nứt rồi báo.',
-    status: 'SYSTEM_PROCESSING', // Mới nộp cọc
-    createdAt: '2024-04-14',
-    depositStatus: 'Đã nộp cọc (Cả 2 bên)',
-    inspectorReport: null,
-  },
-  {
-    id: 'ORD-9921',
-    bikeTitle: 'Giant TCR Advanced',
-    buyer: 'Lê Hoàng C',
-    seller: 'Đặng Văn D',
-    disputeReason: 'Group Set không mượt, đùi đĩa xước nhiều.',
-    sellerResponse: 'Xe cũ nên xước là bình thường, đã chụp hình rõ.',
-    status: 'WAITING_DECISION', // Inspector đã có báo cáo
-    createdAt: '2024-04-10',
-    depositStatus: 'Đã nộp cọc (Cả 2 bên)',
-    inspectorReport: 'Group set hoạt động bình thường, vết xước khớp với ảnh lúc đăng.',
-  },
-]
+const STATUS_CONFIG = {
+  OPENED:                  { label: 'Vừa mở',          color: 'bg-blue-100 text-blue-700' },
+  SELLER_APPROVED:         { label: 'Seller đồng ý',    color: 'bg-green-100 text-green-700' },
+  SELLER_REJECTED:         { label: 'Chờ Admin xét',    color: 'bg-warning/20 text-warning' },
+  ADMIN_REVIEW:            { label: 'Chờ Admin xét',    color: 'bg-warning/20 text-warning' },
+  INSPECTOR_REVIEW:        { label: 'Chờ Inspector',    color: 'bg-blue-500/20 text-blue-600' },
+  RESOLVED_REFUND_BUYER:   { label: 'Hoàn buyer',       color: 'bg-success/20 text-success' },
+  RESOLVED_RELEASE_SELLER: { label: 'Giải phóng seller', color: 'bg-success/20 text-success' },
+  RESOLVED_PARTIAL:        { label: 'Giải quyết một phần', color: 'bg-gray-100 text-gray-600' },
+}
+
+const NEEDS_ACTION = ['SELLER_REJECTED', 'ADMIN_REVIEW']
+const IS_RESOLVED = ['RESOLVED_REFUND_BUYER', 'RESOLVED_RELEASE_SELLER', 'RESOLVED_PARTIAL']
 
 export default function AdminDisputes() {
-  const [disputes, setDisputes] = useState(DISPUTES_DATA)
+  const [disputes, setDisputes] = useState([])
+  const [loading, setLoading] = useState(false)
   const [selectedDispute, setSelectedDispute] = useState(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [filterStatus, setFilterStatus] = useState('ALL')
+  const [resolving, setResolving] = useState(false)
+  const [resolutionNote, setResolutionNote] = useState('')
 
-  const filteredDisputes = filterStatus === 'ALL' ? disputes : disputes.filter((r) => r.status === filterStatus)
+  const fetchDisputes = async () => {
+    setLoading(true)
+    try {
+      const data = await adminService.getAllDisputes({ page: 0, size: 100 })
+      setDisputes(data.content || [])
+    } catch (err) {
+      console.error('Lỗi tải tranh chấp:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchDisputes() }, [])
 
   const handleViewDetails = (dispute) => {
     setSelectedDispute(dispute)
+    setResolutionNote('')
     setIsDetailModalOpen(true)
   }
 
-  const handleResolve = (id, winnerClass) => {
-    // winnerClass: 'BUYER' or 'SELLER'
-    setDisputes(disputes.map((r) => (r.id === id ? { ...r, status: `RESOLVED_${winnerClass}` } : r)))
-    setIsDetailModalOpen(false)
+  const handleResolve = async (resolution) => {
+    if (!selectedDispute) return
+    setResolving(true)
+    try {
+      await adminService.adminResolveDispute(selectedDispute.id, resolution, resolutionNote)
+      setIsDetailModalOpen(false)
+      fetchDisputes()
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Lỗi khi xử lý tranh chấp')
+    } finally {
+      setResolving(false)
+    }
   }
 
+  const filteredDisputes = filterStatus === 'ALL'
+    ? disputes
+    : disputes.filter(d => d.status === filterStatus)
+
+  const pendingCount = disputes.filter(d => NEEDS_ACTION.includes(d.status)).length
+
   const columns = [
-    { key: 'id', label: 'Mã Đơn', width: '100px' },
-    { key: 'bikeTitle', label: 'Sản phẩm', width: '200px' },
-    { key: 'buyer', label: 'Người Mua', width: '150px' },
-    { key: 'seller', label: 'Người Bán', width: '150px' },
+    { key: 'paymentOrderId', label: 'Mã Đơn', width: '140px' },
+    {
+      key: 'bikeTitle',
+      label: 'Sản phẩm',
+      render: (_, row) => (
+        <span className="font-medium text-content-primary line-clamp-1">
+          {row.bikeTitle || `Payment #${row.paymentId}`}
+        </span>
+      ),
+    },
+    { key: 'buyerName', label: 'Người Mua' },
+    { key: 'sellerName', label: 'Người Bán' },
     {
       key: 'status',
       label: 'Trạng thái',
-      render: (value) => (
-        <span
-          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-            value === 'SYSTEM_PROCESSING'
-              ? 'bg-warning/20 text-warning'
-              : value === 'WAITING_DECISION'
-                ? 'bg-blue-500/20 text-blue-600'
-                : 'bg-success/20 text-success'
-          }`}
-        >
-          {value === 'SYSTEM_PROCESSING' ? 'Chờ Inspector' : value === 'WAITING_DECISION' ? 'Chờ Phán Quyết' : 'Đã Đóng'}
-        </span>
-      ),
+      render: (value) => {
+        const cfg = STATUS_CONFIG[value] || { label: value, color: 'bg-gray-100 text-gray-600' }
+        return (
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'createdAt',
+      label: 'Ngày mở',
+      render: (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '—',
     },
   ]
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-content-primary">Quản lý Tranh chấp Hệ thống</h1>
-        <p className="text-content-secondary mt-2">Theo dõi và ra quyết định cho các ca tranh chấp (Giai đoạn 2)</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-content-primary">Quản lý Tranh chấp</h1>
+          <p className="text-content-secondary mt-1">Xem xét và ra quyết định cho các tranh chấp buyer-seller</p>
+        </div>
+        {pendingCount > 0 && (
+          <span className="px-3 py-1.5 bg-warning/20 text-warning text-sm font-bold rounded-full">
+            {pendingCount} chờ xử lý
+          </span>
+        )}
       </div>
 
       {/* Filters */}
       <div className="mb-6 flex gap-4">
-        <div>
-          <label className="text-sm font-medium text-content-primary block mb-2">Trạng thái</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
-          >
-            <option value="ALL">Tất cả</option>
-            <option value="SYSTEM_PROCESSING">Chờ Inspector</option>
-            <option value="WAITING_DECISION">Chờ Phán Quyết</option>
-          </select>
-        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
+        >
+          <option value="ALL">Tất cả ({disputes.length})</option>
+          <option value="SELLER_REJECTED">Chờ Admin xét ({disputes.filter(d => ['SELLER_REJECTED','ADMIN_REVIEW'].includes(d.status)).length})</option>
+          <option value="OPENED">Vừa mở</option>
+          <option value="RESOLVED_REFUND_BUYER">Đã giải quyết</option>
+        </select>
       </div>
 
-      {/* Table */}
-      <Table
-        columns={columns}
-        data={filteredDisputes}
-        actions={(dispute) => [
-          <button
-             key="view"
-             onClick={() => handleViewDetails(dispute)}
-             className="px-3 py-2 text-sm font-medium text-white bg-navy hover:bg-navy/90 rounded-sm transition-colors"
-          >
-             Xem & Xét Xử
-          </button>,
-        ]}
-        className="bg-surface"
-      />
+      {loading ? (
+        <div className="text-center py-16 text-content-secondary">Đang tải...</div>
+      ) : (
+        <Table
+          columns={columns}
+          data={filteredDisputes}
+          actions={(dispute) => [
+            <button
+              key="view"
+              onClick={() => handleViewDetails(dispute)}
+              className="px-3 py-2 text-sm font-medium text-white bg-navy hover:bg-navy/90 rounded-sm transition-colors"
+            >
+              Xem & Xét Xử
+            </button>,
+          ]}
+        />
+      )}
 
       {/* Detail Modal */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        title={`Xử lý Tranh chấp: ${selectedDispute?.id}`}
+        title={`Xử lý Tranh chấp #${selectedDispute?.paymentOrderId || selectedDispute?.id}`}
         size="lg"
       >
         {selectedDispute && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 bg-surface-secondary p-4 rounded-sm border border-border-light">
-               <div>
-                  <p className="text-xs text-content-secondary font-medium uppercase mb-1">Mã đơn hàng & Sản phẩm</p>
-                  <p className="font-bold text-navy">{selectedDispute.id} - {selectedDispute.bikeTitle}</p>
-               </div>
-               <div>
-                  <p className="text-xs text-content-secondary font-medium uppercase mb-1">Tiền cọc hệ thống</p>
-                  <p className="font-bold text-success">{selectedDispute.depositStatus}</p>
-               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-error/5 p-4 rounded-sm border border-error/20">
-                <p className="text-xs text-error font-bold uppercase mb-2">Lời khai Người Mua ({selectedDispute.buyer})</p>
-                <p className="text-sm leading-relaxed">{selectedDispute.disputeReason}</p>
+          <div className="space-y-5">
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-4 bg-surface-secondary p-4 rounded-sm border border-border-light text-sm">
+              <div>
+                <p className="text-xs text-content-secondary font-medium uppercase mb-1">Người mua</p>
+                <p className="font-bold text-navy">{selectedDispute.buyerName}</p>
               </div>
-              <div className="bg-orange/5 p-4 rounded-sm border border-orange/20">
-                <p className="text-xs text-orange font-bold uppercase mb-2">Phản biện Người Bán ({selectedDispute.seller})</p>
-                <p className="text-sm leading-relaxed">{selectedDispute.sellerResponse}</p>
+              <div>
+                <p className="text-xs text-content-secondary font-medium uppercase mb-1">Người bán</p>
+                <p className="font-bold text-navy">{selectedDispute.sellerName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-content-secondary font-medium uppercase mb-1">Trạng thái</p>
+                <p className="font-semibold">
+                  {STATUS_CONFIG[selectedDispute.status]?.label || selectedDispute.status}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-content-secondary font-medium uppercase mb-1">Kiểm định tại mua</p>
+                <p className={`font-semibold ${selectedDispute.verifiedAtPurchase ? 'text-success' : 'text-warning'}`}>
+                  {selectedDispute.verifiedAtPurchase ? 'Đã kiểm định ✓' : 'Chưa kiểm định'}
+                </p>
               </div>
             </div>
 
-            <div className="bg-[#1a237e]/5 border border-navy/20 p-4 rounded-sm">
-               <p className="text-xs text-navy font-bold uppercase mb-2 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[1.1rem]">search</span>
-                  Báo cáo trực tiếp từ Inspector
-               </p>
-               {selectedDispute.inspectorReport ? (
-                  <p className="text-sm text-content-primary italic">{selectedDispute.inspectorReport}</p>
-               ) : (
-                  <p className="text-sm text-content-secondary italic">Inspector đang trên đường kiểm tra, chưa có báo cáo.</p>
-               )}
+            {/* Lý do tranh chấp */}
+            <div className="bg-error/5 p-4 rounded-sm border border-error/20">
+              <p className="text-xs text-error font-bold uppercase mb-2">Lý do tranh chấp (Người mua)</p>
+              <p className="text-sm leading-relaxed">{selectedDispute.reason || '—'}</p>
+              {selectedDispute.evidenceUrls && (
+                <a href={selectedDispute.evidenceUrls} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-navy underline mt-2 inline-block">
+                  Xem bằng chứng đính kèm →
+                </a>
+              )}
             </div>
 
-            {selectedDispute.status.includes('RESOLVED') ? (
-               <div className="bg-success/10 p-4 font-bold text-success text-center border border-success/20 rounded-sm">
-                  Tranh chấp đã đóng. Quyết định: Người thắng là {selectedDispute.status === 'RESOLVED_BUYER' ? selectedDispute.buyer : selectedDispute.seller}.
-               </div>
+            {/* Ghi chú giải quyết hiện tại */}
+            {selectedDispute.resolutionNote && (
+              <div className="bg-navy/5 p-4 rounded-sm border border-navy/20">
+                <p className="text-xs text-navy font-bold uppercase mb-2">Ghi chú giải quyết</p>
+                <p className="text-sm italic">{selectedDispute.resolutionNote}</p>
+                {selectedDispute.resolvedByName && (
+                  <p className="text-xs text-content-secondary mt-1">— {selectedDispute.resolvedByName}</p>
+                )}
+              </div>
+            )}
+
+            {/* Admin action */}
+            {IS_RESOLVED.includes(selectedDispute.status) ? (
+              <div className="bg-success/10 p-4 font-bold text-success text-center border border-success/20 rounded-sm">
+                Tranh chấp đã được giải quyết: {STATUS_CONFIG[selectedDispute.status]?.label}
+              </div>
             ) : (
-               <div className="pt-4 border-t border-border-light">
-                  <p className="text-sm font-bold text-error mb-3">Thẩm quyền của Admin: Đưa ra quyết định cuối cùng</p>
-                  <div className="flex gap-4">
-                     <button 
-                        onClick={() => handleResolve(selectedDispute.id, 'BUYER')}
-                        disabled={selectedDispute.status === 'SYSTEM_PROCESSING'}
-                        className="flex-1 py-3 text-white bg-error hover:bg-error/90 font-bold rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                     >
-                        Xử Người Mua Thắng (Hoàn Escrow về Buyer)
-                     </button>
-                     <button 
-                        onClick={() => handleResolve(selectedDispute.id, 'SELLER')}
-                        disabled={selectedDispute.status === 'SYSTEM_PROCESSING'}
-                        className="flex-1 py-3 text-white bg-[#ff6b35] hover:bg-[#ff7849] font-bold rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                     >
-                        Xử Người Bán Thắng (Giải Phóng Escrow 100%)
-                     </button>
-                  </div>
-               </div>
+              <div className="pt-4 border-t border-border-light space-y-3">
+                <p className="text-sm font-bold text-error">Quyết định của Admin</p>
+                <textarea
+                  rows={2}
+                  placeholder="Ghi chú quyết định (không bắt buộc)..."
+                  value={resolutionNote}
+                  onChange={(e) => setResolutionNote(e.target.value)}
+                  className="w-full px-3 py-2 border border-border-light rounded-sm text-sm focus:outline-none focus:border-navy resize-none"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleResolve('REFUND_BUYER')}
+                    disabled={resolving}
+                    className="flex-1 py-2.5 text-sm text-white bg-error hover:bg-error/90 font-bold rounded-sm disabled:opacity-50 transition-colors"
+                  >
+                    Hoàn Escrow → Buyer
+                  </button>
+                  <button
+                    onClick={() => handleResolve('RELEASE_SELLER')}
+                    disabled={resolving}
+                    className="flex-1 py-2.5 text-sm text-white bg-[#ff6b35] hover:bg-[#ff7849] font-bold rounded-sm disabled:opacity-50 transition-colors"
+                  >
+                    Giải phóng Escrow → Seller
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
