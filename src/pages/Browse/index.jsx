@@ -8,7 +8,17 @@ import { authService } from '@/services/auth'
 import { sellerRatingService } from '@/services/sellerRating'
 import { toast } from '@/utils/toast'
 
-const BRANDS = ['Giant', 'Trek', 'Specialized', 'Cannondale', 'Merida', 'Cube', 'Scott', 'Brompton', 'Canyon', 'Pinarello']
+const BRANDS = [
+  { value: 'GIANT', label: 'Giant' },
+  { value: 'TREK', label: 'Trek' },
+  { value: 'SPECIALIZED', label: 'Specialized' },
+  { value: 'CANNONDALE', label: 'Cannondale' },
+  { value: 'MERIDA', label: 'Merida' },
+  { value: 'CUBE', label: 'Cube' },
+  { value: 'SCOTT', label: 'Scott' },
+  { value: 'CANYON', label: 'Canyon' },
+  { value: 'PINARELLO', label: 'Pinarello' },
+]
 
 const CONDITIONS = [
   { value: 'new', label: 'Mới 100%' },
@@ -26,9 +36,9 @@ const SORT_OPTIONS = [
 
 const LOCATIONS = [
   { value: '', label: 'Tất cả khu vực' },
-  { value: 'TP. Hồ Chí Minh', label: 'TP. HCM' },
-  { value: 'Hà Nội', label: 'Hà Nội' },
-  { value: 'Đà Nẵng', label: 'Đà Nẵng' },
+  { value: 'HO_CHI_MINH', label: 'TP. HCM' },
+  { value: 'HA_NOI', label: 'Hà Nội' },
+  { value: 'DA_NANG', label: 'Đà Nẵng' },
 ]
 
 const FILTER_CATEGORIES = BIKE_CATEGORIES.filter((c) => c.id !== 'all')
@@ -99,19 +109,22 @@ export default function BrowsePage() {
           brand: selectedBrands.length === 1 ? selectedBrands[0] : undefined,
           page: 0,
           size: 50,
-          sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'createdAt',
-          direction: sortBy === 'price_asc' ? 'asc' : sortBy === 'price_desc' ? 'desc' : 'desc',
+          sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : sortBy === 'most_viewed' ? 'viewCount' : 'createdAt',
+          direction: sortBy === 'price_asc' ? 'asc' : 'desc',
         }
 
         const data = await bikePostService.search(apiParams)
         let result = data.content || []
 
-        // Client-side filters (BE không hỗ trợ)
+        // Client-side filters (BE không hỗ trợ nhiều brand / category)
         if (selectedBrands.length > 1) {
           result = result.filter(b => selectedBrands.includes(b.brand))
         }
         if (selectedCategories.length > 0) {
-          result = result.filter(b => selectedCategories.includes(b.categoryName))
+          const selectedLabels = FILTER_CATEGORIES
+            .filter(c => selectedCategories.includes(c.id))
+            .map(c => c.label.toLowerCase())
+          result = result.filter(b => selectedLabels.includes(b.categoryName?.toLowerCase()))
         }
         if (selectedConditions.length > 0) {
           result = result.filter(b => selectedConditions.includes(b.status?.toLowerCase()))
