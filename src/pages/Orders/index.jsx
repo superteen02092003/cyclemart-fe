@@ -222,6 +222,14 @@ function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeMod
               <p className="text-xs mt-1 text-amber-600">Bạn cần phản hồi trong vòng <strong>1 phút</strong>, nếu không đơn sẽ tự động bị hủy.</p>
             </div>
 
+            <button
+              onClick={() => openOrderDetailModal(order)}
+              className="w-full py-2 text-xs font-bold border border-navy text-navy hover:bg-navy/5 rounded-sm transition-colors flex items-center justify-center gap-1"
+            >
+              <span className="material-symbols-outlined text-[1rem]">info</span>
+              Xem thông tin đơn hàng trước khi xác nhận
+            </button>
+
             {showRejectInput ? (
               <div className="space-y-2">
                 <input
