@@ -441,6 +441,18 @@ const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
                         Nhân viên của chúng tôi sẽ gọi điện xác nhận lại thời gian cụ thể với bạn.
                       </p>
                     </div>
+
+                    {/* Phone reminder */}
+                    <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-sm px-4 py-3">
+                      <span className="material-symbols-outlined text-amber-600 text-[1.2rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>phone</span>
+                      <p className="text-sm text-amber-800 leading-relaxed">
+                        Vui lòng kiểm tra số điện thoại cá nhân{' '}
+                        <a href="/settings" className="font-bold underline hover:text-amber-900">
+                          ở đây
+                        </a>
+                        {' '}để chúng tôi có thể liên hệ xác nhận lịch hẹn.
+                      </p>
+                    </div>
                   </div>
                 )}
 
