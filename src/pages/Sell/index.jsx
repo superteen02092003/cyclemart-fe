@@ -134,7 +134,6 @@ export default function SellPage() {
     groupset: '',
     description: '',
     price: '',
-    allowNegotiation: false,
     city: 'HO_CHI_MINH',
     district: '',
   })
@@ -175,7 +174,6 @@ export default function SellPage() {
         groupset: data.groupset || '',
         description: data.description || '',
         price: data.price || '',
-        allowNegotiation: data.allowNegotiation || false,
         city: data.city || 'HO_CHI_MINH',
         district: data.district || '',
         requestInspection: data.isRequestedInspection || false,
@@ -313,7 +311,6 @@ export default function SellPage() {
         groupset: formData.groupset,
         mileage: formData.mileage ? parseInt(formData.mileage) : null,
         categoryId: parseInt(formData.categoryId),
-        allowNegotiation: formData.allowNegotiation,
         images: selectedImages
       }
 
@@ -600,16 +597,6 @@ export default function SellPage() {
               )}
               {!formData.price && <p className="text-xs text-error mt-1">Vui lòng nhập giá bán</p>}
             </div>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.allowNegotiation}
-                onChange={set('allowNegotiation')}
-                className="w-4 h-4 rounded border-border-light accent-orange-500"
-              />
-              <span className="text-sm text-content-primary">Cho phép thương lượng giá</span>
-            </label>
 
             <div>
               <label className={labelClass}>Thành phố <span className="text-error">*</span></label>

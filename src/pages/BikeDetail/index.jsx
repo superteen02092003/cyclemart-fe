@@ -364,133 +364,6 @@ ImageGallery.propTypes = {
   postStatus: PropTypes.string,
 }
 
-function OfferModal({ bike, onClose }) {
-  const [offerPrice, setOfferPrice] = useState('')
-  const [note, setNote] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setError(null)
-    try {
-      await import('@/services/api').then(({ default: api }) =>
-        api.post('/v1/negotiations', {
-          bikePostId: bike.id,
-          offeredPrice: parseFloat(offerPrice),
-        })
-      )
-      setSubmitted(true)
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Gửi đề xuất thất bại. Vui lòng thử lại.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (submitted) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-        <div className="bg-white rounded-sm shadow-card-hover w-full max-w-md p-8 text-center">
-          <span
-            className="material-symbols-outlined text-green mb-3"
-            style={{ fontSize: '3rem', fontVariationSettings: "'FILL' 1", color: '#10b981' }}
-          >
-            check_circle
-          </span>
-          <h3 className="text-lg font-bold text-content-primary mb-2">Đã gửi đề xuất!</h3>
-          <p className="text-sm text-content-secondary mb-6">
-            Người bán sẽ xem xét và phản hồi đề xuất của bạn sớm nhất.
-          </p>
-          <Button variant="primary" onClick={onClose} fullWidth>
-            Đóng
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white rounded-sm shadow-card-hover w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
-          <h3 className="text-base font-bold text-content-primary">Đặt giá đề xuất</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-secondary transition-colors"
-          >
-            <span className="material-symbols-outlined text-[1.1rem]">close</span>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div className="bg-surface-secondary rounded-sm px-4 py-3">
-            <p className="text-xs text-content-secondary mb-0.5">Giá niêm yết</p>
-            <p className="text-base font-bold text-content-primary">{formatPrice(bike.price)}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-content-primary mb-1.5">
-              Giá đề xuất của bạn (₫) <span className="text-error">*</span>
-            </label>
-            <input
-              type="number"
-              required
-              max={bike.price}
-              placeholder="Nhập giá đề xuất"
-              value={offerPrice}
-              onChange={(e) => setOfferPrice(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-content-primary mb-1.5">
-              Ghi chú (không bắt buộc)
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Lý do đặt giá, điều kiện kèm theo..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border-light rounded-sm focus:outline-none focus:border-navy text-sm transition-colors resize-none"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-error bg-error/10 px-3 py-2 rounded-sm">{error}</p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onClose} fullWidth disabled={submitting}>
-              Hủy
-            </Button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 py-3 text-sm font-semibold text-white rounded-sm transition-colors disabled:opacity-60"
-              style={{ backgroundColor: '#ff6b35' }}
-              onMouseEnter={(e) => !submitting && (e.currentTarget.style.backgroundColor = '#ff7849')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
-            >
-              {submitting ? 'Đang gửi...' : 'Gửi đề xuất'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-OfferModal.propTypes = {
-  bike: PropTypes.shape({
-    price: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-  }).isRequired,
-  onClose: PropTypes.func.isRequired,
-}
-
 export default function BikeDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -500,7 +373,6 @@ export default function BikeDetailPage() {
   const [error, setError] = useState(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [wishlistLoading, setWishlistLoading] = useState(false)
-  const [showOfferModal, setShowOfferModal] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginAction, setLoginAction] = useState('')
 
@@ -632,16 +504,6 @@ export default function BikeDetailPage() {
   const proceedToCheckout = () => {
     setShowCheckoutWarning(false)
     navigate(`/checkout/${bike.id}`)
-  }
-
-  const handleOfferClick = () => {
-    const currentUser = authService.getCurrentUser()
-    if (!currentUser) {
-      setLoginAction('đặt giá')
-      setShowLoginModal(true)
-      return
-    }
-    setShowOfferModal(true)
   }
 
   const handleMessageSeller = async () => {
@@ -921,9 +783,6 @@ export default function BikeDetailPage() {
               </div>
 
               <div className="flex flex-wrap gap-2 mb-4">
-                {bike.allowNegotiation && (
-                  <Badge variant="navy">Thương lượng</Badge>
-                )}
                 {bike.postStatus === 'APPROVED' && (
                   <Badge variant="verified">
                     <span
@@ -970,15 +829,6 @@ export default function BikeDetailPage() {
                     Mua ngay
                   </button>
 
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    onClick={handleOfferClick}
-                    className="mb-4"
-                  >
-                    <span className="material-symbols-outlined text-[1rem]">gavel</span>
-                    Đặt giá
-                  </Button>
                 </>
               )}
 
@@ -1209,11 +1059,6 @@ export default function BikeDetailPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Offer modal */}
-      {!isOwnPost && showOfferModal && (
-        <OfferModal bike={bike} onClose={() => setShowOfferModal(false)} />
       )}
 
       {/* Login Required Modal */}
