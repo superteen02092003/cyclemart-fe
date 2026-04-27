@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { adminService } from '@/services/admin'
+import { inspectionService } from '@/services/inspection'
 
 const AdminStatsContext = createContext()
 
@@ -16,16 +17,23 @@ export function AdminStatsProvider({ children }) {
     try {
       setStats(prev => ({ ...prev, loading: true }))
       
-      // Fetch posts data for stats calculation
-      const postsData = await adminService.getAllPosts({ page: 0, size: 1000 })
+      // Fetch posts + inspections data for stats calculation
+      const [postsData, inspectionsData] = await Promise.all([
+        adminService.getAllPosts({ page: 0, size: 1000 }),
+        inspectionService.getAllAdminRequests({ page: 0, size: 1000 }),
+      ])
       const posts = postsData.content || []
+      const inspections = inspectionsData.content || []
+      const unassignedInspections = inspections.filter(
+        (task) => task.status === 'PENDING' && !task.inspectorName
+      ).length
       
       // Calculate stats from posts
       const newStats = {
         pending: posts.filter(p => p.postStatus === 'PENDING').length,
         approved: posts.filter(p => p.postStatus === 'APPROVED').length,
         rejected: posts.filter(p => p.postStatus === 'REJECTED').length,
-        inspections: 2, // TODO: Replace with real API when available
+        inspections: unassignedInspections,
         loading: false
       }
       

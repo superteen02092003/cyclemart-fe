@@ -1,21 +1,89 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';import { sellerRatingService } from '@/services/sellerRating';
+import { bikePostService } from '@/services/bikePost';
 
-export default function ReviewModal({ order, onClose, onSuccess }) {
+export default function ReviewModal({ order, onClose, onSuccess, onSubmitReview }) {
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [resolvedSellerId, setResolvedSellerId] = useState(null);
 
-  const handleSubmit = (e) => {
+
+  useEffect(() => {
+    const fetchSellerId = async () => {
+      try {
+        console.log("order:", order); // debug 1 lần là biết ngay
+
+        // 1. Ưu tiên lấy trực tiếp từ order
+        if (order?.sellerId != null) {
+          setResolvedSellerId(order.sellerId);
+          return;
+        }
+
+        // 2. Fallback nhiều field (quan trọng)
+        const postId =
+          order?.bikePostId ||
+          order?.postId ||
+          order?.bikeId ||
+          order?.productId;
+
+        if (!postId) {
+          throw new Error('Order không chứa postId (bikePostId/postId/...)');
+        }
+
+        // 3. Gọi API
+        const res = await bikePostService.getById(postId);
+        const bikePost = res?.result || res;
+
+        console.log("bikePost:", bikePost);
+
+        // 4. Lấy sellerId an toàn
+        const sellerId =
+          bikePost?.userId ||
+          bikePost?.sellerId ||
+          bikePost?.ownerId;
+
+        if (!sellerId) {
+          throw new Error('Không tìm thấy sellerId từ bài đăng');
+        }
+
+        setResolvedSellerId(sellerId);
+      } catch (err) {
+        console.error(err);
+        setError(err.message);
+      }
+    };
+
+    fetchSellerId();
+  }, [order]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (rating === 0) return;
+
+    if (rating === 0 || isSubmitting || !resolvedSellerId) return;
+
     setIsSubmitting(true);
-    
-    // Giả lập call API
-    setTimeout(() => {
-      setIsSubmitting(false);
+    setError('');
+
+    try {
+      await sellerRatingService.createOrUpdateRating(
+        resolvedSellerId,
+        rating,
+        comment.trim()
+      );
+
       onSuccess(order.id);
-    }, 1500);
+    } catch (submitError) {
+      const message =
+        submitError?.response?.data?.message ||
+        submitError?.message ||
+        'Không thể gửi đánh giá. Vui lòng thử lại.';
+
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -35,7 +103,7 @@ export default function ReviewModal({ order, onClose, onSuccess }) {
                   onMouseEnter={() => setHoverRating(star)}
                   onMouseLeave={() => setHoverRating(0)}
                   onClick={() => setRating(star)}
-                  style={{ 
+                  style={{
                     fontVariationSettings: (hoverRating || rating) >= star ? "'FILL' 1" : "'FILL' 0",
                     color: (hoverRating || rating) >= star ? '#f59e0b' : '#d1d5db'
                   }}
@@ -44,7 +112,7 @@ export default function ReviewModal({ order, onClose, onSuccess }) {
                 </span>
               ))}
             </div>
-            
+
             <p className="text-center text-sm font-semibold text-content-primary mb-6">
               {rating === 5 ? 'Tuyệt vời!' : rating === 4 ? 'Rất tốt' : rating === 3 ? 'Bình thường' : rating === 2 ? 'Kém' : rating === 1 ? 'Quá tệ' : 'Chọn số sao'}
             </p>
@@ -59,12 +127,15 @@ export default function ReviewModal({ order, onClose, onSuccess }) {
                 className="w-full px-3 py-2 text-sm border border-border-light rounded-sm focus:outline-none focus:border-navy resize-none"
               />
             </div>
+            {error && (
+              <p className="text-sm text-error mb-4">{error}</p>
+            )}
 
             <div className="flex gap-3 mt-4">
               <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm font-semibold border border-border-light text-content-secondary hover:bg-surface-secondary rounded-sm">Để sau</button>
-              <button 
-                type="submit" 
-                disabled={rating === 0 || isSubmitting}
+              <button
+                type="submit"
+                disabled={rating === 0 || isSubmitting || !resolvedSellerId}
                 className="flex-1 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#ff6b35' }}
               >

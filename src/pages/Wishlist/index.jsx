@@ -31,7 +31,8 @@ export default function WishlistPage() {
       setLoading(true)
       setError('')
       const response = await wishlistService.getMyWishlist(0, 50)
-      const items = Array.isArray(response?.content) ? response.content : []
+      const rawItems = Array.isArray(response?.content) ? response.content : []
+      const items = await wishlistService.cleanupUnavailableItems(rawItems)
       setWishlistedBikes(items.map(mapWishlistItemToBikeCard))
     } catch (err) {
       const message = err?.response?.data?.message || 'Không thể tải danh sách yêu thích'

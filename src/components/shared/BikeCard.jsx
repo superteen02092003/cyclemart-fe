@@ -16,10 +16,12 @@ const conditionLabels = {
 
 export function BikeCard({
   bike,
+  sellerRating,
   className,
   featured = false,
   isWishlisted = false,
   onWishlistToggle,
+  isOwnPost = false,
 }) {
   const { isAuthenticated } = useAuth()
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -45,7 +47,12 @@ export function BikeCard({
             className
           )}
         >
-          <div className={cn('relative overflow-hidden bg-surface-secondary', featured ? 'aspect-[4/3]' : 'aspect-[4/3]')}>
+          <div
+            className={cn(
+              'relative overflow-hidden bg-surface-secondary',
+              featured ? 'aspect-[4/3]' : 'aspect-[4/3]'
+            )}
+          >
             {bike.images?.[0] ? (
               <img
                 src={typeof bike.images[0] === 'string' ? bike.images[0] : bike.images[0].url}
@@ -54,7 +61,10 @@ export function BikeCard({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-surface-secondary">
-                <span className="material-symbols-outlined text-content-tertiary" style={{ fontSize: '3.5rem', fontVariationSettings: "'FILL' 0" }}>
+                <span
+                  className="material-symbols-outlined text-content-tertiary"
+                  style={{ fontSize: '3.5rem', fontVariationSettings: "'FILL' 0" }}
+                >
                   directions_bike
                 </span>
               </div>
@@ -63,36 +73,68 @@ export function BikeCard({
             <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
               {bike.isVerified && (
                 <Badge variant="verified">
-                  <span className="material-symbols-outlined text-[0.7rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  <span
+                    className="material-symbols-outlined text-[0.7rem]"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    verified
+                  </span>
                   Đã kiểm định
                 </Badge>
               )}
             </div>
 
-            <button
-              onClick={handleWishlistClick}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center group/fav"
-              aria-label={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
-            >
-              <span
-                className={cn(
-                  'material-symbols-outlined text-[1.3rem] drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] transition-colors',
-                  isWishlisted ? 'text-red-500' : 'text-white group-hover/fav:text-red-400'
-                )}
-                style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
-              >favorite</span>
-            </button>
+            {isOwnPost ? (
+              <span className="absolute top-3 right-3 text-[0.7rem] font-semibold bg-navy text-white px-2 py-1 rounded-xs">
+                Bài của tôi
+              </span>
+            ) : (
+              <button
+                onClick={handleWishlistClick}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center group/fav"
+                aria-label={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+              >
+                <span
+                  className={cn(
+                    'material-symbols-outlined text-[1.3rem] drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)] transition-colors',
+                    isWishlisted ? 'text-red-500' : 'text-white group-hover/fav:text-red-400'
+                  )}
+                  style={{ fontVariationSettings: isWishlisted ? "'FILL' 1" : "'FILL' 0" }}
+                >
+                  favorite
+                </span>
+              </button>
+            )}
           </div>
 
           <div className="p-4">
             <div className="mb-1">
-              <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2">{bike.title}</h3>
+              <h3 className="font-semibold text-content-primary text-sm leading-snug line-clamp-2">
+                {bike.title}
+              </h3>
             </div>
 
             <div className="flex items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-1 text-content-secondary min-w-0">
-                <span className="material-symbols-outlined text-[0.9rem] flex-shrink-0">storefront</span>
-                <span className="text-xs truncate">{bike.sellerName || 'Người bán'}</span>
+                <span className="material-symbols-outlined text-[0.9rem] flex-shrink-0">
+                  storefront
+                </span>
+
+                <span className="text-xs truncate flex items-center gap-1">
+                  {bike.sellerName || 'Người bán'}
+
+                  {sellerRating && (
+                    <span className="flex items-center gap-0.5 text-yellow-500 ml-1">
+                      <span style={{ fontSize: '0.75rem' }}>⭐</span>
+                      <span className="text-[0.7rem] font-semibold">
+                        {sellerRating.averageScore?.toFixed(1) || '0.0'}
+                      </span>
+                      <span className="text-[0.7rem] text-gray-400">
+                        ({sellerRating.totalRatings || 0})
+                      </span>
+                    </span>
+                  )}
+                </span>
               </div>
               <span className="flex items-center gap-1 text-xs text-content-secondary flex-shrink-0">
                 <span className="material-symbols-outlined text-[0.85rem]">visibility</span>
@@ -122,8 +164,12 @@ export function BikeCard({
           </div>
         </article>
       </Link>
-      
-      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} action="thêm vào yêu thích" />
+
+      <LoginRequiredModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action="thêm vào yêu thích"
+      />
     </>
   )
 }

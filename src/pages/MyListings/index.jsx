@@ -332,15 +332,18 @@ function InspectionHistory() {
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-bold text-navy line-clamp-1">{ins.postTitle}</h3>
                 <span className={cn(
-                  "text-[0.7rem] font-bold px-2 py-1 rounded-sm uppercase tracking-wider whitespace-nowrap ml-3",
-                  ins.status === 'PASSED' ? "bg-green-100 text-green-700" : 
-                  ins.status === 'FAILED' ? "bg-error/10 text-error" : "bg-warning/10 text-warning-content"
-                )}>
-                  {ins.status === 'PENDING' ? 'Chờ xếp lịch' :
-                   ins.status === 'ASSIGNED' ? 'Đã xếp lịch' :
-                   ins.status === 'INSPECTING' ? 'Đang kiểm tra' :
-                   ins.status === 'PASSED' ? 'Đạt' : 'Không đạt'}
-                </span>
+  "text-[0.7rem] font-bold px-2 py-1 rounded-sm uppercase tracking-wider whitespace-nowrap ml-3",
+  ins.status === 'PASSED' ? "bg-green-100 text-green-700" : 
+  ins.status === 'FAILED' ? "bg-error/10 text-error" : 
+  ins.status === 'PENDING_PAYMENT' ? "bg-gray-100 text-gray-600" : "bg-warning/10 text-warning-content"
+)}>
+  {ins.status === 'PENDING_PAYMENT' ? 'Chờ thanh toán' :
+   ins.status === 'PENDING' ? 'Chờ xếp lịch' :
+   ins.status === 'ASSIGNED' ? 'Đã xếp lịch' :
+   ins.status === 'INSPECTING' ? 'Đang kiểm tra' :
+   ins.status === 'PASSED' ? 'Đã kiểm định' : 
+   ins.status === 'FAILED' ? 'Cần sửa chữa' : 'Đang xử lý'}
+</span>
               </div>
               
               <div className="text-sm text-content-secondary space-y-1.5 mt-3">

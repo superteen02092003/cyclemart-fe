@@ -11,8 +11,6 @@ import { authService } from '@/services/auth'
 import { chatService } from '@/services/chat'
 import { LoginRequiredModal } from '@/components/modals'
 import { wishlistService } from '@/services/wishlist'
-
-// 🔥 Import thêm cho tính năng kiểm định
 import { inspectionService } from '@/services/inspection'
 import { cn } from '@/utils/cn'
 
@@ -272,7 +270,6 @@ function ImageGallery({ images, title, postStatus }) {
     )
   }
 
-  // 3+ images: Facebook-style layout
   return (
     <>
       <div className="bg-white rounded-sm border border-border-light shadow-card overflow-hidden relative">
@@ -401,7 +398,6 @@ function OfferModal({ bike, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="bg-white rounded-sm shadow-card-hover w-full max-w-md">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
           <h3 className="text-base font-bold text-content-primary">Đặt giá đề xuất</h3>
           <button
@@ -413,13 +409,11 @@ function OfferModal({ bike, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Reference price */}
           <div className="bg-surface-secondary rounded-sm px-4 py-3">
             <p className="text-xs text-content-secondary mb-0.5">Giá niêm yết</p>
             <p className="text-base font-bold text-content-primary">{formatPrice(bike.price)}</p>
           </div>
 
-          {/* Offer price input */}
           <div>
             <label className="block text-sm font-medium text-content-primary mb-1.5">
               Giá đề xuất của bạn (₫) <span className="text-error">*</span>
@@ -435,7 +429,6 @@ function OfferModal({ bike, onClose }) {
             />
           </div>
 
-          {/* Note */}
           <div>
             <label className="block text-sm font-medium text-content-primary mb-1.5">
               Ghi chú (không bắt buộc)
@@ -489,6 +482,9 @@ export default function BikeDetailPage() {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginAction, setLoginAction] = useState('')
 
+  // 🔥 MỚI: State cho Cảnh báo trước khi Checkout
+  const [showCheckoutWarning, setShowCheckoutWarning] = useState(false)
+
   const [sellerInfo, setSellerInfo] = useState(null)
   const [sellerRatings, setSellerRatings] = useState([])
   const [loadingSellerInfo, setLoadingSellerInfo] = useState(false)
@@ -499,7 +495,7 @@ export default function BikeDetailPage() {
   const [submittingRating, setSubmittingRating] = useState(false)
   const [ratingError, setRatingError] = useState('')
 
-  // 🔥 MỚI: State cho biên bản kiểm định
+  // State cho biên bản kiểm định
   const [showReport, setShowReport] = useState(false)
   const [reportData, setReportData] = useState(null)
   const [criteria, setCriteria] = useState([])
@@ -525,7 +521,7 @@ export default function BikeDetailPage() {
         setBike(bikeData)
         setError(null)
 
-        // 🔥 NẾU XE ĐÃ KIỂM ĐỊNH -> LẤY BIÊN BẢN VÀ TIÊU CHÍ
+        // NẾU XE ĐÃ KIỂM ĐỊNH -> LẤY BIÊN BẢN VÀ TIÊU CHÍ
         if (bikeData?.isVerified) {
           setIsLoadingReport(true)
           try {
@@ -598,6 +594,7 @@ export default function BikeDetailPage() {
     checkWishlistStatus()
   }, [bike?.id, isOwnPost])
 
+  // 🔥 ĐÃ SỬA: Hiển thị bảng cảnh báo thay vì vào checkout liền
   const handleBuyNow = () => {
     const currentUser = authService.getCurrentUser()
     if (!currentUser) {
@@ -605,10 +602,13 @@ export default function BikeDetailPage() {
       setShowLoginModal(true)
       return
     }
-    if (!bike?.isVerified) {
-      handleMessageSeller()
-      return
-    }
+    // Mở bảng cảnh báo
+    setShowCheckoutWarning(true)
+  }
+
+  // Hàm chạy sau khi user xác nhận đồng ý quy định
+  const proceedToCheckout = () => {
+    setShowCheckoutWarning(false)
     navigate(`/checkout/${bike.id}`)
   }
 
@@ -735,7 +735,6 @@ export default function BikeDetailPage() {
     )
   }
 
-  // Chuyển đổi dữ liệu checklist từ chuỗi JSON (ví dụ: "[1, 3]") sang mảng ID
   const passedCriteriaIds = reportData?.checklistData ? JSON.parse(reportData.checklistData) : []
 
   return (
@@ -752,14 +751,13 @@ export default function BikeDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ── Left column ──────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Facebook-style Image Gallery */}
           <ImageGallery
             images={bike.images}
             title={bike.title}
             postStatus={bike.postStatus}
           />
 
-          {/* Title & Price (Mobile View) - CÓ TEM VÀ NÚT BIÊN BẢN */}
+          {/* Title & Price (Mobile View) */}
           <div className="lg:hidden mb-4">
             <div className="flex items-start gap-2 mb-2 flex-wrap">
               <h1 className="text-xl font-bold text-content-primary">{bike.title}</h1>
@@ -821,7 +819,6 @@ export default function BikeDetailPage() {
               Đánh giá của bạn
             </h3>
 
-            {/* Chọn sao */}
             <div className="flex items-center gap-1 mb-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span
@@ -838,7 +835,6 @@ export default function BikeDetailPage() {
               ))}
             </div>
 
-            {/* Comment */}
             <textarea
               rows={3}
               placeholder="Nhận xét của bạn..."
@@ -847,7 +843,6 @@ export default function BikeDetailPage() {
               className="w-full px-3 py-2 border border-border-light rounded-sm text-sm mb-3"
             />
 
-            {/* Submit */}
             <Button
               disabled={!myRating || submittingRating}
               onClick={handleSubmitRating}
@@ -856,7 +851,6 @@ export default function BikeDetailPage() {
               {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
             </Button>
 
-            {/* Error message */}
             {ratingError && (
               <p className="text-error text-xs mt-2">{ratingError}</p>
             )}
@@ -921,7 +915,7 @@ export default function BikeDetailPage() {
             {/* Price card */}
             <div className="bg-white rounded-sm border border-border-light shadow-card p-6">
               
-              {/* Desktop Title & Badge - ĐÃ CẬP NHẬT TEM KIỂM ĐỊNH */}
+              {/* Desktop Title & Badge */}
               <div className="hidden lg:flex items-start justify-between gap-2 mb-3 flex-wrap">
                 <h1 className="text-lg font-bold text-content-primary leading-snug flex-1">
                   {bike.title}
@@ -934,7 +928,7 @@ export default function BikeDetailPage() {
                 )}
               </div>
 
-              {/* Price & View Report Button - ĐÃ CẬP NHẬT BIÊN BẢN */}
+              {/* Price & View Report Button */}
               <div className="flex flex-col items-start gap-1 mb-4">
                 <p className="text-3xl font-black text-[#ff6b35]">{formatPrice(bike.price)}</p>
                 {bike.isVerified && (
@@ -990,12 +984,12 @@ export default function BikeDetailPage() {
                 <>
                   <button
                     onClick={handleBuyNow}
-                    className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors bg-[#ff6b35] hover:bg-[#ff7849]"
+                    className="w-full py-3 text-sm font-bold text-white rounded-sm mb-3 transition-colors"
                     style={{ backgroundColor: '#ff6b35' }}
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
                   >
-                    {bike?.isVerified ? 'Mua ngay' : 'Liên hệ người bán'}
+                    Mua ngay
                   </button>
 
                   <Button
@@ -1007,16 +1001,6 @@ export default function BikeDetailPage() {
                     <span className="material-symbols-outlined text-[1rem]">gavel</span>
                     Đặt giá
                   </Button>
-
-                  {!bike?.isVerified && (
-                    <div className="p-3 bg-amber-50 rounded-sm border border-amber-200 flex items-start gap-2 mb-4">
-                      <span className="material-symbols-outlined text-amber-500 text-[1.2rem] flex-shrink-0">info</span>
-                      <div className="text-xs text-amber-700 leading-relaxed">
-                        <p className="font-semibold mb-1">Chưa có kiểm định</p>
-                        <p>Sản phẩm này chưa qua kiểm định CycleMart. Bạn vẫn có thể liên hệ người bán để thoả thuận và thanh toán trực tiếp, nhưng sẽ không được bảo vệ bởi hệ thống escrow.</p>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
 
@@ -1045,7 +1029,7 @@ export default function BikeDetailPage() {
             <div className="bg-white rounded-sm border border-border-light shadow-card p-5">
               <h3 className="text-sm font-bold text-content-primary mb-3">Người bán</h3>
               {loadingSellerInfo ? (
-                <p className="text-xs text-content-secondary">Đang tải thông tin...</p>
+                <p className="text-xs text-content-secondary">Đang tải thông biến...</p>
               ) : sellerInfo ? (
                 <>
                   <div className="flex items-start gap-3">
@@ -1128,7 +1112,49 @@ export default function BikeDetailPage() {
         </div>
       </div>
 
-      {/* 🔥 MODAL BÁO CÁO KIỂM ĐỊNH */}
+      {/* 🔥 MODAL CẢNH BÁO TRƯỚC KHI CHECKOUT */}
+      {showCheckoutWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-orange/10 rounded-full flex items-center justify-center text-[#ff6b35] mx-auto mb-4">
+                <span className="material-symbols-outlined text-[2rem]">warning</span>
+              </div>
+              <h3 className="text-lg font-bold text-navy mb-2">Lưu ý trước khi giao dịch</h3>
+              <p className="text-sm text-content-secondary leading-relaxed mb-4">
+                Nền tảng <strong>CycleMart</strong> chỉ hỗ trợ giải quyết tranh chấp (hoàn tiền, trả hàng) đối với những xe <strong>đã được kiểm định</strong> (có tem Đã kiểm định).
+              </p>
+
+              {/* Thông báo mạnh nếu xe chưa kiểm định */}
+              {!bike?.isVerified && (
+                <div className="bg-red-50 border border-red-100 p-3 rounded-sm text-sm text-red-600 font-medium mb-4 text-left shadow-sm">
+                  <span className="material-symbols-outlined text-[1rem] inline-block align-middle mr-1">info</span>
+                  Chiếc xe này chưa được kiểm định. Bạn vui lòng tự chịu rủi ro và kiểm tra kỹ thông tin trước khi xác nhận nhận xe nhé.
+                </div>
+              )}
+
+              <p className="text-sm font-semibold text-content-primary">Bạn có đồng ý tiếp tục mua xe không?</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-px bg-border-light border-t border-border-light">
+              <button
+                onClick={() => setShowCheckoutWarning(false)}
+                className="p-3.5 bg-white text-content-secondary font-semibold hover:bg-surface-secondary transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={proceedToCheckout}
+                className="p-3.5 bg-white text-[#ff6b35] font-bold hover:bg-orange/5 transition-colors"
+              >
+                Đồng ý tiếp tục
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BÁO CÁO KIỂM ĐỊNH */}
       {showReport && reportData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
           <div className="bg-white rounded-md shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -1148,7 +1174,6 @@ export default function BikeDetailPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
-              {/* Checklist Section */}
               <div>
                 <h3 className="text-sm font-bold text-navy uppercase tracking-wider mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-[1.1rem] text-[#ff6b35]">checklist</span>
@@ -1178,7 +1203,6 @@ export default function BikeDetailPage() {
                 </div>
               </div>
 
-              {/* Inspector's Note */}
               <div className="bg-[#1e3a5f]/5 border border-[#1e3a5f]/10 p-5 rounded-sm relative">
                  <span className="material-symbols-outlined absolute -top-3 -left-1 text-[#1e3a5f]/20 text-4xl">format_quote</span>
                  <h3 className="text-sm font-bold text-navy flex items-center gap-2 mb-3">
