@@ -37,6 +37,7 @@ export function AdminSidebar() {
     { label: 'Danh mục & thương hiệu', icon: 'label', href: '/admin/categories' },
     { label: 'Giao dịch & phí dịch vụ', icon: 'payments', href: '/admin/transactions' },
     { label: 'Quản lý dòng tiền', icon: 'account_balance', href: '/admin/finance' },
+    { label: 'Yêu cầu rút tiền', icon: 'savings', href: '/admin/withdrawals' },
     // { label: 'Thống kê & báo cáo', icon: 'bar_chart', href: '/admin/statistics' },   // chưa có API
     // { label: 'Gói Ưu Tiên', icon: 'workspace_premium', href: '/admin/priority-packages' }, // tắt tạm
   ]

@@ -8,6 +8,7 @@ import DeliveryModal from '@/components/orders/DeliveryModal';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import DisputeModal from '@/components/orders/DisputeModal';
 import ReviewModal from '@/components/orders/ReviewModal';
+import { useOrderUpdates, useDisputeUpdates } from '@/hooks/useWebSocket';
 
 const STATUS_LABELS = {
   PENDING_PAYMENT:       { text: 'Chờ thanh toán',    color: 'bg-navy/10 text-navy border border-navy/20' },
@@ -363,6 +364,16 @@ export default function OrdersPage() {
   }, [mapPayment]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  useOrderUpdates(useCallback((data) => {
+    toast.info(`Đơn hàng ${data.paymentId} đã cập nhật trạng thái`)
+    fetchOrders()
+  }, [fetchOrders]))
+
+  useDisputeUpdates(useCallback((data) => {
+    toast.info(`Tranh chấp ${data.disputeId} đã cập nhật`)
+    fetchOrders()
+  }, [fetchOrders]))
 
   const filteredOrders = useMemo(
     () => orders.filter(o => o.role === activeTab),

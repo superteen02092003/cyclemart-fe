@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import { UserMenu } from '@/components/shared/UserMenu'
@@ -6,6 +6,8 @@ import { NotificationBell } from '@/components/shared/NotificationBell'
 import { cn } from '@/utils/cn'
 import { authService } from '@/services/auth'
 import api from '@/services/api'
+import { usePointsUpdates } from '@/hooks/useWebSocket'
+import { toast } from '@/utils/toast'
 
 const NAV_LINKS = [
   { label: 'Mua xe', href: ROUTES.BROWSE },
@@ -29,11 +31,11 @@ export function TopNavBar() {
         setUserPoints(0)
         return
       }
-      
+
       try {
         const response = await api.get('/auth/me')
         const points = response.data?.point || 0
-        console.log('Fetched points:', points) // Debug log
+        console.log('Fetched points:', points)
         setUserPoints(points)
       } catch (error) {
         console.error('Failed to fetch user points:', error)
@@ -42,25 +44,29 @@ export function TopNavBar() {
 
     fetchUserPoints()
 
-    // Listen for custom event to refresh points
     const handlePointsUpdate = () => {
-      console.log('Points update event triggered') // Debug log
+      console.log('Points update event triggered')
       setRefreshKey(prev => prev + 1)
       fetchUserPoints()
     }
     window.addEventListener('pointsUpdated', handlePointsUpdate)
-    
-    // Also listen for storage events
+
     const handleStorageChange = () => {
       fetchUserPoints()
     }
     window.addEventListener('storage', handleStorageChange)
-    
+
     return () => {
       window.removeEventListener('pointsUpdated', handlePointsUpdate)
       window.removeEventListener('storage', handleStorageChange)
     }
   }, [currentUser, refreshKey])
+
+  usePointsUpdates(useCallback((data) => {
+    setUserPoints(data.newBalance)
+    const sign = data.pointsDelta > 0 ? '+' : ''
+    toast.info(`${sign}${data.pointsDelta} điểm. Số dư: ${data.newBalance}`)
+  }, []))
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-border-light">
