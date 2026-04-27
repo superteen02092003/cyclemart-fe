@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
 import { ordersService, disputeService } from '@/services/orders';
@@ -8,6 +7,7 @@ import DeliveryModal from '@/components/orders/DeliveryModal';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import DisputeModal from '@/components/orders/DisputeModal';
 import ReviewModal from '@/components/orders/ReviewModal';
+import OrderDetailModal from '@/components/orders/OrderDetailModal';
 import { useOrderUpdates, useDisputeUpdates } from '@/hooks/useWebSocket';
 
 const STATUS_LABELS = {
@@ -114,7 +114,7 @@ function SellerDisputePanel({ dispute, onAction }) {
   )
 }
 
-function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeModal, openReviewModal }) {
+function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeModal, openReviewModal, openOrderDetailModal }) {
   const isBuyer = order.role === 'BUYER';
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -377,11 +377,13 @@ function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeMod
           </span>
         )}
 
-        <Link to={`/bike/${order.bikePostId}`}>
-          <button className="py-2.5 px-4 border border-border-light text-content-secondary hover:bg-surface-secondary text-xs font-bold rounded-sm transition-colors">
-            Xem Chi Tiết Xe
-          </button>
-        </Link>
+        <button
+          onClick={() => openOrderDetailModal(order)}
+          className="py-2.5 px-4 bg-navy hover:bg-navy/90 text-white text-xs font-bold rounded-sm transition-colors flex items-center gap-1"
+        >
+          <span className="material-symbols-outlined text-[1rem]">description</span>
+          Xem Chi Tiết Đơn Hàng
+        </button>
       </div>
 
       {order.orderStatus === 'DISPUTE_SYSTEM' && !isBuyer && dispute && (
@@ -402,6 +404,7 @@ export default function OrdersPage() {
   const [returnOrder, setReturnOrder] = useState(null);
   const [disputeOrder, setDisputeOrder] = useState(null);
   const [reviewOrder, setReviewOrder] = useState(null);
+  const [orderDetailOrder, setOrderDetailOrder] = useState(null);
 
   const mapPayment = useCallback((payment, role) => ({
     paymentId: payment.id,
@@ -423,6 +426,8 @@ export default function OrdersPage() {
     autoReleaseAt: payment.autoReleaseAt || null,
     adminNote: payment.adminNote || null,
     hasRated: payment.hasRated || false,
+    address: payment.address || null,
+    phone: payment.phone || null,
   }), []);
 
   const fetchOrders = useCallback(async () => {
@@ -536,6 +541,7 @@ export default function OrdersPage() {
               openDeliveryModal={setDeliveryOrder}
               openDisputeModal={setDisputeOrder}
               openReviewModal={setReviewOrder}
+              openOrderDetailModal={setOrderDetailOrder}
             />
           ))}
         </div>
@@ -567,6 +573,12 @@ export default function OrdersPage() {
           order={reviewOrder}
           onClose={() => setReviewOrder(null)}
           onSuccess={() => { setReviewOrder(null); fetchOrders(); }}
+        />
+      )}
+      {orderDetailOrder && (
+        <OrderDetailModal
+          order={orderDetailOrder}
+          onClose={() => setOrderDetailOrder(null)}
         />
       )}
     </div>
