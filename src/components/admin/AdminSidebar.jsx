@@ -1,10 +1,20 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/utils/cn'
 import { useAdminStats } from '@/contexts/AdminStatsContext'
+import { useAuth } from '@/hooks/useAuth'
 
 export function AdminSidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { stats } = useAdminStats()
+  const { logout } = useAuth()
+
+  const handleLogout = () => {
+    if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+      logout()
+      navigate('/login')
+    }
+  }
 
   const menuItems = [
     { label: 'Tổng quan', icon: 'dashboard', href: '/admin', exact: true },
@@ -43,7 +53,7 @@ export function AdminSidebar() {
       
       {/* Logo */}
       <div className="p-6 border-b border-white/10">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <span
             className="material-symbols-outlined text-orange text-[1.6rem]"
             style={{ fontVariationSettings: "'FILL' 1" }}
@@ -51,7 +61,7 @@ export function AdminSidebar() {
             directions_bike
           </span>
           <span className="text-lg font-bold">CycleMart</span>
-        </div>
+        </Link>
         <p className="text-xs text-white/60 mt-1">Admin Dashboard</p>
       </div>
 
@@ -87,9 +97,14 @@ export function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-white/10 mt-auto text-xs text-white/60 text-center">
-        <p>CycleMart Admin v1.0</p>
-        <p className="mt-1">© 2024 All rights reserved</p>
+      <div className="border-t border-white/10 p-3">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-error hover:bg-white/10 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[1.1rem]">logout</span>
+          Đăng xuất
+        </button>
       </div>
     </div>
   )

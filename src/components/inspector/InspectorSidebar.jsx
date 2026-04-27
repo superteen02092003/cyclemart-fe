@@ -34,7 +34,7 @@ export function InspectorSidebar() {
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 flex-shrink-0">
         {!isCollapsed && (
-          <Link to="/inspector" className="flex items-center gap-2 min-w-0">
+          <Link to="/" className="flex items-center gap-2 min-w-0">
             <span className="material-symbols-outlined text-[#ff6b35] text-[1.4rem]" style={{ fontVariationSettings: "'FILL' 1" }}>
               health_and_safety
             </span>
