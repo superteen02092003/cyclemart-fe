@@ -45,6 +45,8 @@ import InspectionCriteria from '@/pages/Admin/InspectionCriteria'
 // Inspection / Inspector Pages
 import InspectionPage from "@/pages/Inspection/index.jsx";
 import InspectorTasks from "@/pages/Inspector/Tasks.jsx";
+import InspectorReports from "@/pages/Inspector/Reports.jsx";
+import InspectorDisputes from "@/pages/Inspector/Disputes.jsx";
 
 export const router = createBrowserRouter([
   // 1. LUỒNG NGƯỜI DÙNG CHUNG (Kể cả người bán)
@@ -112,6 +114,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <InspectorTasks /> }, // Thêm dòng này để mặc định vào trang Tasks
       { path: 'tasks', element: <InspectorTasks /> },
+      { path: 'reports', element: <InspectorReports /> },
+      { path: 'disputes', element: <InspectorDisputes /> },
     ],
   },
 ])
