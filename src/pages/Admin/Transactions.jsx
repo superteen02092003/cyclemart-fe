@@ -4,6 +4,54 @@ import { adminService } from '@/services/admin'
 import { formatPrice } from '@/utils/formatPrice'
 import { toast } from '@/utils/toast'
 
+function AdminNoteModal({ isOpen, onClose, onSubmit, action, loading }) {
+  const [note, setNote] = useState('')
+
+  if (!isOpen) return null
+
+  const handleSubmit = () => {
+    if (!note.trim()) {
+      toast.error('Vui lòng nhập ghi chú')
+      return
+    }
+    onSubmit(note)
+    setNote('')
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-sm shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 className="text-lg font-bold text-content-primary mb-4">
+          {action === 'refund' ? 'Hoàn tiền về người mua' : 'Giải phóng escrow cho người bán'}
+        </h3>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Nhập ghi chú cho người dùng (bắt buộc)..."
+          className="w-full border border-border-light rounded-sm p-3 text-sm focus:outline-none focus:ring-2 focus:ring-navy/50 min-h-[100px]"
+          autoFocus
+        />
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2 border border-border-light text-content-secondary hover:bg-surface-secondary rounded-sm text-sm font-medium disabled:opacity-50"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-navy text-white hover:bg-navy/90 rounded-sm text-sm font-bold disabled:opacity-50"
+          >
+            {loading ? 'Đang xử lý...' : 'Xác nhận'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const STATUS_CONFIG = {
   SUCCESS:   { label: 'Hoàn tất',   color: 'bg-success/20 text-success' },
   PENDING:   { label: 'Chờ xử lý', color: 'bg-warning/20 text-warning' },
@@ -35,6 +83,9 @@ export default function AdminTransactions() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [actionLoading, setActionLoading] = useState(null)
   const [stats, setStats] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalAction, setModalAction] = useState(null)
+  const [modalPaymentId, setModalPaymentId] = useState(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -52,25 +103,29 @@ export default function AdminTransactions() {
     }
   }
 
-  const handleEscrow = async (paymentId, action) => {
-    if (!window.confirm(action === 'refund'
-      ? 'Hoàn tiền escrow về người mua?'
-      : 'Giải phóng escrow cho người bán?')) return
-    setActionLoading(paymentId)
+  const handleEscrow = async (note) => {
+    setActionLoading(modalPaymentId)
     try {
-      if (action === 'refund') {
-        await adminService.refundEscrow(paymentId)
+      if (modalAction === 'refund') {
+        await adminService.refundEscrow(modalPaymentId, note)
         toast.success('Đã hoàn tiền escrow về người mua.')
       } else {
-        await adminService.releaseEscrow(paymentId)
+        await adminService.releaseEscrow(modalPaymentId, note)
         toast.success('Đã giải phóng escrow cho người bán.')
       }
+      setModalOpen(false)
       fetchData()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Lỗi khi xử lý escrow')
     } finally {
       setActionLoading(null)
     }
+  }
+
+  const openModal = (paymentId, action) => {
+    setModalPaymentId(paymentId)
+    setModalAction(action)
+    setModalOpen(true)
   }
 
   useEffect(() => { fetchData() }, [])
@@ -193,7 +248,7 @@ export default function AdminTransactions() {
             return [
               <button
                 key="refund"
-                onClick={() => handleEscrow(row.id, 'refund')}
+                onClick={() => openModal(row.id, 'refund')}
                 disabled={busy}
                 className="px-3 py-1.5 text-xs font-bold text-white bg-error hover:bg-error/90 rounded-sm disabled:opacity-50"
               >
@@ -201,7 +256,7 @@ export default function AdminTransactions() {
               </button>,
               <button
                 key="release"
-                onClick={() => handleEscrow(row.id, 'release')}
+                onClick={() => openModal(row.id, 'release')}
                 disabled={busy}
                 className="px-3 py-1.5 text-xs font-bold text-white bg-[#ff6b35] hover:bg-[#ff7849] rounded-sm disabled:opacity-50"
               >
@@ -211,6 +266,14 @@ export default function AdminTransactions() {
           }}
         />
       )}
+
+      <AdminNoteModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleEscrow}
+        action={modalAction}
+        loading={actionLoading !== null}
+      />
     </div>
   )
 }

@@ -630,9 +630,6 @@ export default function BikeDetailPage() {
 
   // Hàm chạy sau khi user xác nhận đồng ý quy định
   const proceedToCheckout = () => {
-    if (!bike?.isVerified) {
-      return
-    }
     setShowCheckoutWarning(false)
     navigate(`/checkout/${bike.id}`)
   }

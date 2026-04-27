@@ -187,6 +187,16 @@ function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeMod
         </div>
       )}
 
+      {order.adminNote && (
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-sm">
+          <p className="text-xs font-semibold text-blue-900 mb-1 flex items-center gap-1">
+            <span className="material-symbols-outlined text-[1rem]">admin_panel_settings</span>
+            Thông báo từ Admin
+          </p>
+          <p className="text-xs text-blue-800">{order.adminNote}</p>
+        </div>
+      )}
+
       <div className="mt-5 flex justify-end flex-wrap gap-3 pt-4 border-t border-border-light">
         {order.orderStatus === 'PENDING_PAYMENT' && isBuyer && order.paymentUrl && (
           <a href={order.paymentUrl} target="_blank" rel="noopener noreferrer"
@@ -327,6 +337,7 @@ export default function OrdersPage() {
     deliveryEvidenceUrls: payment.deliveryEvidenceUrls || null,
     deliveredAt: payment.deliveredAt || null,
     autoReleaseAt: payment.autoReleaseAt || null,
+    adminNote: payment.adminNote || null,
   }), []);
 
   const fetchOrders = useCallback(async () => {
@@ -344,6 +355,8 @@ export default function OrdersPage() {
       const sellerOrders = sellerRes.status === 'fulfilled'
         ? (sellerRes.value.content || []).map(p => mapPayment(p, 'SELLER'))
         : [];
+
+      console.log('🔍 Sample order data:', buyerOrders[0] || sellerOrders[0]);
 
       // Build paymentId → dispute map for quick lookup
       const disputeMap = {};

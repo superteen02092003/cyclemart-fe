@@ -60,12 +60,12 @@ export const adminService = {
     const response = await api.get('/v1/admin/payments/statistics')
     return response.data
   },
-  releaseEscrow: async (id) => {
-    const response = await api.post(`/v1/admin/payments/${id}/release-escrow`)
+  releaseEscrow: async (id, note) => {
+    const response = await api.post(`/v1/admin/payments/${id}/release-escrow`, null, { params: { note } })
     return response.data
   },
-  refundEscrow: async (id) => {
-    const response = await api.post(`/v1/admin/payments/${id}/refund-escrow`)
+  refundEscrow: async (id, note) => {
+    const response = await api.post(`/v1/admin/payments/${id}/refund-escrow`, null, { params: { note } })
     return response.data
   },
 

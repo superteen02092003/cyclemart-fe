@@ -436,10 +436,10 @@ export default function CheckoutPage() {
             <button
               type="submit"
               form="checkout-form"
-              disabled={isProcessing || !isBikeVerified}
+              disabled={isProcessing}
               className={cn(
                 "w-full py-4 rounded-sm font-bold text-white transition-all flex items-center justify-center gap-2",
-                (isProcessing || !isBikeVerified) ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
+                isProcessing ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
               )}
             >
               {isProcessing ? (
@@ -450,7 +450,7 @@ export default function CheckoutPage() {
               ) : (
                 <>
                   <span className="material-symbols-outlined">payments</span>
-                  {isBikeVerified ? 'THANH TOÁN NGAY' : 'CHƯA THỂ THANH TOÁN'}
+                  THANH TOÁN NGAY
                 </>
               )}
             </button>
