@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { toast } from '@/utils/toast'
 import { cn } from '@/utils/cn'
 import { formatPrice } from '@/utils/formatPrice'
@@ -67,8 +66,7 @@ function RequestCard({ req }) {
 }
 
 export default function InspectionModal({ onClose, preselectedId }) {
-  const navigate = useNavigate() // KHAI BÁO HOOK ĐIỀU HƯỚNG
-  const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
+const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
   const [requests, setRequests] = useState([])
   const [activeListings, setActiveListings] = useState([])
   const [toast, setToast] = useState('')
@@ -172,105 +170,78 @@ export default function InspectionModal({ onClose, preselectedId }) {
   }
 
   const handleSubmit = async () => {
-    try {
-      setLoading(true)
+    if (!selected) {
+      toast.warning('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
+      return
+    }
 
-      if (!selected) {
-        toast.warning('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
-        setLoading(false)
+    setLoading(true)
+    try {
+      // BE tạo inspection + payment cùng lúc → dùng luôn paymentOrderId trả về
+      const reqRes = await inspectionService.createRequest({
+        postId: selected.id,
+        address: form.address,
+        scheduledDateTime: form.scheduledDateTime,
+        note: form.note,
+      })
+
+      if (!reqRes.paymentOrderId) {
+        toast.error('Không thể tạo mã thanh toán. Vui lòng thử lại sau.')
         return
       }
 
-      let createdInspectionId = null;
-
-      // 1. TẠO YÊU CẦU VÀ LẤY ID CỦA ĐƠN KIỂM ĐỊNH
-      try {
-        const reqRes = await inspectionService.createRequest({
-          postId: selected.id,
-          address: form.address,
-          scheduledDateTime: form.scheduledDateTime,
-          note: form.note
-        })
-        createdInspectionId = reqRes.id; // Lấy đúng ID đơn kiểm định
-      } catch (error) {
-        const msg = error.response?.data?.message || error.message
-        if (!msg.includes('đang trong quá trình xử lý')) {
-          toast.error(msg)
-          setLoading(false)
-          return
-        }
-        // Nếu đã có đơn rồi, chúng ta cần fetch lại để lấy ID của đơn đó (nếu muốn làm kỹ hơn)
-        // Tạm thời báo lỗi để user biết
-        toast.info("Xe này đang chờ xử lý kiểm định. Vui lòng kiểm tra tab 'Yêu cầu của tôi'.");
-        setLoading(false);
-        return;
-      }
-
-      // 2. TẠO LINK THANH TOÁN VỚI REFERENCE ID CHUẨN
-      const actualFee = inspectionFee > 0 ? inspectionFee : 250000;
-      const paymentData = {
-        bikePostId: selected.id,   
-        amount: actualFee, 
-        description: `Thanh toán phí kiểm định xe`,
-        type: "INSPECTION_FEE",
-        referenceId: createdInspectionId, // 🔥 FIX QUAN TRỌNG: Gửi ID Kiểm định thay vì ID Bài đăng
-        name: "Khách hàng CycleMart",
-        phone: "0999999999",
-        address: form.address
-      }
-
-      const paymentRes = await api.post('/v1/payments/create', paymentData)
-
-      if (paymentRes.data) {
-        localStorage.setItem('payment_intent', 'INSPECTION_FEE')
-        setPaymentResponse({
-          ...paymentRes.data,
-          amount: actualFee,
-          orderId: paymentRes.data.orderId,
-          paymentUrl: paymentRes.data.paymentUrl,
-          description: paymentData.description
-        })
-        setShowPaymentOptions(true)
-      } else {
-        toast.error('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.')
-      }
+      localStorage.setItem('payment_intent', 'INSPECTION_FEE')
+      setPaymentResponse({
+        orderId: reqRes.paymentOrderId,
+        paymentUrl: reqRes.paymentUrl,
+        amount: reqRes.inspectionFee || inspectionFee || 250000,
+        description: 'Thanh toán phí kiểm định xe',
+      })
+      setShowPaymentOptions(true)
 
     } catch (error) {
-      console.error("Lỗi khi đăng ký kiểm định:", error)
-      toast.error(error.response?.data?.message || error.message || 'Lỗi khi tạo yêu cầu thanh toán kiểm định')
+      const msg = error.response?.data?.message || error.message || ''
+      if (msg.includes('đang trong quá trình xử lý')) {
+        toast.info("Xe này đang chờ xử lý kiểm định. Vui lòng kiểm tra tab 'Yêu cầu của tôi'.")
+        setTab('requests')
+        loadMyRequests()
+      } else {
+        toast.error(msg || 'Lỗi khi tạo yêu cầu kiểm định')
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  // 🔥 MỚI: Hàm xử lý Mock Data IPN
   const mockIPNRequest = async (responseCode) => {
     try {
-      setIsProcessingMock(true);
-      
-      const mockData = {
-        vnp_Amount: paymentResponse.amount * 100,
-        vnp_BankCode: 'NCB',
-        vnp_OrderInfo: paymentResponse.description || 'Thanh toan phi kiem dinh',
-        vnp_ResponseCode: responseCode,
-        vnp_TransactionNo: '99999999',
-        vnp_TxnRef: paymentResponse.orderId,
-        vnp_SecureHash: 'mock_hash_test'
-      };
+      setIsProcessingMock(true)
 
-      await api.get('/v1/payments/vnpay/return', { params: mockData });
-      
+      await api.get('/v1/payments/vnpay/return', {
+        params: {
+          vnp_Amount: paymentResponse.amount * 100,
+          vnp_BankCode: 'NCB',
+          vnp_OrderInfo: paymentResponse.description || 'Thanh toan phi kiem dinh',
+          vnp_ResponseCode: responseCode,
+          vnp_TransactionNo: '99999999',
+          vnp_TxnRef: paymentResponse.orderId,
+          vnp_SecureHash: 'mock_hash_test',
+        },
+      })
+
+      setShowPaymentOptions(false)
+
       if (responseCode === '00') {
-        navigate(`/payment-success?orderId=${paymentResponse.orderId}&type=INSPECTION_FEE`);
-        onClose(); // Đóng modal hiện tại
+        toast.success('Thanh toán thành công! Yêu cầu kiểm định đang chờ admin phân công inspector.')
+        setTab('requests')
+        await loadMyRequests()
       } else {
-        navigate(`/payment-failure?reason=Giao dịch thanh toán phí kiểm định thất bại (Demo)`);
-        onClose();
+        toast.error('Thanh toán thất bại. Vui lòng thử lại.')
       }
     } catch (error) {
-      toast.error('Lỗi giả lập thanh toán: ' + error.message);
+      toast.error('Lỗi giả lập thanh toán: ' + error.message)
     } finally {
-      setIsProcessingMock(false);
+      setIsProcessingMock(false)
     }
   }
 
