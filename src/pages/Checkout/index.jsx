@@ -108,7 +108,9 @@ export default function CheckoutPage() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentResponse, setPaymentResponse] = useState(null);
-  const [showQRModal, setShowQRModal] = useState(false);
+  
+  // 🔥 Sử dụng state showPaymentOptions thay cho showQRModal cũ
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [showDisputeWarning, setShowDisputeWarning] = useState(false);
 
   // Redirect nếu chưa login
@@ -153,7 +155,7 @@ export default function CheckoutPage() {
     setWard("");
   }, [district]);
 
-  // HÀM XỬ LÝ THANH TOÁN (ĐÃ TÍCH HỢP VNPAY & GIỮ LẠI MODAL QR)
+  // Hàm xử lý nút submit form
   const handlePayment = async (e) => {
     e.preventDefault();
     
@@ -178,7 +180,8 @@ export default function CheckoutPage() {
     
     try {
       // Kiểm tra: Chỉ cho phép mua trực tiếp nếu post đã được kiểm định
-      if (!bike.isInspected) {
+      // Ở file gốc bạn truyền biến là bike.isInspected hoặc bike.isVerified (Giữ isInspected theo file mẫu của bạn)
+      if (!bike.isInspected && !bike.isVerified) {
         setError('Bài đăng chưa được kiểm định. Vui lòng yêu cầu kiểm định trước khi mua.');
         return;
       }
@@ -201,16 +204,11 @@ export default function CheckoutPage() {
 
       const response = await api.post('/v1/payments/create', payload);
 
-      // 🚀 TÍCH HỢP VNPAY THẬT: CHUYỂN HƯỚNG TRỰC TIẾP
-      if (response.data?.paymentUrl) {
-        window.location.href = response.data.paymentUrl;
-      } 
-      // NẾU BE CHƯA CÓ VNPAY, HIỂN THỊ MODAL QR DỰ PHÒNG (GIỮ NGUYÊN CODE CỦA BẠN)
-      else if (response.data?.success || response.data?.qrCodeUrl || response.data?.orderId) {
+      if (response.data) {
         setPaymentResponse(response.data);
-        setShowQRModal(true);
+        setShowPaymentOptions(true); // 🔥 Bật Modal Tùy Chọn Thanh Toán
       } else {
-        throw new Error(response.data?.message || 'Lỗi tạo thanh toán từ Server');
+        throw new Error('Lỗi tạo thanh toán từ Server');
       }
     } catch (err) {
       console.error("Lỗi 400 Bad Request:", err.response?.data);
@@ -220,6 +218,40 @@ export default function CheckoutPage() {
       setIsProcessing(false);
     }
   };
+
+  // 🔥 Hàm Mock IPN để giả lập thanh toán
+  // 🔥 Hàm Mock IPN để giả lập thanh toán
+  const mockIPNRequest = async (responseCode) => {
+    try {
+      setIsProcessing(true);
+      
+      // 1. KHAI BÁO BIẾN mockData (Lúc nãy bị thiếu đoạn này)
+      const mockData = {
+        vnp_Amount: paymentResponse.amount * 100,
+        vnp_BankCode: 'NCB',
+        vnp_OrderInfo: paymentResponse.description || 'Mua xe CycleMart',
+        vnp_ResponseCode: responseCode,
+        vnp_TransactionNo: '99999999',
+        vnp_TxnRef: paymentResponse.orderId,
+        vnp_SecureHash: 'mock_hash_test'
+      };
+
+      // 2. GỌI API GET VÀ TRUYỀN PARAMS
+      await api.get('/v1/payments/vnpay/return', { params: mockData });
+      
+      // 3. ĐIỀU HƯỚNG
+      if (responseCode === '00') {
+        navigate(`/payment-success?orderId=${paymentResponse.orderId}&type=ORDER_PAYMENT`);
+      } else {
+        navigate(`/payment-failure?reason=Giao dịch thất bại do sử dụng Mock Cancel`);
+      }
+    } catch (error) {
+      alert('Lỗi giả lập thanh toán: ' + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+  
 
   if (loading) return <div className="py-20 text-center">Đang tải...</div>;
   if (error || !bike) return (
@@ -390,19 +422,19 @@ export default function CheckoutPage() {
             <button
               type="submit"
               form="checkout-form"
-              disabled={isProcessing || !bike?.isInspected}
+              disabled={isProcessing || (!bike?.isInspected && !bike?.isVerified)}
               className={cn(
                 "w-full py-4 rounded-sm font-bold text-white transition-all flex items-center justify-center gap-2",
-                isProcessing || !bike?.isInspected ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
+                isProcessing || (!bike?.isInspected && !bike?.isVerified) ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
               )}
-              title={!bike?.isInspected ? "Bài đăng chưa được kiểm định" : ""}
+              title={(!bike?.isInspected && !bike?.isVerified) ? "Bài đăng chưa được kiểm định" : ""}
             >
               {isProcessing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ĐANG XỬ LÝ...
                 </>
-              ) : !bike?.isInspected ? (
+              ) : (!bike?.isInspected && !bike?.isVerified) ? (
                 <>
                   <span className="material-symbols-outlined">lock</span>
                   CHƯA CÓ KIỂM ĐỊNH
@@ -415,7 +447,7 @@ export default function CheckoutPage() {
               )}
             </button>
 
-            {!bike?.isInspected && (
+            {(!bike?.isInspected && !bike?.isVerified) && (
               <div className="mt-3 p-3 bg-warning/10 rounded-sm flex items-start gap-3 border border-warning/20">
                 <span className="material-symbols-outlined text-warning text-[1.2rem]">warning</span>
                 <p className="text-[11px] text-warning leading-relaxed">
@@ -491,83 +523,73 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* MODAL THANH TOÁN DỰ PHÒNG GIỮ NGUYÊN NHƯ FILE CŨ */}
-      {showQRModal && paymentResponse && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {/* 🔥 MODAL LỰA CHỌN PHƯƠNG THỨC THANH TOÁN (THAY THẾ MODAL QR CŨ) */}
+      {showPaymentOptions && paymentResponse && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
             <div className="bg-navy p-4 text-white flex justify-between items-center">
               <h3 className="font-bold flex items-center gap-2">
-                <span className="material-symbols-outlined">qr_code_2</span>
-                Thanh toán qua VNPay
+                <span className="material-symbols-outlined">payments</span>
+                Chọn phương thức thanh toán
               </h3>
-              <button onClick={() => setShowQRModal(false)} className="hover:rotate-90 transition-transform">
+              <button onClick={() => setShowPaymentOptions(false)} className="hover:rotate-90 transition-transform">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             
-            <div className="p-8 text-center space-y-6">
+            <div className="p-6 text-center space-y-5">
               <div className="space-y-1">
                 <p className="text-xs text-content-tertiary uppercase font-bold tracking-widest">Số tiền cần thanh toán</p>
-                <p className="text-3xl font-black text-navy">{formatPrice(paymentResponse.amount)}</p>
+                <p className="text-3xl font-black text-[#ff6b35]">{formatPrice(paymentResponse.amount)}</p>
+                <p className="text-xs text-content-secondary mt-1">Mã đơn: {paymentResponse.orderId}</p>
               </div>
 
-              <div className="relative group inline-block p-4 border-2 border-dashed border-navy/20 rounded-xl">
-                 {paymentResponse.qrCodeUrl ? (
-                    <img src={paymentResponse.qrCodeUrl} alt="QR Code" className="w-64 h-64 mx-auto" />
-                 ) : (
-                    <div className="w-64 h-64 bg-surface flex items-center justify-center italic text-content-tertiary">
-                       Đang tạo mã QR...
-                    </div>
-                 )}
-              </div>
+              <div className="space-y-3">
+                {/* Nút thanh toán thật VNPay */}
+                <button
+                  onClick={() => window.location.href = paymentResponse.paymentUrl}
+                  className="w-full py-3.5 bg-[#005BAA] hover:bg-[#004A8B] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"
+                >
+                  <span className="material-symbols-outlined text-[1.2rem]">account_balance</span>
+                  Thanh toán VNPay (Thực tế)
+                </button>
 
-              <div className="bg-orange/5 p-4 rounded-lg border border-orange/10">
-                <p className="text-sm text-content-primary font-medium">
-                  Mở ứng dụng Ngân hàng hoặc Ví điện tử quét mã QR để thanh toán
-                </p>
-                <p className="text-xs text-orange mt-1 font-bold">Nội dung: {paymentResponse.orderId}</p>
-              </div>
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border-light"></div></div>
+                  <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-content-tertiary font-bold uppercase tracking-wider">Khu vực Test (Tránh lỗi Sandbox)</span></div>
+                </div>
 
-              <button
-                onClick={async () => {
-                  try {
-                    const mockIpnData = {
-                      vnp_Amount: paymentResponse.amount * 100,
-                      vnp_BankCode: 'NCB',
-                      vnp_OrderInfo: paymentResponse.description,
-                      vnp_ResponseCode: '00',
-                      vnp_TransactionNo: '12345678',
-                      vnp_TxnRef: paymentResponse.orderId,
-                      vnp_SecureHash: 'mock_hash'
-                    };
-                    await api.post('/v1/payments/vnpay/ipn', mockIpnData);
-                    
-                    // Redirect to success page
-                    navigate(`/payment-success?orderId=${paymentResponse.orderId}`);
-                  } catch (error) {
-                    console.error('Error simulating payment:', error);
-                    alert('Lỗi giả lập thanh toán: ' + error.message);
-                  }
-                }}
-                className="w-full py-3 bg-green hover:bg-green/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[1.1rem]">done_all</span>
-                ✓ Giả lập thanh toán thành công (Test)
-              </button>
+                {/* Nút giả lập thành công */}
+                <button
+                  onClick={() => mockIPNRequest('00')}
+                  disabled={isProcessing}
+                  className="w-full py-3 bg-[#10b981] hover:bg-[#059669] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[1.2rem]">check_circle</span>
+                  Giả lập Thành công (00)
+                </button>
+
+                {/* Nút giả lập thất bại */}
+                <button
+                  onClick={() => mockIPNRequest('24')}
+                  disabled={isProcessing}
+                  className="w-full py-3 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[1.2rem]">cancel</span>
+                  Giả lập Thất bại (24)
+                </button>
+              </div>
 
               <button
                 onClick={() => {
-                  setShowQRModal(false);
+                  setShowPaymentOptions(false);
                   setPaymentResponse(null);
                   setIsProcessing(false);
                 }}
-                className="w-full py-3 bg-surface-secondary hover:bg-surface-tertiary text-content-primary font-bold rounded-lg transition-colors border border-border-light"
+                className="text-sm font-semibold text-content-secondary hover:text-navy underline mt-4 inline-block"
               >
-                Đóng
+                Hủy giao dịch
               </button>
-              <p className="text-xs text-content-tertiary text-center">
-                Hệ thống sẽ tự động cập nhật khi thanh toán thành công
-              </p>
             </div>
           </div>
         </div>
