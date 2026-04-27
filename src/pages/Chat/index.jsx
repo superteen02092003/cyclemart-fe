@@ -76,6 +76,19 @@ ConversationItem.propTypes = {
 }
 
 function MessageBubble({ msg, isMe }) {
+  const isBikeContext = msg.text?.startsWith('🏍️ Đang trao đổi về:')
+  
+  if (isBikeContext) {
+    return (
+      <div className="flex justify-center my-2">
+        <div className="bg-blue-50 border border-blue-200 rounded-sm px-3 py-1.5 text-xs text-blue-700 flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[0.9rem]">two_wheeler</span>
+          <span>{msg.text.replace('🏍️ ', '')}</span>
+        </div>
+      </div>
+    )
+  }
+  
   return (
     <div className={cn('flex', isMe ? 'justify-end' : 'justify-start')}>
       <div
