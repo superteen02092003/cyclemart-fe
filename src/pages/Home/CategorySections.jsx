@@ -8,6 +8,7 @@ import { categoryService } from '@/services/category'
 import { wishlistService } from '@/services/wishlist'
 import { authService } from '@/services/auth'
 import { sellerRatingService } from '@/services/sellerRating'
+import { toast } from '@/utils/toast'
 
 function CategorySection({ category, bikes, loading, sellerRatings, wishlistedIds, onWishlistToggle }) {
   if (loading) {
@@ -102,7 +103,7 @@ export function CategorySections() {
 
   const handleWishlistToggle = async (postId) => {
     if (!authService.isAuthenticated()) {
-      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      toast.info('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
       return
     }
 
@@ -117,7 +118,7 @@ export function CategorySections() {
       }
     } catch (error) {
       const message = error?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
-      alert(message)
+      toast.error(message)
     }
   }
 

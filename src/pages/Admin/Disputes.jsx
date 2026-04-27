@@ -3,6 +3,7 @@ import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { adminService } from '@/services/admin'
 import { formatPrice } from '@/utils/formatPrice'
+import { toast } from '@/utils/toast'
 
 const STATUS_CONFIG = {
   OPENED:                  { label: 'Vừa mở',          color: 'bg-blue-100 text-blue-700' },
@@ -55,7 +56,7 @@ export default function AdminDisputes() {
       setIsDetailModalOpen(false)
       fetchDisputes()
     } catch (err) {
-      alert(err?.response?.data?.message || 'Lỗi khi xử lý tranh chấp')
+      toast.error(err?.response?.data?.message || 'Lỗi khi xử lý tranh chấp')
     } finally {
       setResolving(false)
     }

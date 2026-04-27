@@ -13,6 +13,7 @@ import { LoginRequiredModal } from '@/components/modals'
 import { wishlistService } from '@/services/wishlist'
 import { inspectionService } from '@/services/inspection'
 import { cn } from '@/utils/cn'
+import { toast } from '@/utils/toast'
 
 function StarRating({ rating, max = 5 }) {
   return (
@@ -367,10 +368,26 @@ function OfferModal({ bike, onClose }) {
   const [offerPrice, setOfferPrice] = useState('')
   const [note, setNote] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitted(true)
+    setSubmitting(true)
+    setError(null)
+    try {
+      await import('@/services/api').then(({ default: api }) =>
+        api.post('/v1/negotiations', {
+          bikePostId: bike.id,
+          offeredPrice: parseFloat(offerPrice),
+        })
+      )
+      setSubmitted(true)
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Gửi đề xuất thất bại. Vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -442,18 +459,23 @@ function OfferModal({ bike, onClose }) {
             />
           </div>
 
+          {error && (
+            <p className="text-sm text-error bg-error/10 px-3 py-2 rounded-sm">{error}</p>
+          )}
+
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={onClose} fullWidth>
+            <Button type="button" variant="secondary" onClick={onClose} fullWidth disabled={submitting}>
               Hủy
             </Button>
             <button
               type="submit"
-              className="flex-1 py-3 text-sm font-semibold text-white rounded-sm transition-colors"
+              disabled={submitting}
+              className="flex-1 py-3 text-sm font-semibold text-white rounded-sm transition-colors disabled:opacity-60"
               style={{ backgroundColor: '#ff6b35' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#ff7849')}
+              onMouseEnter={(e) => !submitting && (e.currentTarget.style.backgroundColor = '#ff7849')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ff6b35')}
             >
-              Gửi đề xuất
+              {submitting ? 'Đang gửi...' : 'Gửi đề xuất'}
             </button>
           </div>
         </form>
@@ -608,6 +630,9 @@ export default function BikeDetailPage() {
 
   // Hàm chạy sau khi user xác nhận đồng ý quy định
   const proceedToCheckout = () => {
+    if (!bike?.isVerified) {
+      return
+    }
     setShowCheckoutWarning(false)
     navigate(`/checkout/${bike.id}`)
   }
@@ -638,7 +663,7 @@ export default function BikeDetailPage() {
     if (!bike?.id || wishlistLoading) return
 
     if (!authService.isAuthenticated()) {
-      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      toast.info('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
       navigate(ROUTES.LOGIN)
       return
     }
@@ -654,7 +679,7 @@ export default function BikeDetailPage() {
       }
     } catch (err) {
       const message = err?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
-      alert(message)
+      toast.error(message)
     } finally {
       setWishlistLoading(false)
     }
@@ -693,12 +718,11 @@ export default function BikeDetailPage() {
       const infoResponse = await sellerRatingService.getSellerInfo(sellerId)
       setSellerInfo(infoResponse?.data || infoResponse || null)
 
-      alert('Đánh giá thành công!')
+      toast.success('Đánh giá thành công!')
     } catch (err) {
       console.error('Lỗi khi gửi đánh giá:', err)
       const message = err?.response?.data?.errors?.sellerId || err?.response?.data?.message || 'Gửi đánh giá thất bại!'
       setRatingError(message)
-      alert(message)
     } finally {
       setSubmittingRating(false)
     }
@@ -1133,7 +1157,9 @@ export default function BikeDetailPage() {
                 </div>
               )}
 
-              <p className="text-sm font-semibold text-content-primary">Bạn có đồng ý tiếp tục mua xe không?</p>
+              <p className="text-sm font-semibold text-content-primary">
+                {bike?.isVerified ? 'Bạn có đồng ý tiếp tục mua xe không?' : 'Người bán cần hoàn tất kiểm định trước khi xe có thể thanh toán.'}
+              </p>
             </div>
             
             <div className="grid grid-cols-2 gap-px bg-border-light border-t border-border-light">
@@ -1145,9 +1171,10 @@ export default function BikeDetailPage() {
               </button>
               <button
                 onClick={proceedToCheckout}
+                disabled={!bike?.isVerified}
                 className="p-3.5 bg-white text-[#ff6b35] font-bold hover:bg-orange/5 transition-colors"
               >
-                Đồng ý tiếp tục
+                {bike?.isVerified ? 'Đồng ý tiếp tục' : 'Chưa thể thanh toán'}
               </button>
             </div>
           </div>

@@ -39,13 +39,10 @@ api.interceptors.response.use(
       localStorage.removeItem('token') // Xóa luôn phòng hờ
       localStorage.removeItem('user')
       
-      // 🔥 TẠM THỜI COMMENT ĐOẠN NÀY LẠI ĐỂ KIỂM TRA
-      // Nếu có lỗi, trang sẽ đứng yên thay vì chớp tắt, giúp bạn xem lỗi đỏ trong Console
-      /*
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+      const currentPath = window.location.pathname
+      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
         window.location.href = '/login'
       }
-      */
     }
     return Promise.reject(error)
   }

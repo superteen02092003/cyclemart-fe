@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
 import { ordersService } from '@/services/orders';
+import { toast } from '@/utils/toast';
 import DeliveryModal from '@/components/orders/DeliveryModal';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
 import DisputeModal from '@/components/orders/DisputeModal';
@@ -30,7 +31,7 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
       await actionFn();
       onAction();
     } catch (err) {
-      alert(err.response?.data?.message || err.response?.data || 'Có lỗi xảy ra');
+      toast.error(err.response?.data?.message || err.response?.data || 'Có lỗi xảy ra');
     } finally {
       setActionLoading(false);
     }

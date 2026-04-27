@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { adminService } from '@/services/admin'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
+import { toast } from '@/utils/toast'
 
 export default function InspectionCriteria() {
   const [criteria, setCriteria] = useState([])
@@ -37,7 +38,7 @@ export default function InspectionCriteria() {
       }
       setIsModalOpen(false)
       loadCriteria()
-    } catch (error) { alert('Lỗi khi lưu dữ liệu') }
+    } catch (error) { toast.error('Lỗi khi lưu dữ liệu') }
   }
 
   const handleDelete = async (id) => {

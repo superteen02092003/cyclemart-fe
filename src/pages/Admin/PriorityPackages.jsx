@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { priorityService } from '@/services/priority'
+import { toast } from '@/utils/toast'
 
 export default function PriorityPackages() {
   const [packages, setPackages] = useState([])
@@ -36,12 +37,12 @@ export default function PriorityPackages() {
     // Validate logic: Giá phải bằng 0 (Free) hoặc >= 10,000 (Thanh toán VNPay)
     const priceValue = Number(formData.price)
     if (priceValue > 0 && priceValue < 10000) {
-      alert('Lỗi: Giá gói phải bằng 0 (miễn phí) hoặc từ 10.000 VNĐ trở lên (do quy định của cổng thanh toán).')
+      toast.warning('Lỗi: Giá gói phải bằng 0 (miễn phí) hoặc từ 10.000 VNĐ trở lên (do quy định của cổng thanh toán).')
       return
     }
 
     if (formData.name.trim().length < 3) {
-      alert('Lỗi: Tên gói phải có ít nhất 3 ký tự.')
+      toast.warning('Lỗi: Tên gói phải có ít nhất 3 ký tự.')
       return
     }
 
@@ -51,7 +52,7 @@ export default function PriorityPackages() {
         price: priceValue,
         durationDays: Number(formData.durationDays)
       })
-      alert('Tạo gói ưu tiên thành công!')
+      toast.success('Tạo gói ưu tiên thành công!')
       setShowForm(false)
       setFormData({
         name: '',
@@ -75,7 +76,7 @@ export default function PriorityPackages() {
            errorMessage = errorData.message
         }
       }
-      alert('Lỗi từ hệ thống: \n' + errorMessage)
+      toast.error('Lỗi từ hệ thống: ' + errorMessage)
     }
   }
 
@@ -83,10 +84,10 @@ export default function PriorityPackages() {
     if(window.confirm('Bạn có chắc muốn xóa gói này?')) {
       try {
         await priorityService.deletePackage(id)
-        alert('Xóa thành công')
+        toast.success('Xóa thành công')
         fetchPackages()
       } catch (error) {
-        alert('Lỗi khi xóa gói')
+        toast.error('Lỗi khi xóa gói')
       }
     }
   }

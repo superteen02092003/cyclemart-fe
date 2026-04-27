@@ -8,6 +8,7 @@ import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
+import { toast } from '@/utils/toast'
 import api from '@/services/api'
 
 const STATUS_TABS = [
@@ -487,7 +488,7 @@ export default function MyListingsPage() {
       showToast('Đã hủy yêu cầu đăng tin.')
     } catch (error) {
       console.error('Error canceling post:', error)
-      alert(error.message || 'Lỗi khi hủy yêu cầu')
+      toast.error(error.message || 'Lỗi khi hủy yêu cầu')
     } finally {
       setLoading(false)
     }
@@ -502,7 +503,7 @@ export default function MyListingsPage() {
       showToast('Đã xóa tin đăng.')
     } catch (error) {
       console.error('Error deleting listing:', error)
-      alert(error.message || 'Lỗi khi xóa tin đăng')
+      toast.error(error.message || 'Lỗi khi xóa tin đăng')
     } finally {
       setLoading(false)
     }

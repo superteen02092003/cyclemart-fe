@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { adminService } from '@/services/admin'
-import { inspectionService } from '@/services/inspection' // 🔥 Thêm service kiểm định
+import { inspectionService } from '@/services/inspection'
+import { toast } from '@/utils/toast'
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -33,7 +34,7 @@ export default function AdminUsers() {
       setUsers(data?.content || [])
     } catch (error) {
       console.error('Lỗi khi tải danh sách người dùng:', error)
-      alert(error.response?.data?.message || 'Lỗi khi tải danh sách người dùng')
+      toast.error(error.response?.data?.message || 'Lỗi khi tải danh sách người dùng')
     } finally {
       setLoading(false)
     }
@@ -62,7 +63,7 @@ export default function AdminUsers() {
       setUserLogs(logData?.content || [])
     } catch (error) {
       console.error('Lỗi khi tải log:', error)
-      alert('Không thể tải lịch sử hoạt động của người dùng này.')
+      toast.error('Không thể tải lịch sử hoạt động của người dùng này.')
     } finally {
       setLoadingLogs(false)
     }
@@ -78,7 +79,7 @@ export default function AdminUsers() {
       setInspectorTasks(data?.content || [])
     } catch (error) {
       console.error('Lỗi khi tải danh sách công việc:', error)
-      alert('Không thể tải tiến độ công việc của Kiểm định viên này.')
+      toast.error('Không thể tải tiến độ công việc của Kiểm định viên này.')
     } finally {
       setLoadingTasks(false)
     }
@@ -90,10 +91,10 @@ export default function AdminUsers() {
         try {
           setLoading(true)
           await adminService.unbanUser(user.id)
-          alert('Mở khóa tài khoản thành công!')
+          toast.success('Mở khóa tài khoản thành công!')
           loadUsers()
         } catch (error) {
-          alert('Lỗi: ' + (error.response?.data?.message || error.message))
+          toast.error('Lỗi: ' + (error.response?.data?.message || error.message))
         } finally {
           setLoading(false)
         }
@@ -104,17 +105,17 @@ export default function AdminUsers() {
     const reason = window.prompt(`Khóa tài khoản: ${user.email}\nVui lòng nhập lý do khóa (bắt buộc):`)
     if (reason === null) return;
     if (reason.trim() === '') {
-      alert('Lý do không được để trống!')
+      toast.warning('Lý do không được để trống!')
       return;
     }
 
     try {
       setLoading(true)
       await adminService.banUser(user.id, reason)
-      alert('Đã khóa tài khoản thành công!')
+      toast.success('Đã khóa tài khoản thành công!')
       loadUsers()
     } catch (error) {
-      alert('Lỗi: ' + (error.response?.data?.message || error.message))
+      toast.error('Lỗi: ' + (error.response?.data?.message || error.message))
     } finally {
       setLoading(false)
     }

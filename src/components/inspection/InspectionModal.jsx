@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom' // THÊM IMPORT NÀY
+import { useNavigate } from 'react-router-dom'
+import { toast } from '@/utils/toast'
 import { cn } from '@/utils/cn'
 import { formatPrice } from '@/utils/formatPrice'
 import { inspectionService } from '@/services/inspection'
@@ -175,7 +176,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
       setLoading(true)
 
       if (!selected) {
-        alert('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
+        toast.warning('Vui lòng chọn một bài đăng để đăng ký kiểm định.')
         setLoading(false)
         return
       }
@@ -194,13 +195,13 @@ export default function InspectionModal({ onClose, preselectedId }) {
       } catch (error) {
         const msg = error.response?.data?.message || error.message
         if (!msg.includes('đang trong quá trình xử lý')) {
-          alert(msg)
+          toast.error(msg)
           setLoading(false)
           return
         }
         // Nếu đã có đơn rồi, chúng ta cần fetch lại để lấy ID của đơn đó (nếu muốn làm kỹ hơn)
         // Tạm thời báo lỗi để user biết
-        alert("Xe này đang chờ xử lý kiểm định. Vui lòng kiểm tra tab 'Yêu cầu của tôi'.");
+        toast.info("Xe này đang chờ xử lý kiểm định. Vui lòng kiểm tra tab 'Yêu cầu của tôi'.");
         setLoading(false);
         return;
       }
@@ -231,12 +232,12 @@ export default function InspectionModal({ onClose, preselectedId }) {
         })
         setShowPaymentOptions(true)
       } else {
-        alert('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.')
+        toast.error('Không thể tạo mã thanh toán lúc này. Vui lòng thử lại sau.')
       }
 
     } catch (error) {
       console.error("Lỗi khi đăng ký kiểm định:", error)
-      alert(error.response?.data?.message || error.message || 'Lỗi khi tạo yêu cầu thanh toán kiểm định')
+      toast.error(error.response?.data?.message || error.message || 'Lỗi khi tạo yêu cầu thanh toán kiểm định')
     } finally {
       setLoading(false)
     }
@@ -267,7 +268,7 @@ export default function InspectionModal({ onClose, preselectedId }) {
         onClose();
       }
     } catch (error) {
-      alert('Lỗi giả lập thanh toán: ' + error.message);
+      toast.error('Lỗi giả lập thanh toán: ' + error.message);
     } finally {
       setIsProcessingMock(false);
     }

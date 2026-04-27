@@ -37,8 +37,8 @@ export function AdminSidebar() {
     { label: 'Danh mục & thương hiệu', icon: 'label', href: '/admin/categories' },
     { label: 'Giao dịch & phí dịch vụ', icon: 'payments', href: '/admin/transactions' },
     { label: 'Quản lý dòng tiền', icon: 'account_balance', href: '/admin/finance' },
-    { label: 'Thống kê & báo cáo', icon: 'bar_chart', href: '/admin/statistics' },
-    { label: 'Gói Ưu Tiên', icon: 'workspace_premium', href: '/admin/priority-packages' },
+    // { label: 'Thống kê & báo cáo', icon: 'bar_chart', href: '/admin/statistics' },   // chưa có API
+    // { label: 'Gói Ưu Tiên', icon: 'workspace_premium', href: '/admin/priority-packages' }, // tắt tạm
   ]
 
   const isActive = (item) => {
