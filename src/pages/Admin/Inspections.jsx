@@ -3,6 +3,7 @@ import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { inspectionService } from '@/services/inspection'
 import { adminService } from '@/services/admin'
+import { toast } from '@/utils/toast'
 
 export default function AdminInspections() {
   const [inspections, setInspections] = useState([])
@@ -36,13 +37,13 @@ export default function AdminInspections() {
   }
 
   const handleUpdateGlobalFee = async () => {
-    if (globalFee < 0) return alert('Giá không hợp lệ')
+    if (globalFee < 0) { toast.warning('Giá không hợp lệ'); return }
     setIsUpdatingFee(true)
     try {
       await inspectionService.updateGlobalFee(globalFee)
-      alert('Đã cập nhật giá mới cho toàn hệ thống!')
+      toast.success('Đã cập nhật giá mới cho toàn hệ thống!')
     } catch (error) {
-      alert('Lỗi cập nhật giá')
+      toast.error('Lỗi cập nhật giá')
     } finally {
       setIsUpdatingFee(false)
     }
@@ -70,14 +71,14 @@ export default function AdminInspections() {
   }
 
   const handleAssign = async () => {
-    if (!selectedInspectorId) return alert('Vui lòng chọn Kiểm duyệt viên!')
+    if (!selectedInspectorId) { toast.warning('Vui lòng chọn Kiểm duyệt viên!'); return }
     try {
       await inspectionService.assignInspector(selectedTask.id, selectedInspectorId)
-      alert('Phân công thành công!')
+      toast.success('Phân công thành công!')
       setIsAssignModalOpen(false)
       loadData()
     } catch (error) {
-      alert(error.response?.data?.message || 'Lỗi phân công')
+      toast.error(error.response?.data?.message || 'Lỗi phân công')
     }
   }
 

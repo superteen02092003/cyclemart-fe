@@ -6,8 +6,19 @@ import { bikePostService } from '@/services/bikePost'
 import { wishlistService } from '@/services/wishlist'
 import { authService } from '@/services/auth'
 import { sellerRatingService } from '@/services/sellerRating'
+import { toast } from '@/utils/toast'
 
-const BRANDS = ['Giant', 'Trek', 'Specialized', 'Cannondale', 'Merida', 'Cube', 'Scott', 'Brompton', 'Canyon', 'Pinarello']
+const BRANDS = [
+  { value: 'GIANT', label: 'Giant' },
+  { value: 'TREK', label: 'Trek' },
+  { value: 'SPECIALIZED', label: 'Specialized' },
+  { value: 'CANNONDALE', label: 'Cannondale' },
+  { value: 'MERIDA', label: 'Merida' },
+  { value: 'CUBE', label: 'Cube' },
+  { value: 'SCOTT', label: 'Scott' },
+  { value: 'CANYON', label: 'Canyon' },
+  { value: 'PINARELLO', label: 'Pinarello' },
+]
 
 const CONDITIONS = [
   { value: 'new', label: 'Mới 100%' },
@@ -25,9 +36,9 @@ const SORT_OPTIONS = [
 
 const LOCATIONS = [
   { value: '', label: 'Tất cả khu vực' },
-  { value: 'TP. Hồ Chí Minh', label: 'TP. HCM' },
-  { value: 'Hà Nội', label: 'Hà Nội' },
-  { value: 'Đà Nẵng', label: 'Đà Nẵng' },
+  { value: 'HO_CHI_MINH', label: 'TP. HCM' },
+  { value: 'HA_NOI', label: 'Hà Nội' },
+  { value: 'DA_NANG', label: 'Đà Nẵng' },
 ]
 
 const FILTER_CATEGORIES = BIKE_CATEGORIES.filter((c) => c.id !== 'all')
@@ -89,22 +100,42 @@ export default function BrowsePage() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const params = {
+        const apiParams = {
+          keyword: searchQuery.trim() || undefined,
           minPrice: minPrice ? parseFloat(minPrice) * 1000000 : undefined,
           maxPrice: maxPrice ? parseFloat(maxPrice) * 1000000 : undefined,
           city: location || undefined,
+          // BE chỉ hỗ trợ 1 brand — nếu chọn đúng 1 thì gửi lên, nhiều hơn filter client-side
+          brand: selectedBrands.length === 1 ? selectedBrands[0] : undefined,
           page: 0,
-          size: 20,
-          sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'createdAt',
-          direction: sortBy === 'price_asc' ? 'asc' : 'desc'
+          size: 50,
+          sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : sortBy === 'most_viewed' ? 'viewCount' : 'createdAt',
+          direction: sortBy === 'price_asc' ? 'asc' : 'desc',
         }
 
-        const data = await bikePostService.search(params)
-        const nextBikes = data.content || []
-        setBikes(nextBikes)
+        const data = await bikePostService.search(apiParams)
+        let result = data.content || []
 
-        const sellerIds = [...new Set(nextBikes.map(b => b.userId).filter(Boolean))]
+        // Client-side filters (BE không hỗ trợ nhiều brand / category)
+        if (selectedBrands.length > 1) {
+          result = result.filter(b => selectedBrands.includes(b.brand))
+        }
+        if (selectedCategories.length > 0) {
+          const selectedLabels = FILTER_CATEGORIES
+            .filter(c => selectedCategories.includes(c.id))
+            .map(c => c.label.toLowerCase())
+          result = result.filter(b => selectedLabels.includes(b.categoryName?.toLowerCase()))
+        }
+        if (selectedConditions.length > 0) {
+          result = result.filter(b => selectedConditions.includes(b.status?.toLowerCase()))
+        }
+        if (verifiedOnly) {
+          result = result.filter(b => b.isVerified)
+        }
 
+        setBikes(result)
+
+        const sellerIds = [...new Set(result.map(b => b.userId).filter(Boolean))]
         const ratingResults = await Promise.all(
           sellerIds.map(async (id) => {
             try {
@@ -116,39 +147,32 @@ export default function BrowsePage() {
             }
           })
         )
-
         const ratingMap = {}
-        ratingResults.forEach(({ id, info }) => {
-          ratingMap[id] = info
-        })
-
+        ratingResults.forEach(({ id, info }) => { ratingMap[id] = info })
         setSellerRatings(ratingMap)
 
         if (authService.isAuthenticated()) {
           const wishlistData = await wishlistService.getMyWishlist(0, 100)
           const rawItems = Array.isArray(wishlistData?.content) ? wishlistData.content : []
           const activeItems = await wishlistService.cleanupUnavailableItems(rawItems)
-          const ids = activeItems.map((item) => item.postId)
-          setWishlistedIds(ids)
+          setWishlistedIds(activeItems.map((item) => item.postId))
         } else {
           setWishlistedIds([])
         }
-
-
       } catch (error) {
-        console.error("Lỗi khi tìm kiếm xe:", error)
+        console.error('Lỗi khi tìm kiếm xe:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    const timer = setTimeout(fetchData, 500)
+    const timer = setTimeout(fetchData, 400)
     return () => clearTimeout(timer)
-  }, [searchQuery, selectedBrands, minPrice, maxPrice, location, sortBy])
+  }, [searchQuery, selectedBrands, selectedCategories, selectedConditions, minPrice, maxPrice, location, verifiedOnly, sortBy])
 
   const handleWishlistToggle = async (postId) => {
     if (!authService.isAuthenticated()) {
-      alert('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
+      toast.info('Vui lòng đăng nhập để sử dụng tính năng yêu thích.')
       return
     }
 
@@ -163,7 +187,7 @@ export default function BrowsePage() {
       }
     } catch (error) {
       const message = error?.response?.data?.message || 'Không thể cập nhật danh sách yêu thích'
-      alert(message)
+      toast.error(message)
     }
   }
 

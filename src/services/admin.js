@@ -60,12 +60,12 @@ export const adminService = {
     const response = await api.get('/v1/admin/payments/statistics')
     return response.data
   },
-  releaseEscrow: async (id) => {
-    const response = await api.post(`/v1/admin/payments/${id}/release-escrow`)
+  releaseEscrow: async (id, note) => {
+    const response = await api.post(`/v1/admin/payments/${id}/release-escrow`, null, { params: { note } })
     return response.data
   },
-  refundEscrow: async (id) => {
-    const response = await api.post(`/v1/admin/payments/${id}/refund-escrow`)
+  refundEscrow: async (id, note) => {
+    const response = await api.post(`/v1/admin/payments/${id}/refund-escrow`, null, { params: { note } })
     return response.data
   },
 
@@ -97,5 +97,19 @@ export const adminService = {
   deleteCriterion: async (id) => {
     const response = await api.delete(`/v1/inspection-criteria/${id}`)
     return response.data
-  }
+  },
+
+  // === QUẢN LÝ YÊU CẦU RÚT TIỀN ===
+  getAllWithdrawals: async (params = {}) => {
+    const response = await api.get('/v1/withdrawals/admin/all', { params })
+    return response.data
+  },
+  completeWithdrawal: async (id, note = '') => {
+    const response = await api.put(`/v1/withdrawals/admin/${id}/complete`, null, { params: { note } })
+    return response.data
+  },
+  rejectWithdrawal: async (id, note = '') => {
+    const response = await api.put(`/v1/withdrawals/admin/${id}/reject`, null, { params: { note } })
+    return response.data
+  },
 }

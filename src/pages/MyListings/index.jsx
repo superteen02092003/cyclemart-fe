@@ -1,14 +1,15 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import InspectionModal from '@/components/inspection/InspectionModal'
-import SubscribeModal from '@/components/seller/SubscribeModal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/utils/formatPrice'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
+import { toast } from '@/utils/toast'
 import api from '@/services/api'
+import { useDisputeUpdates } from '@/hooks/useWebSocket'
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -184,39 +185,17 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
 
         {(currentStatus === 'ACTIVE' || currentStatus === 'APPROVED') && (
           <>
-            <Link to={`${ROUTES.SELL}`}>
+            <Link to={`${ROUTES.SELL}?editId=${listing.id}`}>
               <Button variant="secondary" size="sm">
                 <span className="material-symbols-outlined text-[0.9rem]">edit</span>
                 Chỉnh sửa
               </Button>
             </Link>
 
-            {listing.activePriority ? (
-              <button
-                disabled
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-80"
-                style={{ backgroundColor: '#64748b' }}
-              >
-                <span className="material-symbols-outlined text-[0.9rem]">check_circle</span>
-                Đang dùng: {listing.activePriority.priorityLevel === 'PLATINUM' ? 'Kim Cương' : listing.activePriority.priorityLevel === 'GOLD' ? 'Vàng' : 'Bạc'}
-              </button>
-            ) : (
-              <button
-                onClick={() => onAction('boost', listing.id)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm transition-colors"
-                style={{ backgroundColor: '#1e3a5f' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2a4f7a')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1e3a5f')}
-              >
-                <span className="material-symbols-outlined text-[0.9rem]">rocket_launch</span>
-                Mua gói ưu tiên
-              </button>
-            )}
-
             {listing.isVerified ? (
-  <button 
-    disabled 
-    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-90" 
+  <button
+    disabled
+    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-90"
     style={{ backgroundColor: '#10b981' }}
   >
     <span className="material-symbols-outlined text-[0.9rem]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
@@ -224,9 +203,9 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
   </button>
 ) : listing.isRequestedInspection ? (
   // KHÓA NÚT KHI ĐÃ ĐĂNG KÝ (Tương tự gói ưu tiên)
-  <button 
-    disabled 
-    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-80" 
+  <button
+    disabled
+    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-sm cursor-not-allowed opacity-80"
     style={{ backgroundColor: '#64748b' }}
   >
     <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
@@ -448,6 +427,10 @@ export default function MyListingsPage() {
     loadMyListings()
   }, [])
 
+  useDisputeUpdates(useCallback(() => {
+    loadMyListings()
+  }, []))
+
   const loadMyListings = async () => {
     try {
       setLoading(true)
@@ -487,7 +470,7 @@ export default function MyListingsPage() {
       showToast('Đã hủy yêu cầu đăng tin.')
     } catch (error) {
       console.error('Error canceling post:', error)
-      alert(error.message || 'Lỗi khi hủy yêu cầu')
+      toast.error(error.message || 'Lỗi khi hủy yêu cầu')
     } finally {
       setLoading(false)
     }
@@ -502,7 +485,9 @@ export default function MyListingsPage() {
       showToast('Đã xóa tin đăng.')
     } catch (error) {
       console.error('Error deleting listing:', error)
-      alert(error.message || 'Lỗi khi xóa tin đăng')
+      // postService.delete() re-throws error.response.data (plain obj) or a fallback obj
+      const msg = error?.message || error?.response?.data?.message || 'Lỗi khi xóa tin đăng'
+      toast.error(msg)
     } finally {
       setLoading(false)
     }

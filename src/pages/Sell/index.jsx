@@ -8,6 +8,7 @@ import { postService } from '@/services/post'
 import { categoryService } from '@/services/category'
 import { useAuth } from '@/hooks/useAuth'
 import { LoginPromptModal } from '@/components/shared/LoginPromptModal'
+import { toast } from '@/utils/toast'
 
 const STEPS = [
   { id: 1, label: 'Thông tin cơ bản' },
@@ -133,7 +134,6 @@ export default function SellPage() {
     groupset: '',
     description: '',
     price: '',
-    allowNegotiation: false,
     city: 'HO_CHI_MINH',
     district: '',
   })
@@ -174,7 +174,6 @@ export default function SellPage() {
         groupset: data.groupset || '',
         description: data.description || '',
         price: data.price || '',
-        allowNegotiation: data.allowNegotiation || false,
         city: data.city || 'HO_CHI_MINH',
         district: data.district || '',
         requestInspection: data.isRequestedInspection || false,
@@ -188,7 +187,7 @@ export default function SellPage() {
       
     } catch (error) {
       console.error('Error loading post data:', error)
-      alert('Lỗi khi tải dữ liệu bài đăng: ' + (error.message || 'Không xác định'))
+      toast.error('Lỗi khi tải dữ liệu bài đăng: ' + (error.message || 'Không xác định'))
       navigate('/my-listings')
     } finally {
       setLoading(false)
@@ -256,8 +255,8 @@ export default function SellPage() {
     }
 
     if (errors.length > 0) {
-      const errorMessage = `Vui lòng điền đầy đủ thông tin bước ${currentStep}:\n\n${errors.map(error => `• ${error}`).join('\n')}`
-      alert(errorMessage)
+      const errorMessage = `Vui lòng điền đầy đủ thông tin bước ${currentStep}: ${errors.join(', ')}`
+      toast.warning(errorMessage)
       return
     }
 
@@ -291,8 +290,8 @@ export default function SellPage() {
       if (!formData.district) errors.push('Quận/Huyện')
 
       if (errors.length > 0) {
-        const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin:\n\n${errors.map(error => `• ${error}`).join('\n')}`
-        alert(errorMessage)
+        const errorMessage = `Vui lòng điền đầy đủ/hợp lệ thông tin: ${errors.join(', ')}`
+        toast.warning(errorMessage)
         return
       }
 
@@ -312,14 +311,13 @@ export default function SellPage() {
         groupset: formData.groupset,
         mileage: formData.mileage ? parseInt(formData.mileage) : null,
         categoryId: parseInt(formData.categoryId),
-        allowNegotiation: formData.allowNegotiation,
         images: selectedImages
       }
 
       if (isEditing) {
         console.log('📝 Updating post with FormData')
         await postService.update(editId, postData)
-        alert('Cập nhật bài đăng thành công!')
+        toast.success('Cập nhật bài đăng thành công!')
         navigate('/my-listings')
       } else {
         console.log('📝 Creating post with FormData')
@@ -329,7 +327,7 @@ export default function SellPage() {
 
     } catch (error) {
       console.error('Error submitting post:', error)
-      alert(error.response?.data?.message || error.message || 'Lỗi khi xử lý bài đăng')
+      toast.error(error.response?.data?.message || error.message || 'Lỗi khi xử lý bài đăng')
     } finally {
       setLoading(false)
     }
@@ -349,14 +347,14 @@ export default function SellPage() {
     })
 
     if (errors.length > 0) {
-      alert(`Một số file không hợp lệ:\n\n${errors.join('\n')}`)
+      toast.warning(`Một số file không hợp lệ: ${errors.join(', ')}`)
     }
 
     if (validFiles.length > 0) {
       setSelectedImages(prev => {
         const newImages = [...prev, ...validFiles]
         if (newImages.length > 10) {
-          alert('Tối đa 10 ảnh. Chỉ thêm được ' + (10 - prev.length) + ' ảnh nữa.')
+          toast.warning('Tối đa 10 ảnh. Chỉ thêm được ' + (10 - prev.length) + ' ảnh nữa.')
           return [...prev, ...validFiles].slice(0, 10)
         }
         return newImages
@@ -599,16 +597,6 @@ export default function SellPage() {
               )}
               {!formData.price && <p className="text-xs text-error mt-1">Vui lòng nhập giá bán</p>}
             </div>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.allowNegotiation}
-                onChange={set('allowNegotiation')}
-                className="w-4 h-4 rounded border-border-light accent-orange-500"
-              />
-              <span className="text-sm text-content-primary">Cho phép thương lượng giá</span>
-            </label>
 
             <div>
               <label className={labelClass}>Thành phố <span className="text-error">*</span></label>

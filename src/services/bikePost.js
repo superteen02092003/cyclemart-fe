@@ -6,6 +6,11 @@ export const bikePostService = {
     return response.data
   },
 
+  search: async (params = {}) => {
+    const response = await api.get('/v1/posts/search', { params })
+    return response.data
+  },
+
   getById: async (id) => {
     const response = await api.get(`/v1/posts/${id}`)
     return response.data

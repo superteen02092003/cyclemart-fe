@@ -5,6 +5,7 @@ import { bikePostService } from '@/services/bikePost';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/services/api';
 import { cn } from '@/utils/cn';
+import { toast } from '@/utils/toast';
 
 // DỮ LIỆU HÀNH CHÍNH TP.HỒ CHÍ MINH CẬP NHẬT MỚI NHẤT
 const HCM_DATA = {
@@ -116,10 +117,10 @@ export default function CheckoutPage() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentResponse, setPaymentResponse] = useState(null);
-  
-  // 🔥 Sử dụng state showPaymentOptions thay cho showQRModal cũ
+
   const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [showDisputeWarning, setShowDisputeWarning] = useState(false);
+  const [showCODConfirm, setShowCODConfirm] = useState(false);
 
   // Redirect nếu chưa login
   useEffect(() => {
@@ -163,36 +164,51 @@ export default function CheckoutPage() {
     setWard("");
   }, [district]);
 
-  // Hàm xử lý nút submit form
   const handlePayment = async (e) => {
     e.preventDefault();
-    
-    // Validate Front-end
+
     if (!district || !ward || !street.trim()) {
-      alert("Vui lòng nhập đầy đủ thông tin địa chỉ giao hàng tại TP.HCM");
+      toast.warning("Vui lòng nhập đầy đủ thông tin địa chỉ giao hàng tại TP.HCM");
       return;
     }
     if (!form.name.trim() || !form.phone.trim()) {
-      alert("Vui lòng nhập Họ tên và Số điện thoại.");
+      toast.warning("Vui lòng nhập Họ tên và Số điện thoại.");
       return;
     }
 
-    // Hiển thị modal cảnh báo tranh chấp
-    setShowDisputeWarning(true);
+    if (isBikeVerified) {
+      setShowDisputeWarning(true);
+    } else {
+      setShowCODConfirm(true);
+    }
   };
 
-  // Hàm thực hiện thanh toán sau khi đồng ý cảnh báo
+  const proceedWithCOD = async () => {
+    setShowCODConfirm(false);
+    setIsProcessing(true);
+    try {
+      const fullAddress = `${street.trim()}, ${ward}, ${district}, ${city}`;
+      await api.post('/v1/payments/direct', null, {
+        params: {
+          bikePostId: bike.id,
+          address: fullAddress,
+          description: `Đặt hàng COD: ${bike.title} - SĐT: ${form.phone}`
+        }
+      });
+      toast.success("Đã gửi yêu cầu đặt hàng! Seller sẽ xác nhận trong vòng 1 phút.");
+      navigate('/orders');
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gửi yêu cầu thất bại, vui lòng thử lại.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const proceedWithPayment = async () => {
     setShowDisputeWarning(false);
     setIsProcessing(true);
     
     try {
-      // Kiểm tra: Chỉ cho phép mua trực tiếp nếu post đã được kiểm định
-      if (!hasPassedInspection(bike)) {
-        setError('Bài đăng chưa được kiểm định. Vui lòng yêu cầu kiểm định trước khi mua.');
-        return;
-      }
-
       const fullAddress = `${street.trim()}, ${ward}, ${district}, ${city}`;
       
       const payload = {
@@ -220,7 +236,7 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error("Lỗi 400 Bad Request:", err.response?.data);
       const errorDetail = err.response?.data?.message || JSON.stringify(err.response?.data?.errors) || err.message;
-      alert(`Thanh toán thất bại:\n${errorDetail}`);
+      toast.error(`Thanh toán thất bại: ${errorDetail}`);
     } finally {
       setIsProcessing(false);
     }
@@ -253,7 +269,7 @@ export default function CheckoutPage() {
         navigate(`/payment-failure?reason=Giao dịch thất bại do sử dụng Mock Cancel`);
       }
     } catch (error) {
-      alert('Lỗi giả lập thanh toán: ' + error.message);
+      toast.error('Lỗi giả lập thanh toán: ' + error.message);
     } finally {
       setIsProcessing(false);
     }
@@ -427,50 +443,54 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* BADGE PHƯƠNG THỨC THANH TOÁN */}
+            {isBikeVerified ? (
+              <div className="mb-3 p-3 bg-navy/5 rounded-sm flex items-start gap-3 border border-navy/10">
+                <span className="material-symbols-outlined text-navy text-[1.2rem] flex-shrink-0">verified_user</span>
+                <p className="text-[11px] text-content-secondary leading-relaxed">
+                  Xe đã kiểm định — thanh toán <strong>online qua VNPay</strong>. Tiền được CycleMart giữ escrow, chỉ chuyển cho seller sau khi bạn nhận hàng.
+                </p>
+              </div>
+            ) : (
+              <div className="mb-3 p-3 bg-amber-50 rounded-sm flex items-start gap-3 border border-amber-200">
+                <span className="material-symbols-outlined text-amber-600 text-[1.2rem] flex-shrink-0">payments</span>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Xe chưa kiểm định — chỉ hỗ trợ <strong>thanh toán khi nhận hàng (COD)</strong>. Bạn trả tiền mặt trực tiếp cho seller khi nhận xe. CycleMart không giữ escrow và không giải quyết tranh chấp cho đơn này.
+                </p>
+              </div>
+            )}
+
             {/* NÚT THANH TOÁN */}
             <button
               type="submit"
               form="checkout-form"
-              disabled={isProcessing || !isBikeVerified}
+              disabled={isProcessing}
               className={cn(
                 "w-full py-4 rounded-sm font-bold text-white transition-all flex items-center justify-center gap-2",
-                isProcessing || !isBikeVerified ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
+                isProcessing
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : isBikeVerified
+                    ? "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
+                    : "bg-amber-500 hover:bg-amber-600 shadow-lg shadow-amber-500/20"
               )}
-              title={!isBikeVerified ? "Bài đăng chưa được kiểm định" : ""}
             >
               {isProcessing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ĐANG XỬ LÝ...
                 </>
-              ) : !isBikeVerified ? (
-                <>
-                  <span className="material-symbols-outlined">lock</span>
-                  CHƯA CÓ KIỂM ĐỊNH
-                </>
-              ) : (
+              ) : isBikeVerified ? (
                 <>
                   <span className="material-symbols-outlined">payments</span>
                   THANH TOÁN NGAY
                 </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined">local_shipping</span>
+                  ĐẶT HÀNG - THANH TOÁN KHI NHẬN
+                </>
               )}
             </button>
-
-            {!isBikeVerified && (
-              <div className="mt-3 p-3 bg-warning/10 rounded-sm flex items-start gap-3 border border-warning/20">
-                <span className="material-symbols-outlined text-warning text-[1.2rem]">warning</span>
-                <p className="text-[11px] text-warning leading-relaxed">
-                  <strong>⚠️ Bài đăng chưa được kiểm định.</strong> Hệ thống không chịu trách nhiệm đối với các sự việc xảy ra khi giao dịch xe chưa qua kiểm định. Tuy nhiên, bạn có thể nhắn tin trực tiếp với người bán để trao đổi buôn bán.
-                </p>
-              </div>
-            )}
-
-            <div className="mt-4 p-3 bg-navy/5 rounded-sm flex items-start gap-3 border border-navy/10">
-               <span className="material-symbols-outlined text-navy text-[1.2rem]">verified_user</span>
-               <p className="text-[11px] text-content-secondary leading-relaxed">
-                 Số tiền sẽ được <strong>CycleMart giữ an toàn</strong> và chỉ chuyển cho người bán khi bạn xác nhận đã nhận hàng thành công.
-               </p>
-            </div>
           </div>
         </div>
       </div>
@@ -532,7 +552,50 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* 🔥 MODAL LỰA CHỌN PHƯƠNG THỨC THANH TOÁN (THAY THẾ MODAL QR CŨ) */}
+      {/* MODAL XÁC NHẬN ĐẶT HÀNG COD */}
+      {showCODConfirm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-amber-500 p-4 text-white flex items-center gap-3">
+              <span className="material-symbols-outlined text-[2rem]">local_shipping</span>
+              <h3 className="font-bold text-lg">Xác nhận đặt hàng COD</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded p-4 space-y-2 text-sm text-amber-900">
+                <p className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[1rem] mt-0.5">info</span>
+                  <span>Yêu cầu sẽ được gửi tới seller. Seller có <strong>1 phút</strong> để xác nhận hoặc từ chối.</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[1rem] mt-0.5">payments</span>
+                  <span>Bạn thanh toán <strong>{formatPrice(bike.price)}</strong> bằng <strong>tiền mặt</strong> trực tiếp cho seller khi nhận xe.</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[1rem] mt-0.5">warning</span>
+                  <span>CycleMart <strong>không giữ escrow</strong> và không giải quyết tranh chấp cho đơn hàng này.</span>
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowCODConfirm(false)}
+                  className="flex-1 py-3 bg-surface-secondary hover:bg-surface-tertiary text-content-primary font-bold rounded-lg transition-colors border border-border-light"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={proceedWithCOD}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[1.1rem]">check_circle</span>
+                  Gửi yêu cầu
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL LỰA CHỌN PHƯƠNG THỨC THANH TOÁN */}
       {showPaymentOptions && paymentResponse && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">

@@ -3,7 +3,8 @@ import { priorityService } from '@/services/priority'
 import api from '@/services/api'
 import { formatPrice } from '@/utils/formatPrice'
 import { cn } from '@/utils/cn'
-import { useNavigate } from 'react-router-dom' // THÊM IMPORTS
+import { useNavigate } from 'react-router-dom'
+import { toast } from '@/utils/toast'
 
 const LEVEL_CONFIG = {
   PLATINUM: { bg: 'bg-gradient-to-b from-amber-50 to-white', text: 'text-amber-600', icon: 'diamond', badge: 'Ưu tiên Cao nhất', border: 'border-amber-400 shadow-amber-500/20 shadow-xl scale-105 z-10' },
@@ -39,7 +40,7 @@ export default function SubscribeModal({ postId, onClose }) {
       const subRes = await priorityService.subscribePost(postId, pkg.id)
 
       if (pkg.price === 0) {
-        alert('Đăng ký gói miễn phí thành công! Bài viết của bạn đã được ưu tiên hiển thị.')
+        toast.success('Đăng ký gói miễn phí thành công! Bài viết của bạn đã được ưu tiên hiển thị.')
         onClose()
         window.location.reload()
       } else {
@@ -65,11 +66,11 @@ export default function SubscribeModal({ postId, onClose }) {
           })
           setShowPaymentOptions(true) // Bật bảng tùy chọn thay vì qua VNPay liền
         } else {
-          alert('Không thể tạo mã thanh toán lúc này.')
+          toast.error('Không thể tạo mã thanh toán lúc này.')
         }
       }
     } catch (error) {
-      alert(error.response?.data?.message || error.message || 'Lỗi khi đăng ký gói')
+      toast.error(error.response?.data?.message || error.message || 'Lỗi khi đăng ký gói')
     } finally {
       setLoading(false)
     }
@@ -100,7 +101,7 @@ export default function SubscribeModal({ postId, onClose }) {
         navigate(`/payment-failure?reason=Giao dịch mua gói bị hủy bỏ (Demo)`);
       }
     } catch (error) {
-      alert('Lỗi giả lập thanh toán: ' + error.message);
+      toast.error('Lỗi giả lập thanh toán: ' + error.message);
     } finally {
       setIsProcessingMock(false);
     }

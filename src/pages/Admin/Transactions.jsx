@@ -2,6 +2,55 @@ import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { adminService } from '@/services/admin'
 import { formatPrice } from '@/utils/formatPrice'
+import { toast } from '@/utils/toast'
+
+function AdminNoteModal({ isOpen, onClose, onSubmit, action, loading }) {
+  const [note, setNote] = useState('')
+
+  if (!isOpen) return null
+
+  const handleSubmit = () => {
+    if (!note.trim()) {
+      toast.error('Vui lòng nhập ghi chú')
+      return
+    }
+    onSubmit(note)
+    setNote('')
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-sm shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 className="text-lg font-bold text-content-primary mb-4">
+          {action === 'refund' ? 'Hoàn tiền về người mua' : 'Giải phóng escrow cho người bán'}
+        </h3>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Nhập ghi chú cho người dùng (bắt buộc)..."
+          className="w-full border border-border-light rounded-sm p-3 text-sm focus:outline-none focus:ring-2 focus:ring-navy/50 min-h-[100px]"
+          autoFocus
+        />
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2 border border-border-light text-content-secondary hover:bg-surface-secondary rounded-sm text-sm font-medium disabled:opacity-50"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-navy text-white hover:bg-navy/90 rounded-sm text-sm font-bold disabled:opacity-50"
+          >
+            {loading ? 'Đang xử lý...' : 'Xác nhận'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const STATUS_CONFIG = {
   SUCCESS:   { label: 'Hoàn tất',   color: 'bg-success/20 text-success' },
@@ -9,6 +58,16 @@ const STATUS_CONFIG = {
   FAILED:    { label: 'Thất bại',   color: 'bg-error/20 text-error' },
   REFUNDED:  { label: 'Đã hoàn',    color: 'bg-blue-100 text-blue-700' },
   CANCELLED: { label: 'Đã hủy',     color: 'bg-gray-100 text-gray-600' },
+}
+
+const ORDER_STATUS_CONFIG = {
+  PAID_WAITING_DELIVERY: { label: 'Chờ giao hàng',   color: 'bg-orange/10 text-orange' },
+  IN_DELIVERY:           { label: 'Đang vận chuyển',  color: 'bg-blue-50 text-blue-600' },
+  DELIVERED:             { label: 'Đã giao',          color: 'bg-green/10 text-green' },
+  RETURN_REQUESTED:      { label: 'Yêu cầu hoàn trả', color: 'bg-error/10 text-error font-bold' },
+  DISPUTE_SYSTEM:        { label: 'Tranh chấp',        color: 'bg-error/10 text-error' },
+  COMPLETED:             { label: 'Hoàn tất',          color: 'bg-gray-100 text-gray-500' },
+  CANCELLED:             { label: 'Đã hủy',            color: 'bg-gray-100 text-gray-500' },
 }
 
 const TYPE_LABELS = {
@@ -22,7 +81,11 @@ export default function AdminTransactions() {
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
+  const [actionLoading, setActionLoading] = useState(null)
   const [stats, setStats] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalAction, setModalAction] = useState(null)
+  const [modalPaymentId, setModalPaymentId] = useState(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -38,6 +101,31 @@ export default function AdminTransactions() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleEscrow = async (note) => {
+    setActionLoading(modalPaymentId)
+    try {
+      if (modalAction === 'refund') {
+        await adminService.refundEscrow(modalPaymentId, note)
+        toast.success('Đã hoàn tiền escrow về người mua.')
+      } else {
+        await adminService.releaseEscrow(modalPaymentId, note)
+        toast.success('Đã giải phóng escrow cho người bán.')
+      }
+      setModalOpen(false)
+      fetchData()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Lỗi khi xử lý escrow')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const openModal = (paymentId, action) => {
+    setModalPaymentId(paymentId)
+    setModalAction(action)
+    setModalOpen(true)
   }
 
   useEffect(() => { fetchData() }, [])
@@ -77,7 +165,7 @@ export default function AdminTransactions() {
     },
     {
       key: 'status',
-      label: 'Trạng thái',
+      label: 'Thanh toán',
       render: (v) => {
         const cfg = STATUS_CONFIG[v] || { label: v, color: 'bg-gray-100 text-gray-600' }
         return (
@@ -89,10 +177,24 @@ export default function AdminTransactions() {
       width: '110px',
     },
     {
+      key: 'orderStatus',
+      label: 'Đơn hàng',
+      render: (v) => {
+        if (!v) return <span className="text-xs text-content-tertiary">—</span>
+        const cfg = ORDER_STATUS_CONFIG[v] || { label: v, color: 'bg-gray-100 text-gray-600' }
+        return (
+          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
+        )
+      },
+      width: '140px',
+    },
+    {
       key: 'createdAt',
       label: 'Ngày',
       render: (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '—',
-      width: '110px',
+      width: '100px',
     },
   ]
 
@@ -137,8 +239,41 @@ export default function AdminTransactions() {
       {loading ? (
         <div className="text-center py-16 text-content-secondary">Đang tải...</div>
       ) : (
-        <Table columns={columns} data={filtered} />
+        <Table
+          columns={columns}
+          data={filtered}
+          actions={(row) => {
+            if (row.orderStatus !== 'RETURN_REQUESTED') return null
+            const busy = actionLoading === row.id
+            return [
+              <button
+                key="refund"
+                onClick={() => openModal(row.id, 'refund')}
+                disabled={busy}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-error hover:bg-error/90 rounded-sm disabled:opacity-50"
+              >
+                {busy ? '...' : 'Hoàn tiền → Buyer'}
+              </button>,
+              <button
+                key="release"
+                onClick={() => openModal(row.id, 'release')}
+                disabled={busy}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-[#ff6b35] hover:bg-[#ff7849] rounded-sm disabled:opacity-50"
+              >
+                {busy ? '...' : 'Giải phóng → Seller'}
+              </button>,
+            ]
+          }}
+        />
       )}
+
+      <AdminNoteModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleEscrow}
+        action={modalAction}
+        loading={actionLoading !== null}
+      />
     </div>
   )
 }

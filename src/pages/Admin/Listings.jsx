@@ -5,6 +5,7 @@ import { ImageViewerModal } from '@/components/admin/ImageViewerModal'
 import { ImageThumbnails } from '@/components/admin/ImageThumbnails'
 import { adminService } from '@/services/admin'
 import { useAdminStats } from '@/contexts/AdminStatsContext'
+import { toast } from '@/utils/toast'
 
 export default function AdminListings() {
   const { refreshStats } = useAdminStats()
@@ -41,7 +42,7 @@ export default function AdminListings() {
       setListings(data.content || [])
     } catch (error) {
       console.error("Error loading listings:", error)
-      alert("Không thể tải dữ liệu từ server")
+      toast.error("Không thể tải dữ liệu từ server")
     } finally {
       setLoading(false)
     }
@@ -70,12 +71,12 @@ export default function AdminListings() {
     
     try {
       await adminService.approvePost(id)
-      alert('Duyệt bài thành công!')
+      toast.success('Duyệt bài thành công!')
       fetchListings()
       refreshStats() // Refresh sidebar and topbar stats
       setIsDetailModalOpen(false)
     } catch (error) {
-      alert('Lỗi duyệt bài: ' + (error.response?.data?.message || error.message))
+      toast.error('Lỗi duyệt bài: ' + (error.response?.data?.message || error.message))
     }
   }
 
@@ -87,7 +88,7 @@ export default function AdminListings() {
 
   const handleConfirmReject = async () => {
     if (!rejectReason.trim()) {
-      alert('Lý do từ chối không được để trống!')
+      toast.warning('Lý do từ chối không được để trống!')
       return
     }
 
@@ -101,7 +102,7 @@ export default function AdminListings() {
       setIsDetailModalOpen(false)
       setRejectReason('')
     } catch (error) {
-      alert('Lỗi từ chối bài: ' + (error.response?.data?.message || error.message))
+      toast.error('Lỗi từ chối bài: ' + (error.response?.data?.message || error.message))
     }
   }
 

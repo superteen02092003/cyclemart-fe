@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { categoryService } from '@/services/category'
+import { toast } from '@/utils/toast'
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([])
@@ -31,7 +32,7 @@ export default function AdminCategories() {
       setCategories(data || [])
     } catch (error) {
       console.error('❌ Error loading categories:', error)
-      alert('Không thể tải danh sách danh mục.')
+      toast.error('Không thể tải danh sách danh mục.')
     } finally {
       setLoading(false)
     }
@@ -86,11 +87,7 @@ export default function AdminCategories() {
     } catch (error) {
       console.error('Error saving category:', error)
       // Hiển thị lỗi từ backend nếu có (Backend trả về mảng/object lỗi)
-      if (error.response?.data?.message) {
-         alert('Lỗi: ' + error.response.data.message)
-      } else {
-         alert('Lỗi khi lưu danh mục')
-      }
+      toast.error(error.response?.data?.message ? 'Lỗi: ' + error.response.data.message : 'Lỗi khi lưu danh mục')
     } finally {
       setLoading(false)
     }
@@ -104,7 +101,7 @@ export default function AdminCategories() {
         await loadCategories()
       } catch (error) {
         console.error('Error deleting category:', error)
-        alert(error.response?.data?.message || 'Lỗi khi xóa danh mục')
+        toast.error(error.response?.data?.message || 'Lỗi khi xóa danh mục')
       } finally {
         setLoading(false)
       }

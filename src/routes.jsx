@@ -38,6 +38,8 @@ import AdminStatistics from '@/pages/Admin/Statistics'
 import AdminFinance from '@/pages/Admin/Finance'
 import AdminPriorityPackages from '@/pages/Admin/PriorityPackages'
 import AdminInspections from "@/pages/Admin/Inspections.jsx";
+import AdminWithdrawals from '@/pages/Admin/Withdrawals';
+import MyPointsPage from '@/pages/MyPoints';
 
 // Hạng mục kiểm định
 import InspectionCriteria from '@/pages/Admin/InspectionCriteria'
@@ -66,6 +68,7 @@ export const router = createBrowserRouter([
       { path: 'chat', element: <ChatPage /> },
       { path: 'checkout/:id', element: <CheckoutPage /> },
       { path: 'orders', element: <OrdersPage /> },
+      { path: 'my-points', element: <MyPointsPage /> },
       { path: 'payment-success', element: <PaymentSuccessPage /> },
       { path: 'payment-failure', element: <PaymentFailurePage /> },
       { path: 'payment-callback', element: <PaymentCallbackPage /> },
@@ -101,7 +104,8 @@ export const router = createBrowserRouter([
       { path: 'statistics', element: <AdminStatistics /> },
       { path: 'priority-packages', element: <AdminPriorityPackages /> },
       { path: 'inspections', element: <AdminInspections /> },
-      { path: 'inspection-criteria', element: <InspectionCriteria /> }
+      { path: 'inspection-criteria', element: <InspectionCriteria /> },
+      { path: 'withdrawals', element: <AdminWithdrawals /> },
     ],
   },
 

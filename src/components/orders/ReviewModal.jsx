@@ -69,6 +69,7 @@ export default function ReviewModal({ order, onClose, onSuccess, onSubmitReview 
     try {
       await sellerRatingService.createOrUpdateRating(
         resolvedSellerId,
+        order.paymentId,
         rating,
         comment.trim()
       );

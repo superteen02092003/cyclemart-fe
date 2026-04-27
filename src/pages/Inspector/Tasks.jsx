@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/utils/cn';
 import api from '@/services/api';
 import { inspectionService } from '@/services/inspection';
+import { toast } from '@/utils/toast';
 
 const formatPrice = (price) => {
   if (!price) return '0 đ';
@@ -96,7 +97,7 @@ export default function InspectorTasks() {
     if (!selectedTask) return;
     
     if (!resultNote.trim()) {
-      alert('Vui lòng nhập ghi chú biên bản kiểm định để người mua có thể xem chi tiết!');
+      toast.warning('Vui lòng nhập ghi chú biên bản kiểm định để người mua có thể xem chi tiết!');
       return;
     }
 
@@ -109,12 +110,12 @@ export default function InspectorTasks() {
       // Gửi ngầm định trạng thái PASSED để Backend bật isVerified = true, nhưng logic thực tế là "Đã hoàn tất kiểm định"
       await inspectionService.updateResult(selectedTask.id, 'PASSED', resultNote, checklistDataStr);
       
-      alert(`Đã lưu biên bản kiểm định thành công!`);
+      toast.success('Đã lưu biên bản kiểm định thành công!');
       closeModal();
       fetchTasks();
     } catch (error) {
       console.error('Lỗi cập nhật:', error);
-      alert('Có lỗi xảy ra khi cập nhật kết quả.');
+      toast.error('Có lỗi xảy ra khi cập nhật kết quả.');
     } finally {
       setIsSubmitting(false);
     }
