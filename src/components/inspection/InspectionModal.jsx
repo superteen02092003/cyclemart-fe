@@ -22,9 +22,9 @@ const STEPS = [
   { icon: 'verified',          title: 'Nhận kết quả',          desc: 'Đạt → badge "Đã kiểm định". Không đạt → ghi lý do.' },
 ]
 
-function RequestCard({ req }) {
+function RequestCard({ req, onContinuePayment }) {
   const cfg = STATUS_CONFIG[req.status] || { label: req.status, color: 'bg-gray-50 text-gray-700 border-gray-200' }
-  
+
   return (
     <div className="bg-surface-secondary rounded-sm border border-border-light p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -49,6 +49,15 @@ function RequestCard({ req }) {
           </span>
         )}
       </div>
+      {req.status === 'PENDING_PAYMENT' && (
+        <button
+          onClick={() => onContinuePayment(req)}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 bg-orange text-white text-xs font-bold py-2 px-3 rounded-sm hover:opacity-90 transition-opacity"
+        >
+          <span className="material-symbols-outlined text-[1rem]">payment</span>
+          Tiếp tục thanh toán
+        </button>
+      )}
       {req.status === 'PASSED' && req.resultNote && (
         <div className="flex items-start gap-1.5 bg-green-50 border border-green-200 rounded-sm px-3 py-2 mt-1">
           <span className="material-symbols-outlined text-green-600 text-[0.9rem] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
@@ -242,6 +251,29 @@ const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
       toast.error('Lỗi giả lập thanh toán: ' + error.message)
     } finally {
       setIsProcessingMock(false)
+    }
+  }
+
+  const handleContinuePayment = async (req) => {
+    setLoading(true)
+    try {
+      const res = await inspectionService.resumePayment(req.id)
+      if (!res.paymentOrderId) {
+        toast.error('Không thể lấy link thanh toán. Vui lòng thử lại.')
+        return
+      }
+      localStorage.setItem('payment_intent', 'INSPECTION_FEE')
+      setPaymentResponse({
+        orderId: res.paymentOrderId,
+        paymentUrl: res.paymentUrl,
+        amount: res.inspectionFee || inspectionFee || 250000,
+        description: 'Thanh toán phí kiểm định xe',
+      })
+      setShowPaymentOptions(true)
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Lỗi khi lấy thông tin thanh toán')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -462,7 +494,9 @@ const [tab, setTab] = useState(preselectedId ? 'register' : 'register')
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {requests.map((req) => <RequestCard key={req.id} req={req} />)}
+                    {requests.map((req) => (
+                      <RequestCard key={req.id} req={req} onContinuePayment={handleContinuePayment} />
+                    ))}
                   </div>
                 )}
               </div>

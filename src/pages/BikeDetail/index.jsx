@@ -1158,10 +1158,10 @@ export default function BikeDetailPage() {
               )}
 
               <p className="text-sm font-semibold text-content-primary">
-                {bike?.isVerified ? 'Bạn có đồng ý tiếp tục mua xe không?' : 'Người bán cần hoàn tất kiểm định trước khi xe có thể thanh toán.'}
+                Bạn có đồng ý tiếp tục mua xe không?
               </p>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-px bg-border-light border-t border-border-light">
               <button
                 onClick={() => setShowCheckoutWarning(false)}
@@ -1171,10 +1171,9 @@ export default function BikeDetailPage() {
               </button>
               <button
                 onClick={proceedToCheckout}
-                disabled={!bike?.isVerified}
                 className="p-3.5 bg-white text-[#ff6b35] font-bold hover:bg-orange/5 transition-colors"
               >
-                {bike?.isVerified ? 'Đồng ý tiếp tục' : 'Chưa thể thanh toán'}
+                Đồng ý tiếp tục
               </button>
             </div>
           </div>

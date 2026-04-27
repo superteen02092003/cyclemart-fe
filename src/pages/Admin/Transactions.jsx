@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Table } from '@/components/admin/Table'
 import { adminService } from '@/services/admin'
 import { formatPrice } from '@/utils/formatPrice'
+import { toast } from '@/utils/toast'
 
 const STATUS_CONFIG = {
   SUCCESS:   { label: 'Hoàn tất',   color: 'bg-success/20 text-success' },
@@ -9,6 +10,16 @@ const STATUS_CONFIG = {
   FAILED:    { label: 'Thất bại',   color: 'bg-error/20 text-error' },
   REFUNDED:  { label: 'Đã hoàn',    color: 'bg-blue-100 text-blue-700' },
   CANCELLED: { label: 'Đã hủy',     color: 'bg-gray-100 text-gray-600' },
+}
+
+const ORDER_STATUS_CONFIG = {
+  PAID_WAITING_DELIVERY: { label: 'Chờ giao hàng',   color: 'bg-orange/10 text-orange' },
+  IN_DELIVERY:           { label: 'Đang vận chuyển',  color: 'bg-blue-50 text-blue-600' },
+  DELIVERED:             { label: 'Đã giao',          color: 'bg-green/10 text-green' },
+  RETURN_REQUESTED:      { label: 'Yêu cầu hoàn trả', color: 'bg-error/10 text-error font-bold' },
+  DISPUTE_SYSTEM:        { label: 'Tranh chấp',        color: 'bg-error/10 text-error' },
+  COMPLETED:             { label: 'Hoàn tất',          color: 'bg-gray-100 text-gray-500' },
+  CANCELLED:             { label: 'Đã hủy',            color: 'bg-gray-100 text-gray-500' },
 }
 
 const TYPE_LABELS = {
@@ -22,6 +33,7 @@ export default function AdminTransactions() {
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
+  const [actionLoading, setActionLoading] = useState(null)
   const [stats, setStats] = useState(null)
 
   const fetchData = async () => {
@@ -37,6 +49,27 @@ export default function AdminTransactions() {
       console.error('Lỗi tải giao dịch:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleEscrow = async (paymentId, action) => {
+    if (!window.confirm(action === 'refund'
+      ? 'Hoàn tiền escrow về người mua?'
+      : 'Giải phóng escrow cho người bán?')) return
+    setActionLoading(paymentId)
+    try {
+      if (action === 'refund') {
+        await adminService.refundEscrow(paymentId)
+        toast.success('Đã hoàn tiền escrow về người mua.')
+      } else {
+        await adminService.releaseEscrow(paymentId)
+        toast.success('Đã giải phóng escrow cho người bán.')
+      }
+      fetchData()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Lỗi khi xử lý escrow')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -77,7 +110,7 @@ export default function AdminTransactions() {
     },
     {
       key: 'status',
-      label: 'Trạng thái',
+      label: 'Thanh toán',
       render: (v) => {
         const cfg = STATUS_CONFIG[v] || { label: v, color: 'bg-gray-100 text-gray-600' }
         return (
@@ -89,10 +122,24 @@ export default function AdminTransactions() {
       width: '110px',
     },
     {
+      key: 'orderStatus',
+      label: 'Đơn hàng',
+      render: (v) => {
+        if (!v) return <span className="text-xs text-content-tertiary">—</span>
+        const cfg = ORDER_STATUS_CONFIG[v] || { label: v, color: 'bg-gray-100 text-gray-600' }
+        return (
+          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
+        )
+      },
+      width: '140px',
+    },
+    {
       key: 'createdAt',
       label: 'Ngày',
       render: (v) => v ? new Date(v).toLocaleDateString('vi-VN') : '—',
-      width: '110px',
+      width: '100px',
     },
   ]
 
@@ -137,7 +184,32 @@ export default function AdminTransactions() {
       {loading ? (
         <div className="text-center py-16 text-content-secondary">Đang tải...</div>
       ) : (
-        <Table columns={columns} data={filtered} />
+        <Table
+          columns={columns}
+          data={filtered}
+          actions={(row) => {
+            if (row.orderStatus !== 'RETURN_REQUESTED') return null
+            const busy = actionLoading === row.id
+            return [
+              <button
+                key="refund"
+                onClick={() => handleEscrow(row.id, 'refund')}
+                disabled={busy}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-error hover:bg-error/90 rounded-sm disabled:opacity-50"
+              >
+                {busy ? '...' : 'Hoàn tiền → Buyer'}
+              </button>,
+              <button
+                key="release"
+                onClick={() => handleEscrow(row.id, 'release')}
+                disabled={busy}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-[#ff6b35] hover:bg-[#ff7849] rounded-sm disabled:opacity-50"
+              >
+                {busy ? '...' : 'Giải phóng → Seller'}
+              </button>,
+            ]
+          }}
+        />
       )}
     </div>
   )

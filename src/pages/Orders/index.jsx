@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
-import { ordersService } from '@/services/orders';
+import { ordersService, disputeService } from '@/services/orders';
 import { toast } from '@/utils/toast';
 import DeliveryModal from '@/components/orders/DeliveryModal';
 import ReturnRequestModal from '@/components/orders/ReturnRequestModal';
@@ -20,7 +20,99 @@ const STATUS_LABELS = {
   CANCELLED:             { text: 'Đã hủy',             color: 'bg-content-tertiary/20 text-content-secondary' },
 };
 
-function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openReviewModal }) {
+const DISPUTE_STATUS_LABELS = {
+  OPENED:                  { text: 'Chờ phản hồi',         color: 'text-orange bg-orange/10 border-orange/20' },
+  SELLER_APPROVED:         { text: 'Bạn đã đồng ý hoàn',   color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  SELLER_REJECTED:         { text: 'Đã chuyển Admin',       color: 'text-gray-600 bg-gray-100 border-gray-200' },
+  ADMIN_REVIEW:            { text: 'Admin đang xem xét',    color: 'text-purple-700 bg-purple-50 border-purple-200' },
+  INSPECTOR_REVIEW:        { text: 'Inspector đang xem xét', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+  RESOLVED_REFUND_BUYER:   { text: 'Đã hoàn tiền người mua', color: 'text-red-700 bg-red-50 border-red-200' },
+  RESOLVED_RELEASE_SELLER: { text: 'Đã giải phóng escrow',  color: 'text-green-700 bg-green-50 border-green-200' },
+  RESOLVED_PARTIAL:        { text: 'Giải quyết một phần',   color: 'text-gray-700 bg-gray-100 border-gray-200' },
+}
+
+function SellerDisputePanel({ dispute, onAction }) {
+  const [loading, setLoading] = useState(false)
+  const cfg = DISPUTE_STATUS_LABELS[dispute.status] || { text: dispute.status, color: 'text-gray-600 bg-gray-100 border-gray-200' }
+
+  const handleRespond = async (action) => {
+    const label = action === 'approve' ? 'đồng ý hoàn tiền' : 'phản đối và chuyển Admin'
+    if (!window.confirm(`Xác nhận: ${label}?`)) return
+    setLoading(true)
+    try {
+      if (action === 'approve') {
+        await disputeService.sellerApprove(dispute.id)
+        toast.success('Đã đồng ý hoàn tiền. Admin sẽ xử lý giải phóng escrow.')
+      } else {
+        await disputeService.sellerReject(dispute.id)
+        toast.info('Đã phản đối. Tranh chấp được chuyển lên Admin xem xét.')
+      }
+      onAction()
+    } catch (err) {
+      toast.error(err?.message || err?.response?.data?.message || 'Có lỗi xảy ra')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 border border-error/30 rounded-sm bg-error/5 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="flex items-center gap-1.5 text-sm font-bold text-error">
+          <span className="material-symbols-outlined text-[1rem]">gavel</span>
+          Yêu cầu tranh chấp từ người mua
+        </span>
+        <span className={cn('text-xs font-bold px-2.5 py-1 rounded-full border', cfg.color)}>
+          {cfg.text}
+        </span>
+      </div>
+
+      <div className="space-y-2 mb-4">
+        <div>
+          <p className="text-xs text-content-secondary font-medium uppercase tracking-wide mb-0.5">Lý do</p>
+          <p className="text-sm text-content-primary bg-white border border-border-light rounded-sm px-3 py-2">{dispute.reason}</p>
+        </div>
+        {dispute.evidenceUrls && (
+          <div>
+            <p className="text-xs text-content-secondary font-medium uppercase tracking-wide mb-0.5">Bằng chứng</p>
+            <a href={dispute.evidenceUrls} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-navy underline hover:text-orange">
+              <span className="material-symbols-outlined text-[0.9rem]">open_in_new</span>
+              Xem bằng chứng
+            </a>
+          </div>
+        )}
+      </div>
+
+      {dispute.status === 'OPENED' && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleRespond('approve')}
+            disabled={loading}
+            className="flex-1 py-2 text-xs font-bold text-white bg-error hover:bg-error/90 rounded-sm transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Đang xử lý...' : '✓ Đồng ý hoàn tiền'}
+          </button>
+          <button
+            onClick={() => handleRespond('reject')}
+            disabled={loading}
+            className="flex-1 py-2 text-xs font-bold border border-navy text-navy hover:bg-navy/5 rounded-sm transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Đang xử lý...' : '✕ Phản đối, chuyển Admin'}
+          </button>
+        </div>
+      )}
+
+      {dispute.status !== 'OPENED' && dispute.resolutionNote && (
+        <div className="mt-2 text-xs text-content-secondary bg-white border border-border-light rounded-sm px-3 py-2">
+          <span className="font-semibold">Ghi chú xử lý:</span> {dispute.resolutionNote}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeModal, openReviewModal }) {
   const isBuyer = order.role === 'BUYER';
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -183,10 +275,10 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
           <span className="py-2.5 text-xs text-content-secondary">Đang chờ Admin xử lý...</span>
         )}
 
-        {order.orderStatus === 'DISPUTE_SYSTEM' && (
+        {order.orderStatus === 'DISPUTE_SYSTEM' && isBuyer && (
           <span className="py-2.5 text-xs text-content-secondary flex items-center gap-1">
             <span className="material-symbols-outlined text-[0.9rem]">hourglass_empty</span>
-            Đang chờ Admin giải quyết tranh chấp
+            Tranh chấp đang được xử lý
           </span>
         )}
 
@@ -196,6 +288,10 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
           </button>
         </Link>
       </div>
+
+      {order.orderStatus === 'DISPUTE_SYSTEM' && !isBuyer && dispute && (
+        <SellerDisputePanel dispute={dispute} onAction={onAction} />
+      )}
     </div>
   );
 }
@@ -203,6 +299,7 @@ function OrderCard({ order, onAction, openDeliveryModal, openDisputeModal, openR
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState('BUYER');
   const [orders, setOrders] = useState([]);
+  const [sellerDisputeMap, setSellerDisputeMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -234,16 +331,27 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const [buyerRes, sellerRes] = await Promise.all([
+      const [buyerRes, sellerRes, disputeRes] = await Promise.allSettled([
         ordersService.getPaymentHistory(0, 50),
         ordersService.getPaymentHistoryAsSeller(0, 50),
+        disputeService.getMyDisputesAsSeller(0, 100),
       ]);
-      const buyerOrders = (buyerRes.content || [])
-        .filter(p => p.type === 'ORDER_PAYMENT')
-        .map(p => mapPayment(p, 'BUYER'));
-      const sellerOrders = (sellerRes.content || [])
-        .map(p => mapPayment(p, 'SELLER'));
+
+      const buyerOrders = buyerRes.status === 'fulfilled'
+        ? (buyerRes.value.content || []).filter(p => p.type === 'ORDER_PAYMENT').map(p => mapPayment(p, 'BUYER'))
+        : [];
+      const sellerOrders = sellerRes.status === 'fulfilled'
+        ? (sellerRes.value.content || []).map(p => mapPayment(p, 'SELLER'))
+        : [];
+
+      // Build paymentId → dispute map for quick lookup
+      const disputeMap = {};
+      if (disputeRes.status === 'fulfilled') {
+        (disputeRes.value.content || []).forEach(d => { disputeMap[d.paymentId] = d; });
+      }
+
       setOrders([...buyerOrders, ...sellerOrders]);
+      setSellerDisputeMap(disputeMap);
       setError(null);
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -314,6 +422,7 @@ export default function OrdersPage() {
             <OrderCard
               key={order.paymentId}
               order={order}
+              dispute={order.role === 'SELLER' ? sellerDisputeMap[order.paymentId] : undefined}
               onAction={fetchOrders}
               openDeliveryModal={setDeliveryOrder}
               openDisputeModal={setDisputeOrder}

@@ -503,7 +503,9 @@ export default function MyListingsPage() {
       showToast('Đã xóa tin đăng.')
     } catch (error) {
       console.error('Error deleting listing:', error)
-      toast.error(error.message || 'Lỗi khi xóa tin đăng')
+      // postService.delete() re-throws error.response.data (plain obj) or a fallback obj
+      const msg = error?.message || error?.response?.data?.message || 'Lỗi khi xóa tin đăng'
+      toast.error(msg)
     } finally {
       setLoading(false)
     }

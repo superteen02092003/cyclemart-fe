@@ -64,9 +64,13 @@ export default function AdminDisputes() {
 
   const filteredDisputes = filterStatus === 'ALL'
     ? disputes
-    : disputes.filter(d => d.status === filterStatus)
+    : filterStatus === 'NEEDS_ACTION'
+      ? disputes.filter(d => [...NEEDS_ACTION, 'SELLER_APPROVED'].includes(d.status))
+      : filterStatus === 'RESOLVED'
+        ? disputes.filter(d => IS_RESOLVED.includes(d.status))
+        : disputes.filter(d => d.status === filterStatus)
 
-  const pendingCount = disputes.filter(d => NEEDS_ACTION.includes(d.status)).length
+  const pendingCount = disputes.filter(d => [...NEEDS_ACTION, 'SELLER_APPROVED'].includes(d.status)).length
 
   const columns = [
     { key: 'paymentOrderId', label: 'Mã Đơn', width: '140px' },
@@ -122,9 +126,11 @@ export default function AdminDisputes() {
           className="px-4 py-2 border border-border-light rounded-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-navy/50"
         >
           <option value="ALL">Tất cả ({disputes.length})</option>
-          <option value="SELLER_REJECTED">Chờ Admin xét ({disputes.filter(d => ['SELLER_REJECTED','ADMIN_REVIEW'].includes(d.status)).length})</option>
-          <option value="OPENED">Vừa mở</option>
-          <option value="RESOLVED_REFUND_BUYER">Đã giải quyết</option>
+          <option value="NEEDS_ACTION">
+            Cần Admin xử lý ({disputes.filter(d => [...NEEDS_ACTION, 'SELLER_APPROVED'].includes(d.status)).length})
+          </option>
+          <option value="OPENED">Vừa mở — chờ seller ({disputes.filter(d => d.status === 'OPENED').length})</option>
+          <option value="RESOLVED">Đã giải quyết ({disputes.filter(d => IS_RESOLVED.includes(d.status)).length})</option>
         </select>
       </div>
 
@@ -203,6 +209,13 @@ export default function AdminDisputes() {
             )}
 
             {/* Admin action */}
+            {selectedDispute.status === 'SELLER_APPROVED' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-sm p-3 text-sm text-blue-700 font-medium flex items-center gap-2">
+                <span className="material-symbols-outlined text-[1rem]">info</span>
+                Người bán đã đồng ý hoàn tiền. Hãy xác nhận bên dưới để thực hiện hoàn escrow về người mua.
+              </div>
+            )}
+
             {IS_RESOLVED.includes(selectedDispute.status) ? (
               <div className="bg-success/10 p-4 font-bold text-success text-center border border-success/20 rounded-sm">
                 Tranh chấp đã được giải quyết: {STATUS_CONFIG[selectedDispute.status]?.label}
