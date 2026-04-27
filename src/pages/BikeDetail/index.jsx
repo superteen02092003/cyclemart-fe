@@ -661,47 +661,7 @@ export default function BikeDetailPage() {
   }
 
   const handleSubmitRating = async () => {
-    if (!sellerId) {
-      setRatingError('Không tìm thấy người bán để gửi đánh giá.')
-      return
-    }
-    if (!myRating) {
-      setRatingError('Vui lòng chọn số sao đánh giá.')
-      return
-    }
-
-    try {
-      setSubmittingRating(true)
-      setRatingError('')
-
-      const payload = {
-        sellerId,
-        score: myRating,
-        comment: myComment,
-      }
-
-      await sellerRatingService.createOrUpdateRating(payload.sellerId, payload.score, payload.comment)
-
-      setMyRating(0)
-      setMyComment('')
-
-      const ratingsResponse = await sellerRatingService.getSellerRatings(sellerId, 0, 5)
-      const ratingsData = ratingsResponse?.data || ratingsResponse || {}
-      const ratings = ratingsData?.ratings?.content || ratingsData?.content || ratingsData?.ratings || []
-      setSellerRatings(Array.isArray(ratings) ? ratings : [])
-
-      const infoResponse = await sellerRatingService.getSellerInfo(sellerId)
-      setSellerInfo(infoResponse?.data || infoResponse || null)
-
-      alert('Đánh giá thành công!')
-    } catch (err) {
-      console.error('Lỗi khi gửi đánh giá:', err)
-      const message = err?.response?.data?.errors?.sellerId || err?.response?.data?.message || 'Gửi đánh giá thất bại!'
-      setRatingError(message)
-      alert(message)
-    } finally {
-      setSubmittingRating(false)
-    }
+    setRatingError('Bạn chỉ có thể đánh giá người bán từ trang đơn hàng đã hoàn tất.')
   }
 
   if (loading) {
@@ -844,15 +804,20 @@ export default function BikeDetailPage() {
             />
 
             <Button
-              disabled={!myRating || submittingRating}
+              disabled
               onClick={handleSubmitRating}
               fullWidth
             >
-              {submittingRating ? 'Đang gửi...' : 'Gửi đánh giá'}
+              Đánh giá từ đơn hàng
             </Button>
 
             {ratingError && (
               <p className="text-error text-xs mt-2">{ratingError}</p>
+            )}
+            {!ratingError && (
+              <p className="text-content-secondary text-xs mt-2">
+                Để đảm bảo đúng giao dịch, hệ thống chỉ cho đánh giá ở mục đơn hàng đã hoàn tất.
+              </p>
             )}
           </div>
 
@@ -872,6 +837,14 @@ export default function BikeDetailPage() {
                 {sellerRatings.map((rev) => {
                   const reviewerProfilePath = rev.buyerId ? `${ROUTES.PROFILE}?userId=${rev.buyerId}` : ROUTES.PROFILE
                   const reviewerName = rev.buyerName || rev.buyer?.buyerName || rev.buyer?.fullName || rev.userName || 'Khách hàng'
+                  const orderTitle =
+                    rev.bikePostTitle ||
+                    rev.bikeTitle ||
+                    rev.postTitle ||
+                    rev.bikePost?.title ||
+                    rev.paymentDescription ||
+                    rev.payment?.description ||
+                    ''
                   const reviewScore = Number(rev.score || 0)
                   return (
                     <div key={rev.id} className="pb-4 border-b border-border-light last:border-0 group">
@@ -888,6 +861,9 @@ export default function BikeDetailPage() {
                             className="text-sm font-semibold text-content-primary transition-all duration-200 hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4"
                           >
                             {reviewerName}
+                            {orderTitle ? (
+                              <span className="ml-1 text-xs font-medium text-content-secondary">- Đơn hàng: {orderTitle}</span>
+                            ) : null}
                           </Link>
                           <div className="mt-0.5 flex items-center gap-2">
                             <StarRating rating={reviewScore} />

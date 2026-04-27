@@ -42,6 +42,18 @@ const formatDate = (value) => {
   }
 }
 
+const getOrderTitleFromRating = (rating) => {
+  return (
+    rating?.bikePostTitle ||
+    rating?.bikeTitle ||
+    rating?.postTitle ||
+    rating?.bikePost?.title ||
+    rating?.paymentDescription ||
+    rating?.payment?.description ||
+    ''
+  )
+}
+
 export default function ProfilePage() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
@@ -247,9 +259,11 @@ export default function ProfilePage() {
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-content-primary line-clamp-1 group-hover:text-orange">{post.title}</p>
+                          <p className="text-sm font-bold text-content-primary line-clamp-1 group-hover:text-orange">
+                            Tên bài đăng: <span className="font-semibold">{post.title || 'Chưa cập nhật'}</span>
+                          </p>
                           <p className="mt-1 line-clamp-2 text-xs leading-5 text-content-secondary">
-                            {post.description || 'Không có mô tả'}
+                            Mô tả: {post.description || 'Không có mô tả'}
                           </p>
                         </div>
                         <span className="ml-4 whitespace-nowrap text-sm font-semibold text-navy">
@@ -326,6 +340,7 @@ export default function ProfilePage() {
               const reviewerProfileId = item.buyerId || item.userId || item.reviewerId
               const reviewerName = item.buyerName || item.buyer?.buyerName || item.buyer?.fullName || item.userName || 'Người dùng'
               const reviewerHref = reviewerProfileId ? `${ROUTES.PROFILE}?userId=${reviewerProfileId}` : ROUTES.PROFILE
+              const orderTitle = getOrderTitleFromRating(item)
               return (
                 <div key={item.id || index} className="rounded-none border border-border-light bg-surface-secondary/40 p-4 shadow-sm transition-all hover:border-orange/20 hover:shadow-card">
                   <div className="mb-3 flex items-start justify-between gap-3">
@@ -334,6 +349,9 @@ export default function ProfilePage() {
                       className="text-sm font-semibold text-content-primary transition-all duration-200 hover:text-orange hover:underline hover:decoration-orange hover:decoration-2 hover:underline-offset-4"
                     >
                       {reviewerName}
+                      {orderTitle ? (
+                        <span className="ml-1 text-xs font-medium text-content-secondary">- Đơn hàng: {orderTitle}</span>
+                      ) : null}
                     </Link>
                     <div className="flex items-center gap-1">{renderStars(item.score ?? item.averageScore ?? 0)}</div>
                   </div>

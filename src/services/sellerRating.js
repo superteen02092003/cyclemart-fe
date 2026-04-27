@@ -23,9 +23,10 @@ export const sellerRatingService = {
   /**
    * Tạo hoặc cập nhật đánh giá cho một seller
    */
-  createOrUpdateRating: async (sellerId, score, comment) => {
+  createOrUpdateRating: async ({ sellerId, paymentId, score, comment }) => {
     const response = await api.post('/v1/seller-ratings', {
       sellerId,
+      paymentId,
       score,
       comment
     })

@@ -61,21 +61,25 @@ export default function ReviewModal({ order, onClose, onSuccess, onSubmitReview 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (rating === 0 || isSubmitting || !resolvedSellerId) return;
+    const resolvedPaymentId = order?.paymentId ?? order?.id;
+
+    if (rating === 0 || isSubmitting || !resolvedSellerId || !resolvedPaymentId) return;
 
     setIsSubmitting(true);
     setError('');
 
     try {
-      await sellerRatingService.createOrUpdateRating(
-        resolvedSellerId,
-        rating,
-        comment.trim()
-      );
+      await sellerRatingService.createOrUpdateRating({
+        sellerId: resolvedSellerId,
+        paymentId: resolvedPaymentId,
+        score: rating,
+        comment: comment.trim()
+      });
 
       onSuccess(order.id);
     } catch (submitError) {
       const message =
+        submitError?.response?.data?.errors?.paymentId ||
         submitError?.response?.data?.message ||
         submitError?.message ||
         'Không thể gửi đánh giá. Vui lòng thử lại.';
@@ -135,7 +139,7 @@ export default function ReviewModal({ order, onClose, onSuccess, onSubmitReview 
               <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm font-semibold border border-border-light text-content-secondary hover:bg-surface-secondary rounded-sm">Để sau</button>
               <button
                 type="submit"
-                disabled={rating === 0 || isSubmitting || !resolvedSellerId}
+                disabled={rating === 0 || isSubmitting || !resolvedSellerId || !(order?.paymentId ?? order?.id)}
                 className="flex-1 py-2.5 text-sm font-semibold text-white rounded-sm transition-colors disabled:opacity-50"
                 style={{ backgroundColor: '#ff6b35' }}
               >
