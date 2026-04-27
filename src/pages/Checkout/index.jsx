@@ -83,6 +83,14 @@ const HCM_DATA = {
   ]
 };
 
+const hasPassedInspection = (bike) => (
+  bike?.isVerified === true ||
+  bike?.isVerified === 'true' ||
+  bike?.isInspected === true ||
+  bike?.isInspected === 'true' ||
+  bike?.inspectionStatus === 'PASSED'
+);
+
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -141,7 +149,7 @@ export default function CheckoutPage() {
             phone: user.phone || ''
           }));
         }
-      } catch (err) {
+      } catch {
         setError('Không thể tải thông tin xe');
       } finally {
         setLoading(false);
@@ -180,8 +188,7 @@ export default function CheckoutPage() {
     
     try {
       // Kiểm tra: Chỉ cho phép mua trực tiếp nếu post đã được kiểm định
-      // Ở file gốc bạn truyền biến là bike.isInspected hoặc bike.isVerified (Giữ isInspected theo file mẫu của bạn)
-      if (!bike.isInspected && !bike.isVerified) {
+      if (!hasPassedInspection(bike)) {
         setError('Bài đăng chưa được kiểm định. Vui lòng yêu cầu kiểm định trước khi mua.');
         return;
       }
@@ -263,6 +270,8 @@ export default function CheckoutPage() {
       </Link>
     </div>
   );
+
+  const isBikeVerified = hasPassedInspection(bike);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -422,19 +431,19 @@ export default function CheckoutPage() {
             <button
               type="submit"
               form="checkout-form"
-              disabled={isProcessing || (!bike?.isInspected && !bike?.isVerified)}
+              disabled={isProcessing || !isBikeVerified}
               className={cn(
                 "w-full py-4 rounded-sm font-bold text-white transition-all flex items-center justify-center gap-2",
-                isProcessing || (!bike?.isInspected && !bike?.isVerified) ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
+                isProcessing || !isBikeVerified ? "bg-gray-400 cursor-not-allowed" : "bg-[#ff6b35] hover:bg-[#e65a2b] shadow-lg shadow-orange/20"
               )}
-              title={(!bike?.isInspected && !bike?.isVerified) ? "Bài đăng chưa được kiểm định" : ""}
+              title={!isBikeVerified ? "Bài đăng chưa được kiểm định" : ""}
             >
               {isProcessing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ĐANG XỬ LÝ...
                 </>
-              ) : (!bike?.isInspected && !bike?.isVerified) ? (
+              ) : !isBikeVerified ? (
                 <>
                   <span className="material-symbols-outlined">lock</span>
                   CHƯA CÓ KIỂM ĐỊNH
@@ -447,7 +456,7 @@ export default function CheckoutPage() {
               )}
             </button>
 
-            {(!bike?.isInspected && !bike?.isVerified) && (
+            {!isBikeVerified && (
               <div className="mt-3 p-3 bg-warning/10 rounded-sm flex items-start gap-3 border border-warning/20">
                 <span className="material-symbols-outlined text-warning text-[1.2rem]">warning</span>
                 <p className="text-[11px] text-warning leading-relaxed">

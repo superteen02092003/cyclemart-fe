@@ -90,11 +90,9 @@ export default function BrowsePage() {
       setLoading(true)
       try {
         const params = {
-          keyword: searchQuery || null,
-          minPrice: minPrice ? parseFloat(minPrice) * 1000000 : null,
-          maxPrice: maxPrice ? parseFloat(maxPrice) * 1000000 : null,
-          brand: selectedBrands.length > 0 ? selectedBrands[0] : null,
-          city: location || null,
+          minPrice: minPrice ? parseFloat(minPrice) * 1000000 : undefined,
+          maxPrice: maxPrice ? parseFloat(maxPrice) * 1000000 : undefined,
+          city: location || undefined,
           page: 0,
           size: 20,
           sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'createdAt',
@@ -105,10 +103,8 @@ export default function BrowsePage() {
         const nextBikes = data.content || []
         setBikes(nextBikes)
 
-        // ✅ LẤY DANH SÁCH SELLER UNIQUE
         const sellerIds = [...new Set(nextBikes.map(b => b.userId).filter(Boolean))]
 
-        // ✅ GỌI API SONG SONG
         const ratingResults = await Promise.all(
           sellerIds.map(async (id) => {
             try {
@@ -121,7 +117,6 @@ export default function BrowsePage() {
           })
         )
 
-        // ✅ CHUYỂN THÀNH MAP
         const ratingMap = {}
         ratingResults.forEach(({ id, info }) => {
           ratingMap[id] = info
@@ -129,7 +124,6 @@ export default function BrowsePage() {
 
         setSellerRatings(ratingMap)
 
-        // ✅ wishlist giữ nguyên
         if (authService.isAuthenticated()) {
           const wishlistData = await wishlistService.getMyWishlist(0, 100)
           const rawItems = Array.isArray(wishlistData?.content) ? wishlistData.content : []
@@ -139,6 +133,7 @@ export default function BrowsePage() {
         } else {
           setWishlistedIds([])
         }
+
 
       } catch (error) {
         console.error("Lỗi khi tìm kiếm xe:", error)

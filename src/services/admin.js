@@ -2,9 +2,9 @@ import api from './api'
 
 export const adminService = {
   // === QUẢN LÝ BÀI ĐĂNG ===
-  getAllPosts: async (params) => {
+  getAllPosts: async (params = {}) => {
     const response = await api.get('/v1/admin/posts', { params })
-    return response.data 
+    return response.data
   },
   approvePost: async (id) => {
     const response = await api.put(`/v1/admin/posts/${id}/approve`)
@@ -48,6 +48,36 @@ export const adminService = {
   },
   markAllNotificationsAsRead: async () => {
     const response = await api.put('/v1/admin/notifications/mark-all-read')
+    return response.data
+  },
+
+  // === QUẢN LÝ GIAO DỊCH ===
+  getAllPayments: async (params = {}) => {
+    const response = await api.get('/v1/admin/payments', { params })
+    return response.data
+  },
+  getPaymentStatistics: async () => {
+    const response = await api.get('/v1/admin/payments/statistics')
+    return response.data
+  },
+  releaseEscrow: async (id) => {
+    const response = await api.post(`/v1/admin/payments/${id}/release-escrow`)
+    return response.data
+  },
+  refundEscrow: async (id) => {
+    const response = await api.post(`/v1/admin/payments/${id}/refund-escrow`)
+    return response.data
+  },
+
+  // === QUẢN LÝ TRANH CHẤP ===
+  getAllDisputes: async (params = {}) => {
+    const response = await api.get('/v1/disputes/admin/all', { params })
+    return response.data
+  },
+  adminResolveDispute: async (id, resolution, resolutionNote = '') => {
+    const response = await api.put(`/v1/disputes/${id}/admin-resolve`, null, {
+      params: { resolution, resolutionNote },
+    })
     return response.data
   },
 

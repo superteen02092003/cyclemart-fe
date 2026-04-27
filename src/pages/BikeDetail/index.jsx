@@ -499,7 +499,7 @@ export default function BikeDetailPage() {
   const [showReport, setShowReport] = useState(false)
   const [reportData, setReportData] = useState(null)
   const [criteria, setCriteria] = useState([])
-  const [isLoadingReport, setIsLoadingReport] = useState(false)
+  const [, setIsLoadingReport] = useState(false)
 
   const currentUser = authService.getCurrentUser()
   const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub
