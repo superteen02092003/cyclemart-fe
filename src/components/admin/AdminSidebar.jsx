@@ -19,15 +19,15 @@ export function AdminSidebar() {
   const menuItems = [
     { label: 'Tổng quan', icon: 'dashboard', href: '/admin', exact: true },
     { label: 'Quản lý người dùng', icon: 'group', href: '/admin/users' },
-    { 
-      label: 'Kiểm duyệt tin đăng', 
-      icon: 'fact_check', 
+    {
+      label: 'Kiểm duyệt tin đăng',
+      icon: 'fact_check',
       href: '/admin/listings',
       badge: stats?.pending
     },
-    { 
-      label: 'Kiểm định xe', 
-      icon: 'verified', 
+    {
+      label: 'Kiểm định xe',
+      icon: 'verified',
       href: '/admin/inspections',
       badge: stats?.inspections
     },
@@ -38,8 +38,6 @@ export function AdminSidebar() {
     { label: 'Giao dịch & phí dịch vụ', icon: 'payments', href: '/admin/transactions' },
     { label: 'Quản lý dòng tiền', icon: 'account_balance', href: '/admin/finance' },
     { label: 'Yêu cầu rút tiền', icon: 'savings', href: '/admin/withdrawals' },
-    // { label: 'Thống kê & báo cáo', icon: 'bar_chart', href: '/admin/statistics' },   // chưa có API
-    // { label: 'Gói Ưu Tiên', icon: 'workspace_premium', href: '/admin/priority-packages' }, // tắt tạm
   ]
 
   const isActive = (item) => {

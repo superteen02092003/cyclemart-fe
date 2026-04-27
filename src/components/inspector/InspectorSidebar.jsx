@@ -6,8 +6,6 @@ import { useAuth } from '@/hooks/useAuth'
 const INSPECTOR_MENU = [
   { title: 'Tổng quan công việc', path: '/inspector', icon: 'dashboard' },
   { title: 'Lịch hẹn kiểm định', path: '/inspector/tasks', icon: 'assignment_turned_in' },
-  { title: 'Biên bản & Báo cáo', path: '/inspector/reports', icon: 'upload_file' },
-  { title: 'Hỗ trợ tranh chấp', path: '/inspector/disputes', icon: 'gavel' },
 ]
 
 export function InspectorSidebar() {
