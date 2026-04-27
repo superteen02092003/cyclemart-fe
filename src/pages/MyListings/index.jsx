@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import InspectionModal from '@/components/inspection/InspectionModal'
 import SubscribeModal from '@/components/seller/SubscribeModal'
@@ -10,6 +10,7 @@ import { cn } from '@/utils/cn'
 import { postService } from '@/services/post'
 import { toast } from '@/utils/toast'
 import api from '@/services/api'
+import { useDisputeUpdates } from '@/hooks/useWebSocket'
 
 const STATUS_TABS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -448,6 +449,10 @@ export default function MyListingsPage() {
   useEffect(() => {
     loadMyListings()
   }, [])
+
+  useDisputeUpdates(useCallback(() => {
+    loadMyListings()
+  }, []))
 
   const loadMyListings = async () => {
     try {
