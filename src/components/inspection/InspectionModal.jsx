@@ -52,7 +52,7 @@ function RequestCard({ req, onContinuePayment }) {
       {req.status === 'PENDING_PAYMENT' && (
         <button
           onClick={() => onContinuePayment(req)}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 bg-orange text-white text-xs font-bold py-2 px-3 rounded-sm hover:opacity-90 transition-opacity"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 bg-[#0A1628] text-white text-sm font-bold py-2.5 px-3 rounded-sm shadow-sm hover:bg-[#1e3a5f] transition-colors"
         >
           <span className="material-symbols-outlined text-[1rem]">payment</span>
           Tiếp tục thanh toán

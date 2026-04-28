@@ -4,6 +4,7 @@ import { Client } from '@stomp/stompjs'
 import { cn } from '@/utils/cn'
 import { notificationService } from '@/services/notification'
 import { authService } from '@/services/auth'
+import { toast } from '@/utils/toast'
 
 const getTimeLabel = (value) => {
   if (!value) return 'Vừa xong'
@@ -108,7 +109,8 @@ export function NotificationBell() {
       notificationSubscriptionRef.current?.unsubscribe?.()
       notificationSubscriptionRef.current = client.subscribe('/user/queue/notifications/messages', (frame) => {
         try {
-          JSON.parse(frame.body)
+          const payload = JSON.parse(frame.body)
+          toast.info(payload.title ? `${payload.title}: ${payload.message || ''}` : payload.message || 'Bạn có thông báo mới')
           // Always reload from API so unread badge uses real notification rows/ids.
           loadNotifications()
         } catch {
@@ -135,14 +137,17 @@ export function NotificationBell() {
 
   const getTypeStyles = (type) => {
     if (type === 'CHAT_MESSAGE') return 'bg-navy/20 text-navy'
-    if (type === 'PAYMENT') return 'bg-green/20 text-green'
+    if (type === 'PAYMENT' || type?.includes('PAYMENT_SUCCESS')) return 'bg-green/20 text-green'
+    if (type?.includes('PAYMENT_FAILED')) return 'bg-error/10 text-error'
+    if (type?.startsWith('INSPECTION')) return 'bg-navy/10 text-navy'
     if (type === 'DELIVERY') return 'bg-orange/20 text-orange'
     return 'bg-surface-tertiary text-content-secondary'
   }
 
   const getTypeIcon = (type) => {
     if (type === 'CHAT_MESSAGE') return 'chat_bubble'
-    if (type === 'PAYMENT') return 'payments'
+    if (type === 'PAYMENT' || type?.includes('PAYMENT')) return 'payments'
+    if (type?.startsWith('INSPECTION')) return 'verified'
     if (type === 'DELIVERY') return 'local_shipping'
     return 'info'
   }
