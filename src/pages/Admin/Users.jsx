@@ -264,16 +264,10 @@ export default function AdminUsers() {
                 <p className="mt-1">Lý do: {selectedUser.banReason || 'Không có lý do'}</p>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4">
+            <div>
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase">ID gốc / Ngày tạo</p>
                 <p className="text-content-primary font-medium mt-1">#{selectedUser.id} - {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('vi-VN') : ''}</p>
-              </div>
-              <div>
-                <p className="text-xs text-content-secondary font-medium uppercase">Lần đăng nhập cuối</p>
-                <p className="text-content-primary font-medium mt-1">
-                  {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString('vi-VN') : 'Chưa từng ĐN'}
-                </p>
               </div>
             </div>
             <div>

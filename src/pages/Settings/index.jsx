@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { authService } from '@/services/auth'
 import { ROUTES } from '@/constants/routes'
-import { postService } from '@/services/post'
-import { Badge } from '@/components/ui/Badge'
-import SubscribeModal from '@/components/seller/SubscribeModal'
 
 const normalizeVietnameseText = (value) => {
   if (typeof value !== 'string' || !value) return value
@@ -26,9 +23,7 @@ export default function ProfilePage() {
   const { user, updateUserContext, isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ text: '', type: '' })
-  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
-  const [priorityPosts, setPriorityPosts] = useState([])
   const [profileErrors, setProfileErrors] = useState({})
   const [passwordErrors, setPasswordErrors] = useState({})
   const [showForgotPassword, setShowForgotPassword] = useState(false)
@@ -59,19 +54,8 @@ export default function ProfilePage() {
       if (user?.email) {
         setForgotPasswordEmail(user.email)
       }
-      fetchPriorityPosts()
     }
   }, [user])
-
-  const fetchPriorityPosts = async () => {
-    try {
-      const data = await postService.getMyPosts()
-      const activeOnes = (data?.content || data || []).filter(p => p.activePriority)
-      setPriorityPosts(activeOnes)
-    } catch (error) {
-      console.error("Lỗi lấy danh sách gói ưu tiên:", error)
-    }
-  }
 
   const showMessage = (text, type) => {
     setMessage({ text, type })
@@ -262,17 +246,6 @@ export default function ProfilePage() {
     } finally {
       setSendingOtp(false)
     }
-  }
-
-  const getDaysRemaining = (post) => {
-    if (post.activePriority.endDate) {
-      const end = new Date(post.activePriority.endDate)
-      const now = new Date()
-      const diffTime = end - now
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      return diffDays > 0 ? `${diffDays} ngày` : 'Sắp hết hạn'
-    }
-    return `${post.activePriority.durationDays} ngày`
   }
 
   return (
@@ -493,51 +466,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SECTION 3: GÓI ƯU TIÊN ĐANG HOẠT ĐỘNG (Đã đưa xuống cuối) */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-border-light">
-          <h2 className="text-lg font-semibold text-content-primary mb-4 flex items-center gap-2">
-            <span className="material-symbols-outlined text-amber-500">workspace_premium</span>
-            Gói ưu tiên đang hoạt động
-          </h2>
-
-          {priorityPosts.length > 0 ? (
-            <div className="space-y-4">
-              {priorityPosts.map(post => (
-                <div key={post.id} className="flex items-center justify-between p-4 bg-surface-secondary rounded-sm border border-border-light">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-bold text-content-primary line-clamp-1">{post.title}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={post.activePriority.priorityLevel.toLowerCase()}>
-                        {post.activePriority.priorityLevel}
-                      </Badge>
-                      <span className="text-xs text-content-secondary">
-                        Còn lại: <span className="font-semibold text-navy">{getDaysRemaining(post)}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-xs font-medium text-content-secondary uppercase tracking-wider">
-                    {post.activePriority.name}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 bg-surface-secondary rounded-sm border border-dashed border-border-light">
-              <p className="text-sm text-content-secondary mb-3">Bạn chưa sử dụng gói ưu tiên nào cho bài đăng.</p>
-              <button
-                onClick={() => setShowSubscribeModal(true)}
-                className="px-4 py-2 bg-green-500 text-white rounded text-sm font-bold hover:bg-green-600 transition-colors"
-              >
-                Nâng cấp ngay (Test)
-              </button>
-            </div>
-          )}
-        </div>
       </div>
-
-      {showSubscribeModal && (
-        <SubscribeModal postId={1} onClose={() => setShowSubscribeModal(false)} />
-      )}
     </div>
   )
 }
