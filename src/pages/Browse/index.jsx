@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { BikeCard } from '@/components/shared/BikeCard'
 import { Button } from '@/components/ui/Button'
-import { BIKE_CATEGORIES } from '@/constants/categories'
 import { bikePostService } from '@/services/bikePost'
+import { categoryService } from '@/services/category'
 import { wishlistService } from '@/services/wishlist'
 import { authService } from '@/services/auth'
 import { sellerRatingService } from '@/services/sellerRating'
@@ -41,12 +42,11 @@ const LOCATIONS = [
   { value: 'DA_NANG', label: 'Đà Nẵng' },
 ]
 
-const FILTER_CATEGORIES = BIKE_CATEGORIES.filter((c) => c.id !== 'all')
-
 function CheckboxGroup({ label, items, selected, onChange }) {
   const toggle = (val) => {
+    const nextValue = String(val)
     onChange(
-      selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]
+      selected.includes(nextValue) ? selected.filter((v) => v !== nextValue) : [...selected, nextValue]
     )
   }
   return (
@@ -54,7 +54,7 @@ function CheckboxGroup({ label, items, selected, onChange }) {
       <p className="text-xs font-bold text-content-primary uppercase tracking-wide mb-2">{label}</p>
       <div className="space-y-1.5">
         {items.map((item) => {
-          const val = item.value ?? item.id ?? item
+          const val = String(item.value ?? item.id ?? item)
           const lbl = item.label ?? item
           return (
             <label key={val} className="flex items-center gap-2 cursor-pointer group">
@@ -76,30 +76,58 @@ function CheckboxGroup({ label, items, selected, onChange }) {
 }
 
 export default function BrowsePage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialCategory = searchParams.get('category')
   const [bikes, setBikes] = useState([])
   const [loading, setLoading] = useState(false)
   const [wishlistedIds, setWishlistedIds] = useState([])
+  const [filterCategories, setFilterCategories] = useState([])
 
   // ── Filter state ──────────────────────────────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategories, setSelectedCategories] = useState([])
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('keyword') || '')
+  const [selectedCategories, setSelectedCategories] = useState(initialCategory ? [String(initialCategory)] : [])
   const [selectedBrands, setSelectedBrands] = useState([])
   const [selectedConditions, setSelectedConditions] = useState([])
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [location, setLocation] = useState('')
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
+  const [verifiedOnly, setVerifiedOnly] = useState(searchParams.get('verified') === 'true')
   const [sortBy, setSortBy] = useState('newest')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sellerRatings, setSellerRatings] = useState({})
   const currentUser = authService.getCurrentUser()
   const currentUserId = currentUser?.id ?? currentUser?.userId ?? currentUser?.sub ?? null
 
+  useEffect(() => {
+    let mounted = true
+
+    const loadCategories = async () => {
+      try {
+        const data = await categoryService.getAllChildren()
+        if (!mounted) return
+        setFilterCategories(
+          data
+            .filter((category) => category.isActive)
+            .map((category) => ({ value: String(category.id), label: category.name }))
+        )
+      } catch (error) {
+        console.error('Error loading browse categories:', error)
+      }
+    }
+
+    loadCategories()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   // Gọi API mỗi khi filter thay đổi
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       try {
+        const singleCategoryId = selectedCategories.length === 1 ? Number(selectedCategories[0]) : undefined
+        const categoryId = Number.isInteger(singleCategoryId) ? singleCategoryId : undefined
         const apiParams = {
           keyword: searchQuery.trim() || undefined,
           minPrice: minPrice ? parseFloat(minPrice) * 1000000 : undefined,
@@ -107,6 +135,7 @@ export default function BrowsePage() {
           city: location || undefined,
           // BE chỉ hỗ trợ 1 brand — nếu chọn đúng 1 thì gửi lên, nhiều hơn filter client-side
           brand: selectedBrands.length === 1 ? selectedBrands[0] : undefined,
+          categoryId,
           page: 0,
           size: 50,
           sort: sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : sortBy === 'most_viewed' ? 'viewCount' : 'createdAt',
@@ -120,11 +149,9 @@ export default function BrowsePage() {
         if (selectedBrands.length > 1) {
           result = result.filter(b => selectedBrands.includes(b.brand))
         }
-        if (selectedCategories.length > 0) {
-          const selectedLabels = FILTER_CATEGORIES
-            .filter(c => selectedCategories.includes(c.id))
-            .map(c => c.label.toLowerCase())
-          result = result.filter(b => selectedLabels.includes(b.categoryName?.toLowerCase()))
+        if (selectedCategories.length > 0 && categoryId === undefined) {
+          const selectedCategoryIds = new Set(selectedCategories.map(String))
+          result = result.filter(b => selectedCategoryIds.has(String(b.categoryId)))
         }
         if (selectedConditions.length > 0) {
           result = result.filter(b => selectedConditions.includes(b.status?.toLowerCase()))
@@ -199,6 +226,7 @@ export default function BrowsePage() {
     setMaxPrice('')
     setLocation('')
     setVerifiedOnly(false)
+    setSearchParams({})
   }
 
   const hasActiveFilters =
@@ -228,7 +256,7 @@ export default function BrowsePage() {
 
       <CheckboxGroup
         label="Loại xe"
-        items={FILTER_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))}
+        items={filterCategories}
         selected={selectedCategories}
         onChange={setSelectedCategories}
       />
