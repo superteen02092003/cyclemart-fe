@@ -1,17 +1,40 @@
 import React, { useState } from 'react';
 import { ordersService } from '@/services/orders';
+import { uploadToCloudinary } from '@/utils/cloudinary';
 
 export default function DeliveryModal({ order, onClose, onSuccess }) {
   const [deliveryMethod, setDeliveryMethod] = useState('HANDOFF');
   const [evidenceUrls, setEvidenceUrls] = useState('');
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Vui lòng chọn file ảnh');
+      return;
+    }
+
+    setIsUploading(true);
+    setError('');
+    try {
+      const url = await uploadToCloudinary(file);
+      setEvidenceUrls(url);
+    } catch (err) {
+      setError('Upload ảnh thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!evidenceUrls.trim()) {
-      setError('Vui lòng nhập link bằng chứng giao hàng');
+      setError('Vui lòng nhập link hoặc upload ảnh bằng chứng giao hàng');
       return;
     }
     setIsSubmitting(true);
@@ -58,18 +81,37 @@ export default function DeliveryModal({ order, onClose, onSuccess }) {
 
           <div>
             <label className="block text-sm font-semibold text-content-primary mb-1.5">
-              Link bằng chứng giao hàng <span className="text-error">*</span>
+              Bằng chứng giao hàng <span className="text-error">*</span>
             </label>
-            <input
-              type="text"
-              value={evidenceUrls}
-              onChange={(e) => setEvidenceUrls(e.target.value)}
-              placeholder="Link ảnh/video giao xe (Google Drive, Imgur...)"
-              className="w-full px-3 py-2 text-sm border border-border-light rounded-sm focus:outline-none focus:border-navy"
-            />
-            <p className="text-xs text-content-tertiary mt-1">
-              Upload ảnh/video lên Google Drive hoặc Imgur rồi paste link vào đây
-            </p>
+
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={isUploading || isSubmitting}
+                className="w-full px-3 py-2 text-sm border border-border-light rounded-sm focus:outline-none focus:border-navy file:mr-3 file:py-1 file:px-3 file:rounded-sm file:border-0 file:text-sm file:font-semibold file:bg-navy file:text-white hover:file:bg-navy/90 disabled:opacity-50"
+              />
+
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-content-tertiary">hoặc</span>
+                <input
+                  type="text"
+                  value={evidenceUrls}
+                  onChange={(e) => setEvidenceUrls(e.target.value)}
+                  placeholder="Nhập link ảnh (Google Drive, Imgur...)"
+                  disabled={isUploading || isSubmitting}
+                  className="w-full pl-14 pr-3 py-2 text-sm border border-border-light rounded-sm focus:outline-none focus:border-navy disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            {isUploading && (
+              <p className="text-xs text-navy mt-1">Đang upload ảnh...</p>
+            )}
+            {evidenceUrls && !isUploading && (
+              <p className="text-xs text-green mt-1">✓ Đã có ảnh bằng chứng</p>
+            )}
           </div>
 
           <div>
