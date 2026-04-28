@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Table } from '@/components/admin/Table'
 import { Modal } from '@/components/admin/Modal'
 import { adminService } from '@/services/admin'
+import { EvidenceValue } from '@/utils/evidence'
 
 const STATUS_DISPLAY = {
   OPENED: { label: 'Mở', className: 'bg-warning/20 text-warning' },
@@ -16,6 +17,14 @@ const STATUS_DISPLAY = {
 
 const OPEN_STATUSES = new Set(['OPENED', 'ADMIN_REVIEW', 'INSPECTOR_REVIEW', 'SELLER_APPROVED', 'SELLER_REJECTED'])
 const RESOLVED_STATUSES = new Set(['RESOLVED_REFUND_BUYER', 'RESOLVED_RELEASE_SELLER', 'RESOLVED_PARTIAL'])
+
+const getPenaltySummary = (dispute) => {
+  if (!dispute) return null
+  if (dispute.status === 'RESOLVED_REFUND_BUYER') return 'Seller bị cộng 1 cấp vi phạm trong quyết định này.'
+  if (dispute.status === 'RESOLVED_RELEASE_SELLER') return 'Buyer bị cộng 1 cấp vi phạm trong quyết định này.'
+  if (dispute.status === 'RESOLVED_PARTIAL') return 'Buyer và Seller đều bị cộng 1 cấp vi phạm trong quyết định này.'
+  return null
+}
 
 function matchFilter(status, filter) {
   if (filter === 'all') return true
@@ -249,10 +258,16 @@ export default function AdminReports() {
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase">Người mua</p>
                 <p className="text-content-primary font-medium mt-1">{selectedDispute.buyerName}</p>
+                <p className={`text-xs font-semibold mt-1 ${(selectedDispute.buyerViolationLevel || 0) >= 4 ? 'text-error' : 'text-content-secondary'}`}>
+                  Vi phạm tranh chấp: cấp {selectedDispute.buyerViolationLevel || 0}/5
+                </p>
               </div>
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase">Người bán</p>
                 <p className="text-content-primary font-medium mt-1">{selectedDispute.sellerName}</p>
+                <p className={`text-xs font-semibold mt-1 ${(selectedDispute.sellerViolationLevel || 0) >= 4 ? 'text-error' : 'text-content-secondary'}`}>
+                  Vi phạm tranh chấp: cấp {selectedDispute.sellerViolationLevel || 0}/5
+                </p>
               </div>
             </div>
             <div>
@@ -262,13 +277,18 @@ export default function AdminReports() {
             {selectedDispute.evidenceUrls && (
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase">Bằng chứng</p>
-                <p className="text-content-primary mt-1 break-all text-sm">{selectedDispute.evidenceUrls}</p>
+                <div className="mt-1">
+                  <EvidenceValue value={selectedDispute.evidenceUrls} />
+                </div>
               </div>
             )}
             {selectedDispute.resolutionNote && (
               <div className="pt-4 border-t border-border-light">
                 <p className="text-xs text-content-secondary font-medium uppercase">Ghi chú giải quyết</p>
                 <p className="text-content-primary mt-1">{selectedDispute.resolutionNote}</p>
+                {getPenaltySummary(selectedDispute) && (
+                  <p className="text-xs font-semibold text-error mt-2">{getPenaltySummary(selectedDispute)}</p>
+                )}
                 {selectedDispute.resolvedByName && (
                   <p className="text-xs text-content-secondary mt-1">Bởi: {selectedDispute.resolvedByName}</p>
                 )}
@@ -293,6 +313,9 @@ export default function AdminReports() {
             </p>
             <div>
               <label className="text-sm font-medium text-content-primary block mb-2">Quyết định</label>
+              <div className="bg-amber-50 border border-amber-200 rounded-sm p-3 text-xs text-amber-800 leading-relaxed mb-3">
+                Hoàn buyer: seller +1 cấp. Giải ngân seller: buyer +1 cấp. Một phần: cả hai +1 cấp. Cấp 5 tự khóa tài khoản.
+              </div>
               <select
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}

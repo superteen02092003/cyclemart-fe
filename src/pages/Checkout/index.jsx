@@ -101,7 +101,6 @@ export default function CheckoutPage() {
   const [error, setError] = useState(null);
 
   const platformFee = 0;
-  const shippingFee = 200000;
 
   // Tách địa chỉ thành các phần
   const [district, setDistrict] = useState("");
@@ -212,7 +211,7 @@ export default function CheckoutPage() {
       const fullAddress = `${street.trim()}, ${ward}, ${district}, ${city}`;
       
       const payload = {
-        amount: Math.round(bike.price + shippingFee + platformFee), 
+        amount: Math.round(bike.price + platformFee), 
         type: 'ORDER_PAYMENT',
         referenceId: bike.id,
         bikePostId: bike.id, 
@@ -430,16 +429,12 @@ export default function CheckoutPage() {
                 <span>{formatPrice(bike.price)}</span>
               </div>
               <div className="flex justify-between text-sm text-content-secondary">
-                <span>Phí vận chuyển (TP.HCM)</span>
-                <span>{formatPrice(shippingFee)}</span>
-              </div>
-              <div className="flex justify-between text-sm text-content-secondary">
                 <span>Phí nền tảng</span>
                 <span className="text-green font-bold">Miễn phí</span>
               </div>
               <div className="pt-3 border-t border-border-light flex justify-between items-center">
                 <span className="font-bold text-content-primary">Tổng cộng</span>
-                <span className="text-xl font-black text-navy">{formatPrice(bike.price + shippingFee)}</span>
+                <span className="text-xl font-black text-navy">{formatPrice(bike.price + platformFee)}</span>
               </div>
             </div>
 

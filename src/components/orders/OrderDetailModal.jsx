@@ -1,5 +1,6 @@
 import { formatPrice } from '@/utils/formatPrice';
 import { cn } from '@/utils/cn';
+import { EvidenceValue } from '@/utils/evidence';
 
 const STATUS_LABELS = {
   PENDING_PAYMENT:             { text: 'Chờ thanh toán',         color: 'bg-navy/10 text-navy border border-navy/20' },
@@ -124,15 +125,7 @@ export default function OrderDetailModal({ order, onClose }) {
                 {order.deliveryEvidenceUrls && (
                   <div>
                     <p className="text-xs text-content-secondary mb-1">Bằng chứng giao hàng</p>
-                    <a
-                      href={order.deliveryEvidenceUrls}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-navy underline hover:text-orange"
-                    >
-                      <span className="material-symbols-outlined text-[1rem]">open_in_new</span>
-                      Xem bằng chứng
-                    </a>
+                    <EvidenceValue value={order.deliveryEvidenceUrls} />
                   </div>
                 )}
                 {order.deliveredAt && (

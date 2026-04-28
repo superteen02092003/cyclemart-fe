@@ -4,6 +4,7 @@ import { Modal } from '@/components/admin/Modal'
 import { adminService } from '@/services/admin'
 import { formatPrice } from '@/utils/formatPrice'
 import { toast } from '@/utils/toast'
+import { EvidenceValue } from '@/utils/evidence'
 
 const STATUS_CONFIG = {
   OPENED:                  { label: 'Vừa mở',          color: 'bg-blue-100 text-blue-700' },
@@ -18,6 +19,14 @@ const STATUS_CONFIG = {
 
 const NEEDS_ACTION = ['SELLER_REJECTED', 'ADMIN_REVIEW']
 const IS_RESOLVED = ['RESOLVED_REFUND_BUYER', 'RESOLVED_RELEASE_SELLER', 'RESOLVED_PARTIAL']
+
+const getPenaltySummary = (dispute) => {
+  if (!dispute) return null
+  if (dispute.status === 'RESOLVED_REFUND_BUYER') return 'Seller bị cộng 1 cấp vi phạm trong quyết định này.'
+  if (dispute.status === 'RESOLVED_RELEASE_SELLER') return 'Buyer bị cộng 1 cấp vi phạm trong quyết định này.'
+  if (dispute.status === 'RESOLVED_PARTIAL') return 'Buyer và Seller đều bị cộng 1 cấp vi phạm trong quyết định này.'
+  return null
+}
 
 export default function AdminDisputes() {
   const [disputes, setDisputes] = useState([])
@@ -166,10 +175,16 @@ export default function AdminDisputes() {
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase mb-1">Người mua</p>
                 <p className="font-bold text-navy">{selectedDispute.buyerName}</p>
+                <p className={`text-xs font-semibold mt-1 ${(selectedDispute.buyerViolationLevel || 0) >= 4 ? 'text-error' : 'text-content-secondary'}`}>
+                  Vi phạm tranh chấp: cấp {selectedDispute.buyerViolationLevel || 0}/5
+                </p>
               </div>
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase mb-1">Người bán</p>
                 <p className="font-bold text-navy">{selectedDispute.sellerName}</p>
+                <p className={`text-xs font-semibold mt-1 ${(selectedDispute.sellerViolationLevel || 0) >= 4 ? 'text-error' : 'text-content-secondary'}`}>
+                  Vi phạm tranh chấp: cấp {selectedDispute.sellerViolationLevel || 0}/5
+                </p>
               </div>
               <div>
                 <p className="text-xs text-content-secondary font-medium uppercase mb-1">Trạng thái</p>
@@ -189,11 +204,10 @@ export default function AdminDisputes() {
             <div className="bg-error/5 p-4 rounded-sm border border-error/20">
               <p className="text-xs text-error font-bold uppercase mb-2">Lý do tranh chấp (Người mua)</p>
               <p className="text-sm leading-relaxed">{selectedDispute.reason || '—'}</p>
-              {selectedDispute.evidenceUrls && (
-                <a href={selectedDispute.evidenceUrls} target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-navy underline mt-2 inline-block">
-                  Xem bằng chứng đính kèm →
-                </a>
+            {selectedDispute.evidenceUrls && (
+                <div className="mt-2">
+                  <EvidenceValue value={selectedDispute.evidenceUrls} className="text-xs" />
+                </div>
               )}
             </div>
 
@@ -202,6 +216,9 @@ export default function AdminDisputes() {
               <div className="bg-navy/5 p-4 rounded-sm border border-navy/20">
                 <p className="text-xs text-navy font-bold uppercase mb-2">Ghi chú giải quyết</p>
                 <p className="text-sm italic">{selectedDispute.resolutionNote}</p>
+                {getPenaltySummary(selectedDispute) && (
+                  <p className="text-xs font-semibold text-error mt-2">{getPenaltySummary(selectedDispute)}</p>
+                )}
                 {selectedDispute.resolvedByName && (
                   <p className="text-xs text-content-secondary mt-1">— {selectedDispute.resolvedByName}</p>
                 )}
@@ -223,6 +240,11 @@ export default function AdminDisputes() {
             ) : (
               <div className="pt-4 border-t border-border-light space-y-3">
                 <p className="text-sm font-bold text-error">Quyết định của Admin</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-sm p-3 text-xs text-amber-800 leading-relaxed">
+                  <p><strong>Hoàn Escrow cho Buyer:</strong> Seller +1 cấp vi phạm.</p>
+                  <p><strong>Giải phóng Escrow cho Seller:</strong> Buyer +1 cấp vi phạm.</p>
+                  <p><strong>Giải quyết một phần:</strong> cả Buyer và Seller +1 cấp vi phạm. Đạt cấp 5 sẽ tự khóa tài khoản.</p>
+                </div>
                 <textarea
                   rows={2}
                   placeholder="Ghi chú quyết định (không bắt buộc)..."
@@ -230,20 +252,27 @@ export default function AdminDisputes() {
                   onChange={(e) => setResolutionNote(e.target.value)}
                   className="w-full px-3 py-2 border border-border-light rounded-sm text-sm focus:outline-none focus:border-navy resize-none"
                 />
-                <div className="flex gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => handleResolve('REFUND_BUYER')}
                     disabled={resolving}
-                    className="flex-1 py-2.5 text-sm text-white bg-error hover:bg-error/90 font-bold rounded-sm disabled:opacity-50 transition-colors"
+                    className="py-2.5 text-sm text-white bg-error hover:bg-error/90 font-bold rounded-sm disabled:opacity-50 transition-colors"
                   >
                     Hoàn Escrow → Buyer
                   </button>
                   <button
                     onClick={() => handleResolve('RELEASE_SELLER')}
                     disabled={resolving}
-                    className="flex-1 py-2.5 text-sm text-white bg-[#ff6b35] hover:bg-[#ff7849] font-bold rounded-sm disabled:opacity-50 transition-colors"
+                    className="py-2.5 text-sm text-white bg-[#ff6b35] hover:bg-[#ff7849] font-bold rounded-sm disabled:opacity-50 transition-colors"
                   >
                     Giải phóng Escrow → Seller
+                  </button>
+                  <button
+                    onClick={() => handleResolve('PARTIAL')}
+                    disabled={resolving}
+                    className="py-2.5 text-sm text-white bg-navy hover:bg-navy/90 font-bold rounded-sm disabled:opacity-50 transition-colors"
+                  >
+                    Giải quyết một phần
                   </button>
                 </div>
               </div>

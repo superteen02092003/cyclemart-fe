@@ -1,5 +1,5 @@
 import React from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
@@ -47,6 +47,35 @@ import InspectionCriteria from '@/pages/Admin/InspectionCriteria'
 // Inspection / Inspector Pages
 import InspectionPage from "@/pages/Inspection/index.jsx";
 import InspectorTasks from "@/pages/Inspector/Tasks.jsx";
+import { useAuth } from '@/hooks/useAuth'
+
+function RequireRole({ children, roles = [] }) {
+  const { user, isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface-secondary">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-navy"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (roles.length > 0 && !roles.includes(user?.role)) {
+    if (user?.role === 'ADMIN') return <Navigate to="/admin" replace />
+    if (user?.role === 'INSPECTOR') return <Navigate to="/inspector/tasks" replace />
+    return <Navigate to="/" replace />
+  }
+
+  return children
+}
+
+const userOnly = (element) => (
+  <RequireRole roles={['USER']}>{element}</RequireRole>
+)
 
 export const router = createBrowserRouter([
   // 1. LUỒNG NGƯỜI DÙNG CHUNG (Kể cả người bán)
@@ -57,18 +86,18 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'browse', element: <BrowsePage /> },
       { path: 'bike/:id', element: <BikeDetailPage /> },
-      { path: 'sell', element: <SellPage /> },
-      { path: 'inspection', element: <InspectionPage /> },
+      { path: 'sell', element: userOnly(<SellPage />) },
+      { path: 'inspection', element: userOnly(<InspectionPage />) },
       { path: 'community', element: <CommunityPage /> },
-      { path: 'profile', element: <ProfilePage /> },
-      { path: 'settings', element: <SettingsPage /> },
-      { path: 'my-listings', element: <MyListingsPage /> },
-      { path: 'favorites', element: <WishlistPage /> },
-      { path: 'messages', element: <ChatPage /> },
-      { path: 'chat', element: <ChatPage /> },
-      { path: 'checkout/:id', element: <CheckoutPage /> },
-      { path: 'orders', element: <OrdersPage /> },
-      { path: 'my-points', element: <MyPointsPage /> },
+      { path: 'profile', element: userOnly(<ProfilePage />) },
+      { path: 'settings', element: userOnly(<SettingsPage />) },
+      { path: 'my-listings', element: userOnly(<MyListingsPage />) },
+      { path: 'favorites', element: userOnly(<WishlistPage />) },
+      { path: 'messages', element: userOnly(<ChatPage />) },
+      { path: 'chat', element: userOnly(<ChatPage />) },
+      { path: 'checkout/:id', element: userOnly(<CheckoutPage />) },
+      { path: 'orders', element: userOnly(<OrdersPage />) },
+      { path: 'my-points', element: userOnly(<MyPointsPage />) },
       { path: 'payment-success', element: <PaymentSuccessPage /> },
       { path: 'payment-failure', element: <PaymentFailurePage /> },
       { path: 'payment-callback', element: <PaymentCallbackPage /> },

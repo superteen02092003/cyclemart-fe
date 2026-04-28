@@ -9,6 +9,7 @@ import DisputeModal from '@/components/orders/DisputeModal';
 import ReviewModal from '@/components/orders/ReviewModal';
 import OrderDetailModal from '@/components/orders/OrderDetailModal';
 import { useOrderUpdates, useDisputeUpdates } from '@/hooks/useWebSocket';
+import { EvidenceValue } from '@/utils/evidence';
 
 const STATUS_LABELS = {
   PENDING_PAYMENT:             { text: 'Chờ thanh toán',         color: 'bg-navy/10 text-navy border border-navy/20' },
@@ -77,11 +78,7 @@ function SellerDisputePanel({ dispute, onAction }) {
         {dispute.evidenceUrls && (
           <div>
             <p className="text-xs text-content-secondary font-medium uppercase tracking-wide mb-0.5">Bằng chứng</p>
-            <a href={dispute.evidenceUrls} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-navy underline hover:text-orange">
-              <span className="material-symbols-outlined text-[0.9rem]">open_in_new</span>
-              Xem bằng chứng
-            </a>
+            <EvidenceValue value={dispute.evidenceUrls} className="text-xs" />
           </div>
         )}
       </div>
@@ -176,8 +173,9 @@ function OrderCard({ order, dispute, onAction, openDeliveryModal, openDisputeMod
           <span className="font-semibold text-content-primary">Giao hàng:</span>{' '}
           {order.deliveryMethod === 'HANDOFF' ? 'Trao tay trực tiếp' : 'Đơn vị vận chuyển'}
           {order.deliveryEvidenceUrls && (
-            <a href={order.deliveryEvidenceUrls} target="_blank" rel="noopener noreferrer"
-              className="ml-2 text-navy underline">Xem bằng chứng</a>
+            <span className="ml-2 inline-block">
+              <EvidenceValue value={order.deliveryEvidenceUrls} className="text-xs" />
+            </span>
           )}
         </div>
       )}
