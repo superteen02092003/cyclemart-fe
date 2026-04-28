@@ -24,12 +24,13 @@ export default function PaymentCallbackPage() {
           
           navigate(`/payment-success?orderId=${params.vnp_TxnRef}&type=${paymentType}`)
         } else {
-          navigate(`/payment-failure?reason=Giao dịch thất bại (Mã: ${params.vnp_ResponseCode})`)
+          navigate(`/payment-failure?orderId=${params.vnp_TxnRef}&type=${paymentType}&reason=${encodeURIComponent(`Giao dịch thất bại (Mã: ${params.vnp_ResponseCode})`)}`)
         }
       } catch (error) {
         console.error('Callback error:', error)
         const errorMsg = error.response?.data?.message || error.message || 'Lỗi xử lý kết quả thanh toán'
-        navigate(`/payment-failure?reason=${errorMsg}`)
+        const params = Object.fromEntries(searchParams)
+        navigate(`/payment-failure?orderId=${params.vnp_TxnRef || ''}&reason=${encodeURIComponent(errorMsg)}`)
       }
     }
 

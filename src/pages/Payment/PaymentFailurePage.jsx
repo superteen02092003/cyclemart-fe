@@ -6,14 +6,17 @@ export default function PaymentFailurePage() {
   const [searchParams] = useSearchParams()
   const reason = searchParams.get('reason') || 'Giao dịch không thành công'
   const bikeId = searchParams.get('bikeId')
+  const paymentType = searchParams.get('type')
   
   // 🔥 Bổ sung thêm cờ kiểm tra kiểm định
-  const isPriorityAttempt = localStorage.getItem('payment_intent') === 'PRIORITY_PACKAGE'
-  const isInspectionAttempt = localStorage.getItem('payment_intent') === 'INSPECTION_FEE'
+  const isPriorityAttempt = paymentType === 'PRIORITY_PACKAGE' || localStorage.getItem('payment_intent') === 'PRIORITY_PACKAGE'
+  const isInspectionAttempt = paymentType === 'INSPECTION_FEE' || localStorage.getItem('payment_intent') === 'INSPECTION_FEE'
 
   const handleRetry = () => {
     localStorage.removeItem('payment_intent')
-    if (isPriorityAttempt || isInspectionAttempt) {
+    if (isInspectionAttempt) {
+      navigate(`${ROUTES.MY_LISTINGS}?tab=INSPECTIONS`)
+    } else if (isPriorityAttempt) {
       navigate(ROUTES.MY_LISTINGS)
     } else if (bikeId) {
       navigate(`/checkout/${bikeId}`)

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import InspectionModal from '@/components/inspection/InspectionModal'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -259,6 +259,7 @@ function ListingCard({ listing, onAction, onInspect, onDelete }) {
 function InspectionHistory() {
   const [inspections, setInspections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [payingInspectionId, setPayingInspectionId] = useState(null);
   
   // 🔥 MỚI: State để lưu thông tin đơn kiểm định đang xem chi tiết
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -278,6 +279,23 @@ function InspectionHistory() {
     };
     fetchMyInspections();
   }, []);
+
+  const handleContinueInspectionPayment = async (inspectionId) => {
+    try {
+      setPayingInspectionId(inspectionId)
+      const res = await api.get(`/v1/inspections/${inspectionId}/resume-payment`)
+      if (!res.data?.paymentUrl) {
+        toast.error('Không thể lấy link thanh toán. Vui lòng thử lại.')
+        return
+      }
+      localStorage.setItem('payment_intent', 'INSPECTION_FEE')
+      window.location.href = res.data.paymentUrl
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Lỗi khi tiếp tục thanh toán kiểm định')
+    } finally {
+      setPayingInspectionId(null)
+    }
+  }
 
   if (isLoading) {
     return <div className="p-10 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-navy mx-auto"></div></div>;
@@ -339,7 +357,17 @@ function InspectionHistory() {
 
             {/* 🔥 MỚI: Nút Xem lại thông tin đăng ký */}
             <div className="pl-3 mt-4 pt-3 border-t border-border-light">
-               <button
+              {ins.status === 'PENDING_PAYMENT' && (
+                <button
+                  onClick={() => handleContinueInspectionPayment(ins.id)}
+                  disabled={payingInspectionId === ins.id}
+                  className="w-full mb-3 bg-[#ff6b35] hover:bg-[#e85f2e] text-white flex items-center justify-center gap-1.5 text-sm font-bold py-2.5 rounded-sm transition-colors disabled:opacity-60"
+                >
+                  <span className="material-symbols-outlined text-[1.1rem]">payment</span>
+                  {payingInspectionId === ins.id ? 'Đang tạo link...' : 'Tiếp tục thanh toán'}
+                </button>
+              )}
+              <button
                   onClick={() => setSelectedDetail(ins)}
                   className="text-[#1e3a5f] hover:text-[#ff6b35] flex items-center gap-1 text-sm font-semibold transition-colors"
                >
@@ -416,7 +444,8 @@ function InspectionHistory() {
 }
 
 export default function MyListingsPage() {
-  const [activeTab, setActiveTab] = useState('ALL')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'ALL')
   const [listings, setListings] = useState([])
   const [toastMsg, setToastMsg] = useState('')
   const [inspectionTarget, setInspectionTarget] = useState(null)
